@@ -39,7 +39,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           className="flex items-center gap-2 cursor-pointer select-none group"
         >
           <span className="font-extrabold text-2xl tracking-tight text-[#ededed] group-hover:text-white transition-colors">
-            bridgit<span className="text-[#9ac43e]">.id</span>
+            bridgit
           </span>
           <span className="text-xs uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-[#222222] text-[#9ac43e] border border-[#3a3a3a]">
             p2p
