@@ -477,33 +477,56 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
 
   // Unread chat badge (+1, +2, etc.) & toast notification
   const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const [recentlyReceivedBadge, setRecentlyReceivedBadge] = useState<number | null>(null);
+  const recentBadgeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevMessagesLength = useRef(messages.length);
   const [newChatToast, setNewChatToast] = useState<{ sender: string; text: string; count: number } | null>(null);
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (messages.length > prevMessagesLength.current) {
       const addedMessages = messages.slice(prevMessagesLength.current);
-      const incomingFromOthers = addedMessages.filter((m) => m.senderId !== myPeerId);
+      // Filter out messages sent by ourselves
+      const incomingFromOthers = addedMessages.filter((m) => {
+        if (myPeerId && m.senderId) return m.senderId !== myPeerId;
+        if (myUserName && m.senderName) return m.senderName !== myUserName;
+        return false;
+      });
 
       if (incomingFromOthers.length > 0) {
+        const latest = incomingFromOthers[incomingFromOthers.length - 1];
+
         if (activeSideTab !== 'chat') {
           setUnreadChatCount((prev) => prev + incomingFromOthers.length);
-          const latest = incomingFromOthers[incomingFromOthers.length - 1];
-          setNewChatToast({
-            sender: latest.senderName,
-            text: latest.text,
-            count: incomingFromOthers.length,
-          });
-          setTimeout(() => setNewChatToast(null), 4500);
+        } else {
+          // If currently inside the chat tab, flash a +1 badge on the tab header for 3.5s
+          setRecentlyReceivedBadge(incomingFromOthers.length);
+          if (recentBadgeTimeoutRef.current) clearTimeout(recentBadgeTimeoutRef.current);
+          recentBadgeTimeoutRef.current = setTimeout(() => {
+            setRecentlyReceivedBadge(null);
+          }, 3500);
         }
+
+        // Show floating message preview toast
+        setNewChatToast({
+          sender: latest.senderName,
+          text: latest.text,
+          count: incomingFromOthers.length,
+        });
+
+        if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+        toastTimeoutRef.current = setTimeout(() => {
+          setNewChatToast(null);
+        }, 4500);
       }
     }
     prevMessagesLength.current = messages.length;
-  }, [messages, activeSideTab, myPeerId]);
+  }, [messages, activeSideTab, myPeerId, myUserName]);
 
   const handleOpenChatTab = () => {
     setActiveSideTab('chat');
     setUnreadChatCount(0);
+    setRecentlyReceivedBadge(null);
     setNewChatToast(null);
   };
 
@@ -662,7 +685,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
     if (chatInput.trim()) {
       onSendText(chatInput.trim());
       setChatInput('');
-      sound.playMessage();
     }
   };
 
@@ -1250,32 +1272,32 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                           </div>
                         </div>
 
-                        {/* Action buttons: Preview & Download */}
+                        {/* Action buttons: Preview & Download (available for both sender & receiver) */}
                         <div className="flex items-center gap-1.5 shrink-0">
-                          {t.status === 'completed' && t.blobUrl && (
+                          {t.blobUrl && (
                             <>
-                              {(isImg || isVid) && (
+                              {(isImg || isVid || isAud) && (
                                 <button
                                   type="button"
                                   onClick={() =>
                                     setPreviewMedia({
                                       url: t.blobUrl!,
                                       name: t.name,
-                                      type: isImg ? 'image' : 'video',
+                                      type: isImg ? 'image' : isVid ? 'video' : 'audio',
                                       size: t.size,
                                     })
                                   }
-                                  className="p-2 rounded-xl bg-[#25252e] hover:bg-[#30303c] text-[#ededed] hover:text-[#9ac43e] border border-white/10 transition-colors cursor-pointer"
+                                  className="p-2 rounded-xl bg-[#25252e] hover:bg-[#30303c] text-[#ededed] hover:text-[#9ac43e] border border-white/10 transition-colors cursor-pointer shadow-sm"
                                   title="Предпросмотр файла"
                                 >
-                                  <Eye className="w-4 h-4" />
+                                  <Eye className="w-4 h-4 text-[#9ac43e]" />
                                 </button>
                               )}
 
                               <a
                                 href={t.blobUrl}
                                 download={t.name}
-                                className="p-2 rounded-xl bg-[#25252e] hover:bg-[#30303c] text-[#9ac43e] hover:text-[#b4e64f] border border-white/10 transition-colors cursor-pointer"
+                                className="p-2 rounded-xl bg-[#25252e] hover:bg-[#30303c] text-[#9ac43e] hover:text-[#b4e64f] border border-white/10 transition-colors cursor-pointer shadow-sm"
                                 title="Скачать файл"
                               >
                                 <Download className="w-4 h-4" />
@@ -1295,7 +1317,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                       </div>
 
                       {/* Built-in Audio Player for audio files */}
-                      {isAud && t.blobUrl && t.status === 'completed' && (
+                      {isAud && t.blobUrl && (
                         <div className="mt-1 pt-2 border-t border-white/5">
                           <audio
                             controls
@@ -1341,15 +1363,15 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
             >
               <div className="relative flex items-center">
                 <Send className="w-4 h-4 text-[#9ac43e]" />
-                {unreadChatCount > 0 && (
+                {(unreadChatCount > 0 || recentlyReceivedBadge !== null) && (
                   <span className="absolute -top-1.5 -right-1.5 w-2 h-2 rounded-full bg-[#bbf348] animate-ping" />
                 )}
               </div>
               <span>Чат</span>
 
-              {unreadChatCount > 0 ? (
+              {(unreadChatCount > 0 || recentlyReceivedBadge !== null) ? (
                 <span className="px-2 py-0.5 rounded-full bg-[#789d2a] text-white text-xs font-black font-mono shadow-[0_0_12px_rgba(120,157,42,0.9)] animate-bounce flex items-center gap-1 border border-[#bbf348]">
-                  +{unreadChatCount}
+                  +{unreadChatCount > 0 ? unreadChatCount : recentlyReceivedBadge}
                 </span>
               ) : (
                 <span className="text-xs font-mono text-[#777777]">({messages.length})</span>
@@ -1757,7 +1779,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
       )}
 
       {/* Floating New Chat Message Toast */}
-      {newChatToast && activeSideTab !== 'chat' && (
+      {newChatToast && (
         <div
           onClick={handleOpenChatTab}
           className="fixed top-20 right-4 sm:right-6 z-[110] max-w-xs sm:max-w-sm rounded-2xl bg-[#18181c]/95 border-2 border-[#789d2a] shadow-[0_16px_40px_rgba(0,0,0,0.9)] p-3 backdrop-blur-xl cursor-pointer hover:scale-102 transition-all animate-in slide-in-from-right-4 duration-200"
@@ -1766,7 +1788,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
           <div className="flex items-center justify-between gap-3 mb-1">
             <div className="flex items-center gap-2 min-w-0">
               <span className="px-1.5 py-0.5 rounded-md bg-[#789d2a] text-white font-mono text-[11px] font-black shadow-sm shrink-0">
-                +{unreadChatCount}
+                +{newChatToast.count}
               </span>
               <span className="text-xs font-bold text-[#ededed] truncate">
                 {newChatToast.sender}
@@ -1854,6 +1876,23 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 src={previewMedia.url}
                 className="max-w-full max-h-[75vh] rounded-xl shadow-2xl"
               />
+            )}
+            {previewMedia.type === 'audio' && (
+              <div className="p-8 flex flex-col items-center justify-center gap-5 text-center">
+                <div className="w-20 h-20 rounded-2xl bg-[#789d2a]/20 border border-[#789d2a] flex items-center justify-center text-[#9ac43e] shadow-[0_0_30px_rgba(120,157,42,0.3)] animate-pulse">
+                  <Music className="w-10 h-10" />
+                </div>
+                <div className="text-center">
+                  <p className="text-base font-bold text-white mb-1">{previewMedia.name}</p>
+                  <p className="text-xs text-[#888888] font-mono">Аудиозапись встречи · P2P</p>
+                </div>
+                <audio
+                  controls
+                  autoPlay
+                  src={previewMedia.url}
+                  className="w-full min-w-[280px] sm:min-w-[400px] rounded-xl"
+                />
+              </div>
             )}
           </div>
         </div>

@@ -131,8 +131,8 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
             : 'p-3.5 bg-[#252525] border border-[#383838] text-[#ededed]'
         }`}
       >
-        {/* Render text only if not pure link and not pure emotes */}
-        {!isPureLink && !allTokensAreEmotes && (
+        {/* Render text or emotes as long as it is not a pure link */}
+        {!isPureLink && (
           <div className="leading-snug">{renderedContent}</div>
         )}
 

@@ -161,7 +161,10 @@ export function App() {
 
     const manager = new WebRTCManager(sock, myId, userName, {
       onTextMessage: (msg) => {
-        sound.playMessage();
+        // Only voice/play chime for incoming messages from others, not from ourselves
+        if (msg.senderId !== myId) {
+          sound.playMessage();
+        }
         setMessages((prev) => [...prev, msg]);
       },
       onTransferProgress: (updated) => {
@@ -169,7 +172,11 @@ export function App() {
           const index = prev.findIndex((t) => t.id === updated.id);
           if (index >= 0) {
             const next = [...prev];
-            next[index] = { ...next[index], ...updated } as FileTransfer;
+            next[index] = {
+              ...next[index],
+              ...updated,
+              blobUrl: updated.blobUrl || next[index].blobUrl,
+            } as FileTransfer;
             return next;
           } else {
             return [updated as FileTransfer, ...prev];
@@ -200,7 +207,10 @@ export function App() {
           const index = prev.findIndex((t) => t.id === completed.id);
           if (index >= 0) {
             const next = [...prev];
-            next[index] = completed;
+            next[index] = {
+              ...completed,
+              blobUrl: completed.blobUrl || next[index].blobUrl,
+            };
             return next;
           }
           return [completed, ...prev];

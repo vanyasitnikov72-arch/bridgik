@@ -539,6 +539,7 @@ export class WebRTCManager {
    */
   public async sendFile(file: File, targetPeerId?: string) {
     const fileId = Math.random().toString(36).substring(2, 12);
+    const senderBlobUrl = URL.createObjectURL(file);
 
     // Filter target channels
     const activeBundles: PeerConnectionBundle[] = [];
@@ -553,6 +554,7 @@ export class WebRTCManager {
     }
 
     if (activeBundles.length === 0) {
+      // In room / standalone mode: stage file locally so sender can preview, inspect, and listen immediately
       this.callbacks.onTransferProgress({
         id: fileId,
         name: file.name,
@@ -560,11 +562,11 @@ export class WebRTCManager {
         mimeType: file.type || 'application/octet-stream',
         type: 'upload',
         peerId: targetPeerId || 'all',
-        peerName: 'Получатели',
-        progress: 0,
+        peerName: 'Файлы комнаты',
+        progress: 100,
         speed: 0,
-        status: 'error',
-        error: 'Нет активных подключений для отправки файла',
+        status: 'completed',
+        blobUrl: senderBlobUrl,
       });
       return;
     }
@@ -753,6 +755,7 @@ export class WebRTCManager {
             progress,
             speed,
             status: bytesSent === file.size ? 'completed' : 'transferring',
+            blobUrl: senderBlobUrl,
           });
         }
       }
