@@ -49,6 +49,19 @@ export function formatSpeed(bytesPerSec: number): string {
   return `${formatBytes(bytesPerSec)}/с`;
 }
 
+/**
+ * Unique ID stored per browser profile (shared across all tabs of the same browser)
+ */
+export function getBrowserDeviceId(): string {
+  if (typeof window === 'undefined') return 'server_id';
+  let id = localStorage.getItem('bridgik_browser_device_id');
+  if (!id) {
+    id = 'b_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now().toString(36);
+    localStorage.setItem('bridgik_browser_device_id', id);
+  }
+  return id;
+}
+
 export function formatEta(seconds: number): string {
   if (!isFinite(seconds) || seconds <= 0) return '--';
   if (seconds < 60) return `${Math.round(seconds)}с`;

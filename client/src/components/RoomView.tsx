@@ -26,6 +26,7 @@ import { FileTransfer, Peer, TextMessage } from '../types/index.js';
 import { formatBytes, formatSpeed } from '../utils/device.js';
 import { extractFilesFromDataTransfer } from '../utils/files.js';
 import { sound } from '../utils/sound.js';
+import { CustomAudioPlayer } from './CustomAudioPlayer.js';
 
 interface RoomViewProps {
   roomId: string;
@@ -588,13 +589,13 @@ export const RoomView: React.FC<RoomViewProps> = ({
                         </div>
                       </div>
 
-                      {/* Inline Audio Player for Audio files */}
-                      {isAudio && t.blobUrl && t.status === 'completed' && (
+                      {/* Inline Custom Audio Player for Audio files */}
+                      {isAudio && t.blobUrl && (
                         <div className="mt-1 pt-2 border-t border-[#222222]">
-                          <audio
-                            controls
+                          <CustomAudioPlayer
                             src={t.blobUrl}
-                            className="w-full h-8 rounded bg-[#171717] opacity-90"
+                            compact
+                            title={t.name}
                           />
                         </div>
                       )}

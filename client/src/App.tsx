@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { Smartphone, Monitor, Check, X, Radio, AlertCircle, Lock, Users } from 'lucide-react';
+import { Smartphone, Monitor, Check, X, Radio, AlertCircle, Lock, Users, UserCheck, UserMinus, Copy } from 'lucide-react';
 import { Navbar } from './components/Navbar.js';
 import { HomeView } from './components/HomeView.js';
 import { RoomView } from './components/RoomView.js';
@@ -9,12 +9,12 @@ import { AboutView } from './components/AboutView.js';
 import { QRCodeModal } from './components/QRCodeModal.js';
 import { Footer } from './components/Footer.js';
 import { FileTransfer, Peer, TextMessage, ThemeMode, NearbyPeer, PairRequest, AppTab, RoomMode } from './types/index.js';
-import { detectDeviceType, generateRandomName } from './utils/device.js';
+import { detectDeviceType, generateRandomName, getBrowserDeviceId } from './utils/device.js';
 import { WebRTCManager } from './services/webrtc.js';
 import { sound } from './utils/sound.js';
 
 interface RoomAlertNotice {
-  type: 'locked' | 'full' | 'notFound' | 'general';
+  type: 'locked' | 'full' | 'notFound' | 'general' | 'duplicate';
   title: string;
   message: string;
 }
@@ -51,6 +51,15 @@ export function App() {
   const [pairingTargetSocketId, setPairingTargetSocketId] = useState<string>('');
   const [pairRejectionNotice, setPairRejectionNotice] = useState<string | null>(null);
   const [roomAlertNotice, setRoomAlertNotice] = useState<RoomAlertNotice | null>(null);
+  const [participantNotice, setParticipantNotice] = useState<{
+    type: 'joined' | 'left';
+    name: string;
+  } | null>(null);
+  const participantNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const peersRef = useRef<Peer[]>(peers);
+  useEffect(() => {
+    peersRef.current = peers;
+  }, [peers]);
   const [lanIp, setLanIp] = useState<string | null>(null);
   const [destinationDirName, setDestinationDirName] = useState<string | null>(null);
   const destinationDirHandleRef = useRef<any>(null);
@@ -260,16 +269,57 @@ export function App() {
         return [...prev, newPeer];
       });
 
+      // System notification message in room chat
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: 'sys_' + Math.random().toString(36).substring(2, 9),
+          senderId: 'system',
+          senderName: 'Система',
+          text: `👋 ${newPeer.name} присоединился к комнате`,
+          timestamp: Date.now(),
+          isSystem: true,
+        },
+      ]);
+
+      // Floating top toast notification
+      setParticipantNotice({ type: 'joined', name: newPeer.name });
+      if (participantNoticeTimerRef.current) clearTimeout(participantNoticeTimerRef.current);
+      participantNoticeTimerRef.current = setTimeout(() => setParticipantNotice(null), 4000);
+
       // Existing peer initiates WebRTC connection
       if (webrtcRef.current) {
         webrtcRef.current.connectToPeer(newPeer.id, true);
       }
     });
 
-    socket.on('peer-left', ({ peerId }: { peerId: string }) => {
-      setPeers((prev) => prev.filter((p) => p.id !== peerId));
+    socket.on('peer-left', (data: { peerId: string; peerName?: string }) => {
+      const leavingPeer = peersRef.current.find((p) => p.id === data.peerId);
+      const peerName = data.peerName || leavingPeer?.name || 'Участник';
+
+      sound.playDisconnect();
+      setPeers((prev) => prev.filter((p) => p.id !== data.peerId));
+
+      // System notification message in room chat
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: 'sys_' + Math.random().toString(36).substring(2, 9),
+          senderId: 'system',
+          senderName: 'Система',
+          text: `🚪 ${peerName} покинул комнату`,
+          timestamp: Date.now(),
+          isSystem: true,
+        },
+      ]);
+
+      // Floating top toast notification
+      setParticipantNotice({ type: 'left', name: peerName });
+      if (participantNoticeTimerRef.current) clearTimeout(participantNoticeTimerRef.current);
+      participantNoticeTimerRef.current = setTimeout(() => setParticipantNotice(null), 4000);
+
       if (webrtcRef.current) {
-        webrtcRef.current.removePeer(peerId);
+        webrtcRef.current.removePeer(data.peerId);
       }
     });
 
@@ -417,6 +467,7 @@ export function App() {
         mode,
         maxSeats: 8,
         roomTheme,
+        browserId: getBrowserDeviceId(),
       },
       (res: any) => {
         setIsLoading(false);
@@ -524,6 +575,7 @@ export function App() {
         roomIdOrPin: pinOrId,
         peerName: userName,
         deviceType,
+        browserId: getBrowserDeviceId(),
       },
       (res: any) => {
         setIsLoading(false);
@@ -551,7 +603,13 @@ export function App() {
           sound.playClick();
           window.history.replaceState({}, '', window.location.pathname);
           const errText = res.error || 'Комната не найдена';
-          if (res.code === 'RATE_LIMITED') {
+          if (res.code === 'ALREADY_IN_ROOM_SAME_BROWSER' || errText.includes('другой вкладке')) {
+            setRoomAlertNotice({
+              type: 'duplicate',
+              title: 'Комната уже открыта',
+              message: errText || 'Вы уже находитесь в этой комнате в другой вкладке браузера. Чтобы подключить второго участника, откройте окно Инкогнито (Ctrl+Shift+N) или другой браузер.',
+            });
+          } else if (res.code === 'RATE_LIMITED') {
             setRoomAlertNotice({
               type: 'locked',
               title: 'Слишком много попыток',
@@ -967,11 +1025,13 @@ export function App() {
         </aside>
       )}
 
-      {/* 4. Room Alert Notification (Room Locked / Room Full / Room Not Found) */}
+      {/* 4. Room Alert Notification (Room Locked / Room Full / Room Not Found / Duplicate Tab) */}
       {roomAlertNotice && (
         <aside aria-label={roomAlertNotice.title} className="fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-xl animate-in slide-in-from-top-6 duration-300">
           <div className={`p-4 sm:p-5 rounded-2xl shadow-[0_12px_45px_rgba(0,0,0,0.85)] backdrop-blur-md flex items-center justify-between gap-3.5 border-2 ${
-            roomAlertNotice.type === 'locked'
+            roomAlertNotice.type === 'duplicate'
+              ? 'bg-[#221c12]/95 border-[#f59e0b]/80 shadow-[0_0_35px_rgba(245,158,11,0.25)]'
+              : roomAlertNotice.type === 'locked'
               ? 'bg-[#221614]/95 border-[#ed2b3b]/60'
               : roomAlertNotice.type === 'full'
               ? 'bg-[#221a14]/95 border-[#f97316]/70'
@@ -979,13 +1039,17 @@ export function App() {
           }`}>
             <div className="flex items-center gap-3.5 min-w-0">
               <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border ${
-                roomAlertNotice.type === 'locked'
+                roomAlertNotice.type === 'duplicate'
+                  ? 'bg-[#f59e0b]/20 border-[#f59e0b]/50 text-[#fbbf24]'
+                  : roomAlertNotice.type === 'locked'
                   ? 'bg-[#ed2b3b]/20 border-[#ed2b3b]/40 text-[#ef9282]'
                   : roomAlertNotice.type === 'full'
                   ? 'bg-[#f97316]/20 border-[#f97316]/40 text-[#f97316]'
                   : 'bg-[#ed2b3b]/20 border-[#ed2b3b]/40 text-[#ef9282]'
               }`}>
-                {roomAlertNotice.type === 'locked' ? (
+                {roomAlertNotice.type === 'duplicate' ? (
+                  <Copy className="w-6 h-6" />
+                ) : roomAlertNotice.type === 'locked' ? (
                   <Lock className="w-6 h-6" />
                 ) : roomAlertNotice.type === 'full' ? (
                   <Users className="w-6 h-6" />
@@ -998,7 +1062,9 @@ export function App() {
                   {roomAlertNotice.title}
                 </p>
                 <p className={`text-sm sm:text-base leading-snug ${
-                  roomAlertNotice.type === 'locked'
+                  roomAlertNotice.type === 'duplicate'
+                    ? 'text-[#fde68a]'
+                    : roomAlertNotice.type === 'locked'
                     ? 'text-[#ef9282]'
                     : roomAlertNotice.type === 'full'
                     ? 'text-[#fb923c]'
@@ -1015,6 +1081,30 @@ export function App() {
               Закрыть
             </button>
           </div>
+        </aside>
+      )}
+
+      {/* 5. Floating Participant Joined / Left Toast Notification */}
+      {participantNotice && (
+        <aside aria-label="Уведомление об участнике" className="fixed top-5 left-1/2 -translate-x-1/2 z-[150] px-4 py-2.5 rounded-2xl bg-[#141419]/95 border-2 shadow-[0_12px_45px_rgba(0,0,0,0.85)] backdrop-blur-xl flex items-center gap-3 text-sm font-bold animate-in slide-in-from-top-4 duration-200 pointer-events-none select-none">
+          <div
+            className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+              participantNotice.type === 'joined'
+                ? 'bg-[#789d2a]/20 border border-[#789d2a]/50 text-[#9ac43e]'
+                : 'bg-[#ed2b3b]/20 border border-[#ed2b3b]/50 text-[#ef9282]'
+            }`}
+          >
+            {participantNotice.type === 'joined' ? (
+              <UserCheck className="w-4 h-4" />
+            ) : (
+              <UserMinus className="w-4 h-4" />
+            )}
+          </div>
+          <span className={participantNotice.type === 'joined' ? 'text-[#bbf348]' : 'text-[#ef9282]'}>
+            {participantNotice.type === 'joined'
+              ? `${participantNotice.name} присоединился к комнате`
+              : `${participantNotice.name} покинул комнату`}
+          </span>
         </aside>
       )}
 

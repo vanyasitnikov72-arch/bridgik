@@ -6,6 +6,7 @@ export interface PeerInfo {
   joinedAt: number;
   isHost: boolean;
   isMicActive?: boolean;
+  browserId?: string;
 }
 
 export interface Room {

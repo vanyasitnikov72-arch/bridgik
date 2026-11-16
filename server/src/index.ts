@@ -265,6 +265,7 @@ io.on('connection', (socket) => {
         mode?: 'bridge' | 'meeting';
         maxSeats?: number;
         roomTheme?: string;
+        browserId?: string;
       },
       callback
     ) => {
@@ -284,6 +285,7 @@ io.on('connection', (socket) => {
           deviceType: data.deviceType || 'desktop',
           joinedAt: Date.now(),
           isHost: true,
+          browserId: data.browserId,
         };
 
         roomManager.addPeer(room.id, peer);
@@ -322,6 +324,7 @@ io.on('connection', (socket) => {
         peerName: string;
         deviceType: any;
         preferredSeat?: number;
+        browserId?: string;
       },
       callback
     ) => {
@@ -382,6 +385,27 @@ io.on('connection', (socket) => {
           return;
         }
 
+        // Check if this browser already has an active tab inside this room
+        if (data.browserId) {
+          const existingWithSameBrowser = Array.from(room.peers.values()).find(
+            (p) => p.browserId === data.browserId && p.socketId !== socket.id
+          );
+          if (existingWithSameBrowser) {
+            const activeSock = io.sockets.sockets.get(existingWithSameBrowser.socketId);
+            if (activeSock && activeSock.connected) {
+              if (typeof callback === 'function') {
+                return callback({
+                  success: false,
+                  code: 'ALREADY_IN_ROOM_SAME_BROWSER',
+                  error:
+                    'Вы уже находитесь в этой комнате в другой вкладке этого браузера. Чтобы подключить второго участника, откройте окно Инкогнито (Ctrl+Shift+N) или другой браузер.',
+                });
+              }
+              return;
+            }
+          }
+        }
+
         if (room.maxSeats && room.peers.size >= room.maxSeats) {
           if (typeof callback === 'function') {
             return callback({
@@ -403,6 +427,7 @@ io.on('connection', (socket) => {
           deviceType: data.deviceType || 'unknown',
           joinedAt: Date.now(),
           isHost,
+          browserId: data.browserId,
         };
 
         // Assign free seat
@@ -593,7 +618,7 @@ io.on('connection', (socket) => {
       socket.leave(room.id);
       socket.leave(room.pin);
       io.to(room.id).to(room.pin).emit('peer-seat-changed', { peerId: peer.id, seatIndex: -1 });
-      io.to(room.id).to(room.pin).emit('peer-left', { peerId: peer.id });
+      io.to(room.id).to(room.pin).emit('peer-left', { peerId: peer.id, peerName: peer.name });
     }
   });
 
@@ -604,7 +629,7 @@ io.on('connection', (socket) => {
     if (room && peer) {
       if (room.peerSeats) delete room.peerSeats[peer.id];
       io.to(room.id).to(room.pin).emit('peer-seat-changed', { peerId: peer.id, seatIndex: -1 });
-      io.to(room.id).to(room.pin).emit('peer-left', { peerId: peer.id });
+      io.to(room.id).to(room.pin).emit('peer-left', { peerId: peer.id, peerName: peer.name });
     }
   });
 });

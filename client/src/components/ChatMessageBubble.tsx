@@ -28,6 +28,7 @@ interface ChatMessageBubbleProps {
   text: string;
   isMe: boolean;
   time?: string;
+  isSystem?: boolean;
 }
 
 export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
@@ -35,7 +36,26 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
   text,
   isMe,
   time,
+  isSystem,
 }) => {
+  if (isSystem || senderName === 'Система') {
+    const isJoin = text.includes('присоединился');
+    return (
+      <div className="flex items-center justify-center my-2.5 w-full select-none animate-in fade-in duration-200">
+        <div
+          className={`px-3.5 py-1.5 rounded-full text-xs font-mono font-medium flex items-center gap-2 border shadow-sm ${
+            isJoin
+              ? 'bg-[#182314]/90 border-[#789d2a]/50 text-[#bbf348]'
+              : 'bg-[#261618]/90 border-[#ed2b3b]/50 text-[#ef9282]'
+          }`}
+        >
+          <span>{text}</span>
+          {time && <span className="opacity-50 text-[10px]">{time}</span>}
+        </div>
+      </div>
+    );
+  }
+
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
   const [faviconFailed, setFaviconFailed] = useState<Record<string, boolean>>({});
 

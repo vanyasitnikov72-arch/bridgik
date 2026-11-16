@@ -74,6 +74,33 @@ class RetroAudio {
   }
 
   /**
+   * Gentle 8-bit departure chord when a peer leaves the room
+   */
+  public playDisconnect() {
+    if (!this.soundEnabled) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(659.25, now); // E5
+    osc.frequency.setValueAtTime(440, now + 0.09); // A4
+    osc.frequency.setValueAtTime(329.63, now + 0.18); // E4
+
+    gain.gain.setValueAtTime(0.08, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.36);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.38);
+  }
+
+  /**
    * Triumphant 8-bit coin / level-up chime on successful file transfer
    */
   public playTransferComplete() {

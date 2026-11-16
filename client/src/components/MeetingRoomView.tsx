@@ -41,6 +41,7 @@ import { FileTransfer, Peer, TextMessage } from '../types/index.js';
 import { sound } from '../utils/sound.js';
 import { EmotePicker } from './EmotePicker.js';
 import { ChatMessageBubble } from './ChatMessageBubble.js';
+import { CustomAudioPlayer } from './CustomAudioPlayer.js';
 
 export type RoomId = 'cyber-lounge' | 'cozy-loft' | 'skyline-penthouse' | 'retro-lounge';
 
@@ -1316,13 +1317,13 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                         </div>
                       </div>
 
-                      {/* Built-in Audio Player for audio files */}
+                      {/* Built-in Custom Cyber Audio Player for audio files */}
                       {isAud && t.blobUrl && (
                         <div className="mt-1 pt-2 border-t border-white/5">
-                          <audio
-                            controls
+                          <CustomAudioPlayer
                             src={t.blobUrl}
-                            className="w-full h-8 rounded-lg bg-[#111116] opacity-90"
+                            compact
+                            title={t.name}
                           />
                         </div>
                       )}
@@ -1444,6 +1445,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                         senderName={m.senderName}
                         text={m.text}
                         isMe={isMe}
+                        isSystem={m.isSystem || m.senderId === 'system'}
                       />
                     );
                   })
@@ -1878,19 +1880,19 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
               />
             )}
             {previewMedia.type === 'audio' && (
-              <div className="p-8 flex flex-col items-center justify-center gap-5 text-center">
+              <div className="p-6 sm:p-8 flex flex-col items-center justify-center gap-5 text-center w-full max-w-lg">
                 <div className="w-20 h-20 rounded-2xl bg-[#789d2a]/20 border border-[#789d2a] flex items-center justify-center text-[#9ac43e] shadow-[0_0_30px_rgba(120,157,42,0.3)] animate-pulse">
                   <Music className="w-10 h-10" />
                 </div>
-                <div className="text-center">
-                  <p className="text-base font-bold text-white mb-1">{previewMedia.name}</p>
+                <div className="text-center w-full min-w-0">
+                  <p className="text-base font-bold text-white mb-1 truncate px-2">{previewMedia.name}</p>
                   <p className="text-xs text-[#888888] font-mono">Аудиозапись встречи · P2P</p>
                 </div>
-                <audio
-                  controls
-                  autoPlay
+                <CustomAudioPlayer
                   src={previewMedia.url}
-                  className="w-full min-w-[280px] sm:min-w-[400px] rounded-xl"
+                  title={previewMedia.name}
+                  autoPlay
+                  className="w-full"
                 />
               </div>
             )}

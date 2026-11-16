@@ -32,6 +32,7 @@ export interface TextMessage {
   text: string;
   timestamp: number;
   isClipboard?: boolean;
+  isSystem?: boolean;
 }
 
 export interface FileTransfer {
