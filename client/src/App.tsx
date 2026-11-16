@@ -35,6 +35,7 @@ export function App() {
   const [nearbyPeers, setNearbyPeers] = useState<NearbyPeer[]>([]);
   const [incomingPairRequest, setIncomingPairRequest] = useState<PairRequest | null>(null);
   const [isPairing, setIsPairing] = useState(false);
+  const [lanIp, setLanIp] = useState<string | null>(null);
   const [autoDownload, setAutoDownload] = useState<boolean>(() => {
     return localStorage.getItem('bridgit_auto_download') !== 'false';
   });
@@ -68,6 +69,18 @@ export function App() {
     return () => {
       socketInstance.disconnect();
     };
+  }, []);
+
+  // Fetch local network IP for mobile device pairing
+  useEffect(() => {
+    fetch('/api/health')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.lanIp && data.lanIp !== '127.0.0.1') {
+          setLanIp(data.lanIp);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // Sync user name changes
@@ -414,7 +427,15 @@ export function App() {
     return active;
   };
 
-  const roomUrl = typeof window !== 'undefined' ? `${window.location.origin}?room=${pin}` : '';
+  const roomUrl = (() => {
+    if (typeof window === 'undefined') return '';
+    const isLocalhost =
+      window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (isLocalhost && lanIp) {
+      return `${window.location.protocol}//${lanIp}:${window.location.port}?room=${pin}`;
+    }
+    return `${window.location.origin}?room=${pin}`;
+  })();
 
   // Theme Classes
   const getThemeWrapperClass = () => {
@@ -455,6 +476,7 @@ export function App() {
             onRejectPair={handleRejectPair}
             myUserName={userName}
             myDeviceType={deviceType}
+            lanIp={lanIp}
           />
         ) : (
           <RoomView

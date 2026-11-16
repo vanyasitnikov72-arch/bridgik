@@ -5,8 +5,24 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import os from 'os';
 import { RoomManager } from './roomManager.js';
 import { PeerInfo } from './types.js';
+
+export function getLocalLanIp(): string {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    if (name.toLowerCase().includes('vethernet') || name.toLowerCase().includes('virtual') || name.toLowerCase().includes('loopback')) {
+      continue;
+    }
+    for (const iface of interfaces[name] || []) {
+      if (iface.family === 'IPv4' && !iface.internal && !iface.address.startsWith('169.')) {
+        return iface.address;
+      }
+    }
+  }
+  return '127.0.0.1';
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -75,6 +91,7 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     timestamp: Date.now(),
+    lanIp: getLocalLanIp(),
     ...roomManager.getStats(),
   });
 });

@@ -15,6 +15,7 @@ interface HomeViewProps {
   onRejectPair: () => void;
   myUserName: string;
   myDeviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown';
+  lanIp?: string | null;
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
@@ -30,6 +31,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onRejectPair,
   myUserName: _myUserName,
   myDeviceType: _myDeviceType,
+  lanIp,
 }) => {
   const [pin, setPin] = useState('');
 
@@ -171,6 +173,18 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <p className="text-xs text-[#aaaaaa] max-w-md mx-auto">
               Откройте <span className="text-[#9ac43e] font-semibold">bridgit</span> на телефоне или втором ПК в этой же сети — устройство появится здесь для мгновенной передачи в 1 клик без кодов.
             </p>
+          </div>
+        )}
+
+        {lanIp && (
+          <div className="mt-3.5 pt-3 border-t border-[#3a3a3a] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs text-[#aaaaaa]">
+            <span className="flex items-center gap-1.5">
+              <Smartphone className="w-3.5 h-3.5 text-[#9ac43e]" />
+              <span>Адрес для открытия на телефоне в этом же Wi-Fi:</span>
+            </span>
+            <span className="font-mono text-[#ededed] font-bold bg-[#171717] px-2.5 py-1 rounded border border-[#3a3a3a] text-xs">
+              http://{lanIp}:5173
+            </span>
           </div>
         )}
       </div>
