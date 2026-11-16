@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  ArrowLeft,
   ShieldCheck,
   HardDrive,
   Wifi,
@@ -15,10 +14,10 @@ import {
 import { BridgeIcon } from './icons/BridgeIcon.js';
 
 interface AboutViewProps {
-  onBack: () => void;
+  onBack?: () => void;
 }
 
-export const AboutView: React.FC<AboutViewProps> = ({ onBack }) => {
+export const AboutView: React.FC<AboutViewProps> = ({ onBack: _onBack }) => {
   const [copiedEmail, setCopiedEmail] = useState(false);
 
   const handleCopyEmail = () => {
@@ -29,18 +28,14 @@ export const AboutView: React.FC<AboutViewProps> = ({ onBack }) => {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
-      {/* Top Navigation / Breadcrumb */}
+      {/* Top Header Tag */}
       <div className="mb-6 flex items-center justify-between">
-        <button
-          onClick={onBack}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#222222] hover:bg-[#2d2d2d] border border-[#3a3a3a] hover:border-[#789d2a] text-[#ededed] font-bold text-base transition-colors cursor-pointer"
-        >
-          <ArrowLeft className="w-5 h-5 text-[#9ac43e]" />
-          <span>Вернуться к передаче</span>
-        </button>
-
-        <span className="text-sm font-mono text-[#9ac43e] font-bold px-3 py-1 rounded bg-[#1c2214] border border-[#789d2a]/40">
-          v1.4.0 · P2P WebRTC
+        <div className="flex items-center gap-2 text-sm font-mono text-[#9ac43e] font-bold px-3 py-1 rounded bg-[#1c2214] border border-[#789d2a]/40">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#789d2a] animate-ping" />
+          <span>v1.4.0 · P2P WebRTC Direct</span>
+        </div>
+        <span className="text-xs sm:text-sm font-mono text-[#888888]">
+          Zero-Storage Architecture
         </span>
       </div>
 
@@ -421,17 +416,6 @@ export const AboutView: React.FC<AboutViewProps> = ({ onBack }) => {
             Нашли баг или хотите предложить новую функцию? Приложите снимок экрана или описание вашей операционной системы и браузера — мы оперативно ответим и доработаем сервис.
           </p>
         </div>
-      </div>
-
-      {/* Return Action Button */}
-      <div className="pt-4 pb-8 flex justify-center">
-        <button
-          onClick={onBack}
-          className="w-full sm:w-auto px-10 py-4 rounded-xl bg-[#789d2a] hover:bg-[#8cb632] text-white font-extrabold text-2xl tracking-wide transition-colors cursor-pointer flex items-center justify-center gap-3 shadow-lg"
-        >
-          <ArrowLeft className="w-6 h-6" />
-          <span>Вернуться к передаче файлов</span>
-        </button>
       </div>
     </div>
   );
