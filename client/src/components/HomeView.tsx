@@ -46,14 +46,130 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-10 md:py-14">
-      {/* Title section in Handjet font */}
+      {/* Thematic Pixel & Cable Bridge Visual: Screen 1 ↔ bridgik ↔ Screen 2 */}
+      <div className="mb-6 select-none">
+        <div className="h-16 sm:h-20 w-full flex items-end justify-between relative overflow-hidden border-b border-[#3a3a3a] pb-1">
+          {/* Left Pylon (Screen 1 / Desktop) */}
+          <div className="flex items-end gap-2 relative z-10 shrink-0">
+            <div className="flex flex-col items-center">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#9ac43e] animate-beacon mb-1" />
+              <div className="w-4 sm:w-5 h-10 sm:h-12 bg-[#262626] border-x border-t border-[#3a3a3a] rounded-t flex flex-col justify-between py-1">
+                <div className="w-2 h-1 bg-[#789d2a] mx-auto rounded-xs" />
+                <div className="w-2 h-1 bg-[#3a3a3a] mx-auto rounded-xs" />
+              </div>
+            </div>
+            <span className="text-xs sm:text-sm font-bold text-[#aaaaaa] hidden sm:inline mb-1 font-mono">
+              [ Экран 1 ]
+            </span>
+          </div>
+
+          {/* Bridge Cables Span & Animated WebRTC Data Packets */}
+          <div className="flex-1 h-12 sm:h-14 relative mx-2 sm:mx-6">
+            <svg
+              className="w-full h-full absolute inset-0 overflow-visible"
+              preserveAspectRatio="none"
+              viewBox="0 0 400 48"
+            >
+              {/* Main Suspension Cable Arc */}
+              <path
+                d="M 0 6 Q 200 46 400 6"
+                fill="none"
+                stroke="#3a3a3a"
+                strokeWidth="1.5"
+                strokeDasharray="4 3"
+              />
+              {/* Secondary Cable */}
+              <path
+                d="M 0 10 Q 200 42 400 10"
+                fill="none"
+                stroke="#2a2a2a"
+                strokeWidth="1"
+              />
+              {/* Vertical Suspenders */}
+              {[40, 80, 120, 160, 200, 240, 280, 320, 360].map((x) => (
+                <line
+                  key={x}
+                  x1={x}
+                  y1={6 + 40 * Math.pow((x - 200) / 200, 2)}
+                  x2={x}
+                  y2={48}
+                  stroke="#262626"
+                  strokeWidth="1"
+                />
+              ))}
+            </svg>
+
+            {/* Glowing Green Data Packet 1 flowing across bridge */}
+            <div
+              className="animate-bridge-flow bottom-0 flex items-center gap-1 pointer-events-none"
+              style={{ animationDuration: '3.2s' }}
+            >
+              <span className="w-2.5 h-2.5 bg-[#bbf348] rounded-xs shadow-[0_0_10px_#9ac43e]" />
+              <span className="w-1.5 h-1.5 bg-[#789d2a] rounded-xs opacity-80" />
+              <span className="w-1 h-1 bg-[#789d2a]/50 rounded-xs" />
+            </div>
+
+            {/* Glowing Green Data Packet 2 flowing across bridge (staggered) */}
+            <div
+              className="animate-bridge-flow bottom-0 flex items-center gap-1 pointer-events-none"
+              style={{ animationDuration: '3.2s', animationDelay: '1.6s' }}
+            >
+              <span className="w-2.5 h-2.5 bg-[#9ac43e] rounded-xs shadow-[0_0_8px_#789d2a]" />
+              <span className="w-1.5 h-1.5 bg-[#789d2a] rounded-xs opacity-75" />
+            </div>
+          </div>
+
+          {/* Right Pylon (Screen 2 / Mobile) */}
+          <div className="flex items-end gap-2 relative z-10 shrink-0">
+            <span className="text-xs sm:text-sm font-bold text-[#aaaaaa] hidden sm:inline mb-1 font-mono">
+              [ Экран 2 ]
+            </span>
+            <div className="flex flex-col items-center">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#9ac43e] animate-beacon mb-1" />
+              <div className="w-4 sm:w-5 h-10 sm:h-12 bg-[#262626] border-x border-t border-[#3a3a3a] rounded-t flex flex-col justify-between py-1">
+                <div className="w-2 h-1 bg-[#789d2a] mx-auto rounded-xs" />
+                <div className="w-2 h-1 bg-[#3a3a3a] mx-auto rounded-xs" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Title section in Handjet font with letter-by-letter green illumination wave */}
       <div className="mb-8">
-        <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-[#ededed] mb-3 leading-none">
-          bridgit <span className="text-[#9ac43e]">·</span> мост между экранами
+        <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-[#ededed] mb-3 leading-none flex flex-wrap items-center gap-x-3">
+          <span className="inline-flex tracking-tight select-none">
+            {['b', 'r', 'i', 'd', 'g', 'i', 'k'].map((letter, index) => (
+              <span
+                key={index}
+                className="animate-letter-glow inline-block hover:text-[#bbf348] hover:scale-110 transition-transform cursor-default"
+                style={{ animationDelay: `${index * 0.16}s` }}
+              >
+                {letter}
+              </span>
+            ))}
+          </span>
+          <span className="text-[#9ac43e] animate-pulse">·</span>
+          <span className="text-[#ededed]">мост между экранами</span>
         </h1>
-        <p className="text-xl sm:text-2xl text-[#bbbbbb] leading-relaxed">
+
+        <p className="text-xl sm:text-2xl text-[#bbbbbb] leading-relaxed mb-4">
           Мгновенный P2P-обмен файлами любого размера и текстом. Без регистрации и без серверов.
         </p>
+
+        {/* Feature Tags */}
+        <div className="flex flex-wrap items-center gap-2 text-sm sm:text-base font-bold">
+          <span className="px-3 py-1 rounded-md bg-[#222222] border border-[#3a3a3a] text-[#9ac43e] flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#789d2a] animate-ping" />
+            Прямой P2P WebRTC
+          </span>
+          <span className="px-3 py-1 rounded-md bg-[#222222] border border-[#3a3a3a] text-[#ededed]">
+            0 байт на сервере
+          </span>
+          <span className="px-3 py-1 rounded-md bg-[#222222] border border-[#3a3a3a] text-[#aaaaaa]">
+            Wi-Fi Радар
+          </span>
+        </div>
       </div>
 
       {/* Info Callout Banner */}
@@ -173,7 +289,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               Поиск устройств в этой же сети Wi-Fi...
             </p>
             <p className="text-sm sm:text-base text-[#aaaaaa] max-w-lg mx-auto leading-relaxed">
-              Откройте <span className="text-[#9ac43e] font-semibold">bridgit</span> на телефоне или втором ПК в этой же сети — устройство появится здесь для мгновенной передачи в 1 клик без кодов.
+              Откройте <span className="text-[#9ac43e] font-semibold">bridgik.ru</span> на телефоне или втором ПК в этой же сети — устройство появится здесь для мгновенной передачи в 1 клик без кодов.
             </p>
           </div>
         )}
@@ -249,7 +365,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </div>
             <div>
               <p className="text-xl sm:text-2xl font-bold text-[#ededed] group-hover:text-white transition-colors">
-                Как устроен bridgit и протокол P2P?
+                Как устроен bridgik и протокол P2P?
               </p>
               <p className="text-base sm:text-lg text-[#aaaaaa]">
                 Подробно: Direct-to-Disk, Zero-Storage, Wi-Fi радар и безопасность

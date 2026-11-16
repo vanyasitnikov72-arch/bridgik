@@ -6,7 +6,7 @@ class RetroAudio {
 
   constructor() {
     if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('bridgit_sound_enabled');
+      const stored = localStorage.getItem('bridgik_sound_enabled') || localStorage.getItem('bridgit_sound_enabled');
       this.soundEnabled = stored === null ? true : stored === 'true';
     }
   }
@@ -31,7 +31,7 @@ class RetroAudio {
 
   public setEnabled(enabled: boolean) {
     this.soundEnabled = enabled;
-    localStorage.setItem('bridgit_sound_enabled', String(enabled));
+    localStorage.setItem('bridgik_sound_enabled', String(enabled));
   }
 
   public toggle(): boolean {

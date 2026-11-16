@@ -62,3 +62,61 @@
     background: #4a4a4a;
   }
 }
+
+/* Sequential letter illumination wave for bridgik */
+@keyframes letter-glow-wave {
+  0%, 75%, 100% {
+    color: #ededed;
+    text-shadow: none;
+    transform: translateY(0);
+  }
+  20%, 40% {
+    color: #bbf348;
+    text-shadow: 0 0 16px rgba(187, 243, 72, 0.8), 0 0 4px rgba(187, 243, 72, 0.9);
+    transform: translateY(-3px);
+  }
+}
+
+.animate-letter-glow {
+  display: inline-block;
+  animation: letter-glow-wave 3.2s infinite ease-in-out;
+  transition: transform 0.2s, color 0.2s;
+}
+
+/* Data packet sliding across bridge */
+@keyframes bridge-flow-packet {
+  0% {
+    left: 4%;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    left: 94%;
+    opacity: 0;
+  }
+}
+
+.animate-bridge-flow {
+  position: absolute;
+  animation: bridge-flow-packet 3.2s infinite linear;
+}
+
+@keyframes beacon-blink {
+  0%, 100% {
+    opacity: 0.35;
+    filter: drop-shadow(0 0 0px #789d2a);
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 6px #bbf348);
+  }
+}
+
+.animate-beacon {
+  animation: beacon-blink 1.6s infinite ease-in-out;
+}

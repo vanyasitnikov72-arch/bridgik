@@ -20,7 +20,7 @@ export const AboutView: React.FC<AboutViewProps> = ({ onBack }) => {
   const [copiedEmail, setCopiedEmail] = useState(false);
 
   const handleCopyEmail = () => {
-    navigator.clipboard.writeText('support@bridgit.p2p').catch(() => {});
+    navigator.clipboard.writeText('support@bridgik.ru').catch(() => {});
     setCopiedEmail(true);
     setTimeout(() => setCopiedEmail(false), 2000);
   };
@@ -45,7 +45,7 @@ export const AboutView: React.FC<AboutViewProps> = ({ onBack }) => {
       {/* Hero Header */}
       <div className="mb-8">
         <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-[#ededed] mb-3 leading-tight">
-          О сервисе <span className="text-[#9ac43e]">bridgit</span>
+          О сервисе <span className="text-[#9ac43e]">bridgik</span>
         </h1>
         <p className="text-xl sm:text-2xl text-[#bbbbbb] leading-relaxed">
           Мгновенный P2P-мост для передачи файлов любого размера, папок и текста между устройствами. Без регистрации, облаков и сохранения ваших данных.
@@ -85,7 +85,7 @@ export const AboutView: React.FC<AboutViewProps> = ({ onBack }) => {
             </div>
           </div>
           <p className="text-lg sm:text-xl text-[#cccccc] leading-relaxed mb-4">
-            В отличие от традиционных файлообменников (Google Drive, Telegram, WeTransfer), где файл сначала заливается на сторонний сервер, а затем скачивается, <strong className="text-white">bridgit</strong> устанавливает прямое peer-to-peer соединение.
+            В отличие от традиционных файлообменников (Google Drive, Telegram, WeTransfer), где файл сначала заливается на сторонний сервер, а затем скачивается, <strong className="text-white">bridgik</strong> устанавливает прямое peer-to-peer соединение.
           </p>
           <ul className="space-y-2.5 text-[#bbbbbb] text-base sm:text-lg">
             <li className="flex items-start gap-2.5">
@@ -118,7 +118,7 @@ export const AboutView: React.FC<AboutViewProps> = ({ onBack }) => {
             Обычные сайты при передаче больших файлов складывают их части в память (RAM) вкладки браузера, из-за чего на файлах больше 2–4 ГБ браузер аварийно завершает работу с ошибкой <em>Out of Memory</em>.
           </p>
           <p className="text-lg sm:text-xl text-[#cccccc] leading-relaxed mb-4">
-            В <strong className="text-white">bridgit</strong> внедрена технология <strong className="text-[#9ac43e]">Direct-to-Disk</strong> на базе File System Access API:
+            В <strong className="text-white">bridgik</strong> внедрена технология <strong className="text-[#9ac43e]">Direct-to-Disk</strong> на базе File System Access API:
           </p>
           <ul className="space-y-2.5 text-[#bbbbbb] text-base sm:text-lg">
             <li className="flex items-start gap-2.5">
@@ -191,7 +191,7 @@ export const AboutView: React.FC<AboutViewProps> = ({ onBack }) => {
                 Папки
               </span>
               <span>
-                <strong>Перетаскивание директорий:</strong> перетяните целую папку или нажмите «Выбрать папку» — bridgit передаст все файлы внутри папки с сохранением относительных путей.
+                <strong>Перетаскивание директорий:</strong> перетяните целую папку или нажмите «Выбрать папку» — bridgik передаст все файлы внутри папки с сохранением относительных путей.
               </span>
             </li>
             <li className="flex items-start gap-3">
@@ -298,7 +298,7 @@ export const AboutView: React.FC<AboutViewProps> = ({ onBack }) => {
               </div>
               <div>
                 <p className="text-lg sm:text-xl font-bold text-[#ededed] group-hover:text-white">
-                  support@bridgit.p2p
+                  support@bridgik.ru
                 </p>
                 <p className="text-sm sm:text-base text-[#aaaaaa]">
                   {copiedEmail ? 'Адрес скопирован в буфер!' : 'Нажмите, чтобы скопировать почту'}

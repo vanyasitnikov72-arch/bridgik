@@ -13,7 +13,7 @@ import { sound } from './utils/sound.js';
 
 export function App() {
   const [userName, setUserName] = useState<string>(() => {
-    return localStorage.getItem('bridgit_username') || localStorage.getItem('airbridge_username') || generateRandomName();
+    return localStorage.getItem('bridgik_username') || localStorage.getItem('bridgit_username') || localStorage.getItem('airbridge_username') || generateRandomName();
   });
   const [deviceType] = useState(detectDeviceType());
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -41,7 +41,7 @@ export function App() {
   const [destinationDirName, setDestinationDirName] = useState<string | null>(null);
   const destinationDirHandleRef = useRef<any>(null);
   const [autoDownload, setAutoDownload] = useState<boolean>(() => {
-    return localStorage.getItem('bridgit_auto_download') !== 'false';
+    return localStorage.getItem('bridgik_auto_download') !== 'false' && localStorage.getItem('bridgit_auto_download') !== 'false';
   });
 
   // Media
@@ -91,7 +91,7 @@ export function App() {
   // Sync user name changes
   const handleUpdateUserName = (name: string) => {
     setUserName(name);
-    localStorage.setItem('bridgit_username', name);
+    localStorage.setItem('bridgik_username', name);
     if (webrtcRef.current) {
       webrtcRef.current.updateMyName(name);
     }
@@ -344,7 +344,7 @@ export function App() {
   const handleToggleAutoDownload = () => {
     setAutoDownload((prev) => {
       const next = !prev;
-      localStorage.setItem('bridgit_auto_download', String(next));
+      localStorage.setItem('bridgik_auto_download', String(next));
       return next;
     });
   };

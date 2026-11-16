@@ -28,11 +28,11 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAbout }) => {
           <span className="text-[#3a3a3a]">·</span>
           <span onClick={onOpenAbout} className="hover:text-white cursor-pointer transition-colors">Zero-Storage манифест</span>
           <span className="text-[#3a3a3a]">·</span>
-          <span className="text-[#9ac43e] font-mono font-bold">bridgit</span>
+          <span className="text-[#9ac43e] font-mono font-bold">bridgik.ru</span>
         </div>
 
         <p className="text-sm sm:text-base text-[#999999]">
-          bridgit — мгновенный мост между вашими экранами
+          bridgik — мгновенный мост между вашими экранами
         </p>
       </div>
 
