@@ -19,6 +19,8 @@ import {
   Image as ImageIcon,
   Video,
   Music,
+  HardDrive,
+  FolderDown,
 } from 'lucide-react';
 import { FileTransfer, Peer, TextMessage } from '../types/index.js';
 import { formatBytes, formatSpeed } from '../utils/device.js';
@@ -34,6 +36,8 @@ interface RoomViewProps {
   onSendFiles: (files: FileList | File[]) => void;
   onSendText: (text: string, isClipboard?: boolean) => void;
   onCancelTransfer: (transferId: string) => void;
+  onAcceptFile: (fileId: string) => void;
+  onRejectFile: (fileId: string) => void;
   onLeaveRoom: () => void;
   onOpenQR: () => void;
   onToggleMic: () => Promise<boolean>;
@@ -55,6 +59,8 @@ export const RoomView: React.FC<RoomViewProps> = ({
   onSendFiles,
   onSendText,
   onCancelTransfer,
+  onAcceptFile,
+  onRejectFile,
   onLeaveRoom,
   onOpenQR,
   onToggleMic,
@@ -360,7 +366,14 @@ export const RoomView: React.FC<RoomViewProps> = ({
 
                       {/* Right Action */}
                       <div className="flex items-center gap-2 shrink-0">
-                        {t.status === 'completed' && t.blobUrl && (
+                        {t.status === 'completed' && t.savedToDisk && (
+                          <span className="px-2.5 py-1 rounded-xl bg-emerald-950/80 border border-emerald-800/60 text-emerald-400 text-xs font-semibold flex items-center gap-1.5 shadow-sm">
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Сохранено на диск</span>
+                          </span>
+                        )}
+
+                        {t.status === 'completed' && !t.savedToDisk && t.blobUrl && (
                           <a
                             href={t.blobUrl}
                             download={t.name}
@@ -374,7 +387,7 @@ export const RoomView: React.FC<RoomViewProps> = ({
                         {t.status === 'transferring' && (
                           <button
                             onClick={() => onCancelTransfer(t.id)}
-                            className="p-1.5 rounded-lg hover:bg-neutral-800 text-neutral-400 hover:text-rose-400 transition-colors"
+                            className="p-1.5 rounded-lg hover:bg-neutral-800 text-neutral-400 hover:text-rose-400 transition-colors cursor-pointer"
                             title="Отменить"
                           >
                             <X className="w-4 h-4" />
@@ -384,11 +397,44 @@ export const RoomView: React.FC<RoomViewProps> = ({
                         {t.status === 'error' && (
                           <span className="text-xs text-rose-400 flex items-center gap-1">
                             <AlertCircle className="w-3.5 h-3.5" />
-                            <span>Ошибка</span>
+                            <span>{t.error || 'Ошибка'}</span>
                           </span>
                         )}
                       </div>
                     </div>
+
+                    {/* Large file approval prompt (for receiver) */}
+                    {t.status === 'pending_approval' && (
+                      <div className="mt-1 p-3 rounded-xl bg-cyan-950/40 border border-cyan-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-2 text-xs text-cyan-200">
+                          <HardDrive className="w-4 h-4 text-cyan-400 shrink-0" />
+                          <span>Большой файл. Выберите папку на диске для потоковой записи без расхода RAM.</span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={() => onAcceptFile(t.id)}
+                            className="px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm shadow-cyan-500/20"
+                          >
+                            <FolderDown className="w-3.5 h-3.5" />
+                            <span>Выбрать папку</span>
+                          </button>
+                          <button
+                            onClick={() => onRejectFile(t.id)}
+                            className="px-2.5 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-medium transition-colors cursor-pointer"
+                          >
+                            Отклонить
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Waiting for receiver approval (for sender) */}
+                    {t.status === 'waiting_receiver' && (
+                      <div className="mt-1 text-xs text-cyan-400/90 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                        <span>Ожидание: получатель выбирает папку для сохранения...</span>
+                      </div>
+                    )}
 
                     {/* Progress Bar */}
                     {t.status === 'transferring' && (

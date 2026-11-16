@@ -27,9 +27,17 @@ export interface FileTransfer {
   peerName: string;
   progress: number; // 0 to 100
   speed: number; // bytes per second
-  status: 'pending' | 'transferring' | 'completed' | 'cancelled' | 'error';
+  status:
+    | 'pending'
+    | 'pending_approval'
+    | 'waiting_receiver'
+    | 'transferring'
+    | 'completed'
+    | 'cancelled'
+    | 'error';
   blobUrl?: string;
   error?: string;
+  savedToDisk?: boolean; // true if written directly to disk via File System Access API
 }
 
 export type WebRTCMessage =
@@ -41,6 +49,23 @@ export type WebRTCMessage =
       text: string;
       timestamp: number;
       isClipboard?: boolean;
+    }
+  | {
+      type: 'FILE_OFFER';
+      fileId: string;
+      name: string;
+      size: number;
+      mimeType: string;
+      senderName: string;
+    }
+  | {
+      type: 'FILE_ACCEPT';
+      fileId: string;
+      streamToDisk: boolean;
+    }
+  | {
+      type: 'FILE_REJECT';
+      fileId: string;
     }
   | {
       type: 'FILE_META';

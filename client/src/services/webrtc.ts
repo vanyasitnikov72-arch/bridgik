@@ -6,6 +6,7 @@ const READ_BLOCK_SIZE = 1024 * 1024; // 1 MB disk read block (reduces File API o
 const BUFFER_HIGH = 4 * 1024 * 1024; // 4 MB backpressure threshold (keeps SCTP pipeline saturated)
 const BUFFER_LOW = 1024 * 1024; // 1 MB resume threshold
 const HEADER_SIZE = 40; // 32 bytes fileId + 4 bytes chunkIndex + 4 bytes totalChunks
+const LARGE_FILE_THRESHOLD = 200 * 1024 * 1024; // 200 MB: files above this offer direct-to-disk streaming
 
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
@@ -48,9 +49,13 @@ export class WebRTCManager {
         size: number;
         mimeType: string;
         totalChunks: number;
+        chunkSize?: number;
         senderName: string;
       };
       peerId: string;
+      streamToDisk: boolean;
+      writableStream?: any;
+      writeQueue?: Promise<void>;
       receivedChunks: (Uint8Array | undefined)[];
       receivedCount: number;
       receivedBytes: number;
@@ -59,6 +64,24 @@ export class WebRTCManager {
       speed: number;
     }
   > = new Map();
+
+  // Pending offers for large files awaiting receiver acceptance
+  private pendingOffers: Map<
+    string,
+    {
+      meta: {
+        fileId: string;
+        name: string;
+        size: number;
+        mimeType: string;
+        senderName: string;
+      };
+      peerId: string;
+    }
+  > = new Map();
+
+  // Pending outgoing files awaiting receiver approval
+  private pendingOutgoingFiles: Map<string, { file: File; targetPeerId?: string }> = new Map();
 
   // Active outgoing transfer cancellations
   private cancelledTransfers: Set<string> = new Set();
@@ -198,17 +221,55 @@ export class WebRTCManager {
             timestamp: msg.timestamp,
             isClipboard: msg.isClipboard,
           });
-        } else if (msg.type === 'FILE_META') {
-          this.incomingFiles.set(msg.fileId, {
-            meta: msg,
+        } else if (msg.type === 'FILE_OFFER') {
+          // Large file offer from peer
+          this.pendingOffers.set(msg.fileId, { meta: msg, peerId });
+          this.callbacks.onTransferProgress({
+            id: msg.fileId,
+            name: msg.name,
+            size: msg.size,
+            mimeType: msg.mimeType,
+            type: 'download',
             peerId,
-            receivedChunks: new Array(msg.totalChunks),
-            receivedCount: 0,
-            receivedBytes: 0,
-            lastProgressUpdate: Date.now(),
-            lastBytesTransferred: 0,
+            peerName: msg.senderName,
+            progress: 0,
             speed: 0,
+            status: 'pending_approval',
           });
+        } else if (msg.type === 'FILE_ACCEPT') {
+          // Receiver accepted large file transfer
+          const pending = this.pendingOutgoingFiles.get(msg.fileId);
+          if (pending) {
+            this.pendingOutgoingFiles.delete(msg.fileId);
+            this.startStreamingFile(pending.file, msg.fileId, pending.targetPeerId);
+          }
+        } else if (msg.type === 'FILE_REJECT') {
+          this.pendingOutgoingFiles.delete(msg.fileId);
+          this.callbacks.onTransferProgress({
+            id: msg.fileId,
+            status: 'cancelled',
+            error: 'Получатель отклонил передачу файла',
+          });
+        } else if (msg.type === 'FILE_META') {
+          const existing = this.incomingFiles.get(msg.fileId);
+          if (existing) {
+            // Already initialized via direct-to-disk acceptIncomingFile
+            existing.meta.totalChunks = msg.totalChunks;
+            existing.meta.chunkSize = msg.chunkSize;
+          } else {
+            // In-memory Blob flow
+            this.incomingFiles.set(msg.fileId, {
+              meta: msg,
+              peerId,
+              streamToDisk: false,
+              receivedChunks: new Array(msg.totalChunks),
+              receivedCount: 0,
+              receivedBytes: 0,
+              lastProgressUpdate: Date.now(),
+              lastBytesTransferred: 0,
+              speed: 0,
+            });
+          }
 
           this.callbacks.onTransferProgress({
             id: msg.fileId,
@@ -223,7 +284,12 @@ export class WebRTCManager {
             status: 'transferring',
           });
         } else if (msg.type === 'FILE_CANCEL') {
+          const incoming = this.incomingFiles.get(msg.fileId);
+          if (incoming?.writableStream) {
+            incoming.writableStream.abort().catch(() => {});
+          }
           this.incomingFiles.delete(msg.fileId);
+          this.pendingOffers.delete(msg.fileId);
           this.callbacks.onTransferProgress({
             id: msg.fileId,
             status: 'cancelled',
@@ -240,7 +306,7 @@ export class WebRTCManager {
       console.log(`File channel open with ${peerId}`);
     };
 
-    channel.onmessage = (event) => {
+    channel.onmessage = async (event) => {
       if (typeof event.data === 'string') return;
       const buffer = event.data as ArrayBuffer;
       if (buffer.byteLength < HEADER_SIZE) return;
@@ -261,10 +327,24 @@ export class WebRTCManager {
       const incoming = this.incomingFiles.get(fileId);
       if (!incoming) return;
 
-      if (!incoming.receivedChunks[chunkIndex]) {
-        incoming.receivedChunks[chunkIndex] = chunkData;
+      if (incoming.streamToDisk && incoming.writableStream) {
+        // Stream directly to disk! 0 MB RAM accumulation!
         incoming.receivedCount++;
         incoming.receivedBytes += chunkData.byteLength;
+
+        // Chain write promises sequentially to maintain exact file order
+        incoming.writeQueue = (incoming.writeQueue || Promise.resolve()).then(async () => {
+          if (incoming.writableStream) {
+            await incoming.writableStream.write(chunkData);
+          }
+        });
+      } else {
+        // In-memory array flow
+        if (!incoming.receivedChunks[chunkIndex]) {
+          incoming.receivedChunks[chunkIndex] = chunkData;
+          incoming.receivedCount++;
+          incoming.receivedBytes += chunkData.byteLength;
+        }
       }
 
       const now = Date.now();
@@ -281,35 +361,63 @@ export class WebRTCManager {
           progress,
           speed: incoming.speed,
           status: 'transferring',
+          savedToDisk: incoming.streamToDisk,
         });
       }
 
       // Check if file is completely received
       if (incoming.receivedCount === totalChunks) {
-        const blob = new Blob(incoming.receivedChunks as BlobPart[], {
-          type: incoming.meta.mimeType || 'application/octet-stream',
-        });
-        const blobUrl = URL.createObjectURL(blob);
+        if (incoming.streamToDisk && incoming.writableStream) {
+          try {
+            await (incoming.writeQueue || Promise.resolve());
+            await incoming.writableStream.close();
+            incoming.writableStream = undefined;
+          } catch (e) {
+            console.error('Error closing disk stream', e);
+          }
 
-        // Clear chunks array immediately to free RAM
-        incoming.receivedChunks = [];
+          const completedTransfer: FileTransfer = {
+            id: fileId,
+            name: incoming.meta.name,
+            size: incoming.meta.size,
+            mimeType: incoming.meta.mimeType,
+            type: 'download',
+            peerId: incoming.peerId,
+            peerName: incoming.meta.senderName,
+            progress: 100,
+            speed: 0,
+            status: 'completed',
+            savedToDisk: true,
+          };
 
-        const completedTransfer: FileTransfer = {
-          id: fileId,
-          name: incoming.meta.name,
-          size: incoming.meta.size,
-          mimeType: incoming.meta.mimeType,
-          type: 'download',
-          peerId: incoming.peerId,
-          peerName: incoming.meta.senderName,
-          progress: 100,
-          speed: 0,
-          status: 'completed',
-          blobUrl,
-        };
+          this.callbacks.onTransferComplete(completedTransfer);
+          this.incomingFiles.delete(fileId);
+        } else {
+          const blob = new Blob(incoming.receivedChunks as BlobPart[], {
+            type: incoming.meta.mimeType || 'application/octet-stream',
+          });
+          const blobUrl = URL.createObjectURL(blob);
 
-        this.callbacks.onTransferComplete(completedTransfer);
-        this.incomingFiles.delete(fileId);
+          // Clear chunks array immediately to free RAM
+          incoming.receivedChunks = [];
+
+          const completedTransfer: FileTransfer = {
+            id: fileId,
+            name: incoming.meta.name,
+            size: incoming.meta.size,
+            mimeType: incoming.meta.mimeType,
+            type: 'download',
+            peerId: incoming.peerId,
+            peerName: incoming.meta.senderName,
+            progress: 100,
+            speed: 0,
+            status: 'completed',
+            blobUrl,
+          };
+
+          this.callbacks.onTransferComplete(completedTransfer);
+          this.incomingFiles.delete(fileId);
+        }
       }
     };
   }
@@ -347,26 +455,11 @@ export class WebRTCManager {
   }
 
   /**
-   * Send file to connected peers using chunked streaming with backpressure
+   * Send file to connected peers.
+   * If file is large (>= 200MB), sends a FILE_OFFER first so receiver can stream directly to disk.
    */
   public async sendFile(file: File, targetPeerId?: string) {
     const fileId = Math.random().toString(36).substring(2, 12);
-    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-
-    // Prepare transfer record for sender
-    const initialTransfer: FileTransfer = {
-      id: fileId,
-      name: file.name,
-      size: file.size,
-      mimeType: file.type || 'application/octet-stream',
-      type: 'upload',
-      peerId: targetPeerId || 'all',
-      peerName: 'Получатели',
-      progress: 0,
-      speed: 0,
-      status: 'transferring',
-    };
-    this.callbacks.onTransferProgress(initialTransfer);
 
     // Filter target channels
     const activeBundles: PeerConnectionBundle[] = [];
@@ -383,10 +476,74 @@ export class WebRTCManager {
     if (activeBundles.length === 0) {
       this.callbacks.onTransferProgress({
         id: fileId,
+        name: file.name,
+        size: file.size,
+        mimeType: file.type || 'application/octet-stream',
+        type: 'upload',
+        peerId: targetPeerId || 'all',
+        peerName: 'Получатели',
+        progress: 0,
+        speed: 0,
         status: 'error',
         error: 'Нет активных подключений для отправки файла',
       });
       return;
+    }
+
+    // Check if large file: ask receiver first to stream directly to disk
+    if (file.size >= LARGE_FILE_THRESHOLD) {
+      this.pendingOutgoingFiles.set(fileId, { file, targetPeerId });
+
+      this.callbacks.onTransferProgress({
+        id: fileId,
+        name: file.name,
+        size: file.size,
+        mimeType: file.type || 'application/octet-stream',
+        type: 'upload',
+        peerId: targetPeerId || 'all',
+        peerName: 'Получатели',
+        progress: 0,
+        speed: 0,
+        status: 'waiting_receiver',
+      });
+
+      const offerMsg: WebRTCMessage = {
+        type: 'FILE_OFFER',
+        fileId,
+        name: file.name,
+        size: file.size,
+        mimeType: file.type || 'application/octet-stream',
+        senderName: this.myName,
+      };
+      const offerStr = JSON.stringify(offerMsg);
+
+      activeBundles.forEach((b) => {
+        if (b.controlChannel?.readyState === 'open') {
+          b.controlChannel.send(offerStr);
+        }
+      });
+      return;
+    }
+
+    // Normal files (< 200MB) start immediately
+    await this.startStreamingFile(file, fileId, targetPeerId);
+  }
+
+  /**
+   * Internal streaming pipeline: 1MB disk read buffer + 4MB backpressure window
+   */
+  private async startStreamingFile(file: File, fileId: string, targetPeerId?: string) {
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+
+    const activeBundles: PeerConnectionBundle[] = [];
+    if (targetPeerId && this.connections.has(targetPeerId)) {
+      activeBundles.push(this.connections.get(targetPeerId)!);
+    } else {
+      this.connections.forEach((bundle) => {
+        if (bundle.fileChannel?.readyState === 'open') {
+          activeBundles.push(bundle);
+        }
+      });
     }
 
     // 1. Send FILE_META message
@@ -406,6 +563,19 @@ export class WebRTCManager {
       if (b.controlChannel && b.controlChannel.readyState === 'open') {
         b.controlChannel.send(metaStr);
       }
+    });
+
+    this.callbacks.onTransferProgress({
+      id: fileId,
+      name: file.name,
+      size: file.size,
+      mimeType: file.type || 'application/octet-stream',
+      type: 'upload',
+      peerId: targetPeerId || 'all',
+      peerName: 'Получатели',
+      progress: 0,
+      speed: 0,
+      status: 'transferring',
     });
 
     // 2. Prepare binary header buffer
@@ -513,6 +683,104 @@ export class WebRTCManager {
       progress: 100,
       speed: 0,
       status: 'completed',
+    });
+  }
+
+  /**
+   * Accept an incoming file offer.
+   * If browser supports showSaveFilePicker, stream chunks directly to disk so RAM usage is 0 MB.
+   */
+  public async acceptIncomingFile(fileId: string): Promise<boolean> {
+    const offer = this.pendingOffers.get(fileId);
+    if (!offer) return false;
+
+    let streamToDisk = false;
+    let writableStream: any = undefined;
+
+    // Direct-to-disk streaming via File System Access API
+    if (typeof window !== 'undefined' && 'showSaveFilePicker' in window) {
+      try {
+        const handle = await (window as any).showSaveFilePicker({
+          suggestedName: offer.meta.name,
+        });
+        writableStream = await handle.createWritable();
+        streamToDisk = true;
+      } catch (err: any) {
+        if (err.name === 'AbortError') {
+          // User cancelled file picker dialog
+          return false;
+        }
+        console.warn('File picker failed, falling back to memory', err);
+      }
+    }
+
+    const totalChunks = Math.ceil(offer.meta.size / CHUNK_SIZE);
+
+    // Pre-initialize incomingFiles with disk stream
+    this.incomingFiles.set(fileId, {
+      meta: {
+        ...offer.meta,
+        totalChunks,
+        chunkSize: CHUNK_SIZE,
+      },
+      peerId: offer.peerId,
+      streamToDisk,
+      writableStream,
+      writeQueue: Promise.resolve(),
+      receivedChunks: streamToDisk ? [] : new Array(totalChunks),
+      receivedCount: 0,
+      receivedBytes: 0,
+      lastProgressUpdate: Date.now(),
+      lastBytesTransferred: 0,
+      speed: 0,
+    });
+
+    this.pendingOffers.delete(fileId);
+
+    // Send FILE_ACCEPT to sender
+    const acceptMsg: WebRTCMessage = {
+      type: 'FILE_ACCEPT',
+      fileId,
+      streamToDisk,
+    };
+    const payload = JSON.stringify(acceptMsg);
+
+    const bundle = this.connections.get(offer.peerId);
+    if (bundle?.controlChannel?.readyState === 'open') {
+      bundle.controlChannel.send(payload);
+    }
+
+    this.callbacks.onTransferProgress({
+      id: fileId,
+      status: 'transferring',
+      savedToDisk: streamToDisk,
+    });
+
+    return true;
+  }
+
+  /**
+   * Reject an incoming file offer
+   */
+  public rejectIncomingFile(fileId: string) {
+    const offer = this.pendingOffers.get(fileId);
+    if (!offer) return;
+
+    const rejectMsg: WebRTCMessage = {
+      type: 'FILE_REJECT',
+      fileId,
+    };
+    const payload = JSON.stringify(rejectMsg);
+
+    const bundle = this.connections.get(offer.peerId);
+    if (bundle?.controlChannel?.readyState === 'open') {
+      bundle.controlChannel.send(payload);
+    }
+
+    this.pendingOffers.delete(fileId);
+    this.callbacks.onTransferProgress({
+      id: fileId,
+      status: 'cancelled',
     });
   }
 

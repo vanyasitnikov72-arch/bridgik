@@ -270,6 +270,20 @@ export function App() {
     webrtcRef.current.cancelTransfer(id);
   };
 
+  // Accept large file (pick folder and stream to disk)
+  const handleAcceptFile = async (fileId: string) => {
+    if (webrtcRef.current) {
+      await webrtcRef.current.acceptIncomingFile(fileId);
+    }
+  };
+
+  // Reject large file
+  const handleRejectFile = (fileId: string) => {
+    if (webrtcRef.current) {
+      webrtcRef.current.rejectIncomingFile(fileId);
+    }
+  };
+
   // Toggle Mic
   const handleToggleMic = async () => {
     if (!webrtcRef.current) return false;
@@ -332,6 +346,8 @@ export function App() {
             onSendFiles={handleSendFiles}
             onSendText={handleSendText}
             onCancelTransfer={handleCancelTransfer}
+            onAcceptFile={handleAcceptFile}
+            onRejectFile={handleRejectFile}
             onLeaveRoom={handleLeaveRoom}
             onOpenQR={() => setIsQRModalOpen(true)}
             onToggleMic={handleToggleMic}
