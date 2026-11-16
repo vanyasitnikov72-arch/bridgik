@@ -10,12 +10,10 @@ import {
   FileText,
   Lock,
   Users,
-  Sparkles,
 } from 'lucide-react';
 import { NearbyPeer, PairRequest } from '../types/index.js';
 import { BridgeIcon } from './icons/BridgeIcon.js';
 import { sound } from '../utils/sound.js';
-import { HeroBridgeVisual } from './HeroBridgeVisual.js';
 
 interface HomeViewProps {
   onCreateBridge: () => void;
@@ -36,7 +34,6 @@ interface HomeViewProps {
   myDeviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown';
   lanIp?: string | null;
   onOpenAbout?: () => void;
-  onOpenBrand?: () => void;
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
@@ -58,7 +55,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
   myDeviceType: _myDeviceType,
   lanIp,
   onOpenAbout,
-  onOpenBrand,
 }) => {
   const [pin, setPin] = useState('');
 
@@ -74,26 +70,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
-      {/* Real Cyber P2P Bridge: Screen 1 (Computer) ↔ Glowing Bridge ↔ Screen 2 (Mobile) */}
-      <HeroBridgeVisual />
-
-      {/* Official Brand Logo & Tagline */}
-      <div className="mb-8 flex flex-col items-start gap-3">
-        <div className="flex flex-wrap items-center gap-3 sm:gap-5">
-          <img
-            src="/mascots/dino_logo_transparent.png"
-            alt="bridgik logo"
-            className="h-14 sm:h-20 md:h-24 w-auto object-contain drop-shadow-[0_0_25px_rgba(120,157,42,0.35)] select-none cursor-pointer hover:scale-102 transition-transform"
-            style={{ imageRendering: 'pixelated' }}
-            onClick={onOpenBrand}
-            title="Официальный логотип bridgik (нажмите для перехода в лабораторию маскотов)"
-          />
-          <span className="text-2xl sm:text-4xl md:text-5xl font-extrabold text-[#ededed] tracking-tight">
-            · мост между экранами
-          </span>
-        </div>
-
-        <p className="text-xl sm:text-2xl text-[#bbbbbb] leading-relaxed">
+      {/* Intro Subtitle & Badges */}
+      <div className="mb-8">
+        <p className="text-xl sm:text-2xl text-[#ededed] font-semibold leading-relaxed mb-3">
           Мгновенный P2P-обмен файлами любого размера и текстом. Без регистрации и без серверов.
         </p>
 
@@ -109,19 +88,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
           <span className="px-3 py-1 rounded-md bg-[#222222] border border-[#3a3a3a] text-[#aaaaaa]">
             Wi-Fi Радар
           </span>
-          {onOpenBrand && (
-            <button
-              onClick={() => {
-                onOpenBrand();
-                sound.playClick();
-              }}
-              className="px-3 py-1 rounded-md bg-[#283216] border border-[#789d2a] hover:bg-[#35431d] text-[#bbf348] hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer group"
-              title="Открыть лабораторию маскотов в стиле eblo.id"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-[#9ac43e] group-hover:rotate-12 transition-transform" />
-              <span>Маскот & Лаборатория стиля</span>
-            </button>
-          )}
         </div>
       </div>
 
@@ -458,51 +424,27 @@ export const HomeView: React.FC<HomeViewProps> = ({
       </div>
 
       {/* Link to dedicated About page in eblo.id style */}
-      <div className="space-y-4">
-        {onOpenBrand && (
-          <div
-            onClick={onOpenBrand}
-            className="p-5 sm:p-6 rounded-xl bg-[#1b2214] border border-[#789d2a]/50 hover:border-[#789d2a] flex items-center justify-between group transition-colors cursor-pointer"
-          >
-            <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-lg bg-[#253018] border border-[#789d2a] flex items-center justify-center text-[#9ac43e] group-hover:scale-105 transition-transform shrink-0">
-                <Sparkles className="w-6 h-6 text-[#9ac43e]" />
-              </div>
-              <div>
-                <p className="text-xl sm:text-2xl font-bold text-[#ededed] group-hover:text-white transition-colors">
-                  Лаборатория маскотов и стиля bridgik (eblo.id vibe)
-                </p>
-                <p className="text-base sm:text-lg text-[#aaaaaa]">
-                  Жабик, Кибер-Дино, Кот, Пришелец, Черепашка — примерьте персонажа в шапку сайта
-                </p>
-              </div>
+      {onOpenAbout && (
+        <div
+          onClick={onOpenAbout}
+          className="p-5 sm:p-6 rounded-xl bg-[#202020] border border-[#3a3a3a] hover:border-[#789d2a] flex items-center justify-between group transition-colors cursor-pointer"
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-lg bg-[#282828] border border-[#3a3a3a] flex items-center justify-center text-[#9ac43e] group-hover:border-[#789d2a] shrink-0 font-bold text-xl">
+              ?
             </div>
-            <ArrowRight className="w-6 h-6 text-[#789d2a] group-hover:translate-x-1 transition-transform shrink-0 ml-2" />
-          </div>
-        )}
-
-        {onOpenAbout && (
-          <div
-            onClick={onOpenAbout}
-            className="p-5 sm:p-6 rounded-xl bg-[#202020] border border-[#3a3a3a] hover:border-[#789d2a] flex items-center justify-between group transition-colors cursor-pointer"
-          >
-            <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-lg bg-[#282828] border border-[#3a3a3a] flex items-center justify-center text-[#9ac43e] group-hover:border-[#789d2a] shrink-0 font-bold text-xl">
-                ?
-              </div>
-              <div>
-                <p className="text-xl sm:text-2xl font-bold text-[#ededed] group-hover:text-white transition-colors">
-                  Как устроен bridgik и протокол P2P?
-                </p>
-                <p className="text-base sm:text-lg text-[#aaaaaa]">
-                  Подробно: Direct-to-Disk, Zero-Storage, Wi-Fi радар и безопасность
-                </p>
-              </div>
+            <div>
+              <p className="text-xl sm:text-2xl font-bold text-[#ededed] group-hover:text-white transition-colors">
+                Как устроен bridgik и протокол P2P?
+              </p>
+              <p className="text-base sm:text-lg text-[#aaaaaa]">
+                Подробно: Direct-to-Disk, Zero-Storage, Wi-Fi радар и безопасность
+              </p>
             </div>
-            <ArrowRight className="w-6 h-6 text-[#666666] group-hover:text-[#9ac43e] transition-colors shrink-0 ml-2" />
           </div>
-        )}
-      </div>
+          <ArrowRight className="w-6 h-6 text-[#666666] group-hover:text-[#9ac43e] transition-colors shrink-0 ml-2" />
+        </div>
+      )}
     </div>
   );
 };

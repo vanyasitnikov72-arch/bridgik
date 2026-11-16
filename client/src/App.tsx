@@ -828,7 +828,6 @@ export function App() {
             myDeviceType={deviceType}
             lanIp={lanIp}
             onOpenAbout={() => setActiveTab('about')}
-            onOpenBrand={() => setActiveTab('brand')}
           />
         ) : roomMode === 'meeting' ? (
           <MeetingRoomView
@@ -1093,10 +1092,7 @@ export function App() {
         </aside>
       )}
 
-      <Footer
-        onOpenAbout={() => setActiveTab('about')}
-        onOpenBrand={() => setActiveTab('brand')}
-      />
+      <Footer onOpenAbout={() => setActiveTab('about')} />
       {/* Hidden audio element to play remote peer microphone live */}
       <audio ref={remoteAudioRef} autoPlay playsInline />
     </div>

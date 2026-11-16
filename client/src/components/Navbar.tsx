@@ -46,30 +46,27 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="border-b border-white/[0.08] bg-[#171717] sticky top-0 z-40">
-      <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-        {/* Official Brand Logo: Cyber-Dino + bridgik */}
+      <div className="max-w-5xl mx-auto px-4 h-18 sm:h-20 flex items-center justify-between">
+        {/* Official Brand Logo: Prominent Cyber-Dino + bridgik */}
         <div
           onClick={() => {
             if (onSelectTab) onSelectTab('bridge');
             onGoHome?.();
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
-          className="flex items-center gap-2 cursor-pointer select-none group"
+          className="flex items-center cursor-pointer select-none group py-1"
           title="bridgik · На главную"
         >
           <img
             src="/mascots/dino_logo_transparent.png"
             alt="bridgik"
-            className="h-10 sm:h-11 w-auto object-contain group-hover:scale-105 transition-transform drop-shadow-[0_0_12px_rgba(120,157,42,0.25)]"
+            className="h-12 sm:h-14 md:h-16 w-auto object-contain group-hover:scale-105 transition-transform drop-shadow-[0_0_15px_rgba(120,157,42,0.3)]"
             style={{ imageRendering: 'pixelated' }}
           />
-          <span className="text-xs uppercase font-extrabold tracking-wider px-2 py-0.5 rounded bg-[#222222] text-[#9ac43e] border border-[#3a3a3a] hidden sm:inline-block">
-            p2p
-          </span>
         </div>
 
-        {/* Center / Navigation: Главная · О сервисе · Маскот / Лого */}
-        <nav className="flex items-center gap-3 sm:gap-5 text-lg font-bold">
+        {/* Center / Navigation: Главная · О сервисе */}
+        <nav className="flex items-center gap-4 sm:gap-6 text-lg font-bold">
           <button
             onClick={() => {
               if (onSelectTab) onSelectTab('bridge');
@@ -96,21 +93,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             }`}
           >
             О сервисе
-          </button>
-          <button
-            onClick={() => {
-              if (onSelectTab) onSelectTab('brand');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            className={`pb-1 cursor-pointer transition-colors flex items-center gap-1.5 ${
-              activeTab === 'brand'
-                ? 'text-[#ededed] border-b-2 border-[#789d2a]'
-                : 'text-[#aaaaaa] hover:text-[#ededed]'
-            }`}
-            title="Интерактивная студия маскота и логотипа"
-          >
-            <span>Маскот & Лого</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-[#9ac43e] animate-pulse" />
           </button>
           <span className="text-[#999999]/60 hidden md:inline">·</span>
           <span className="text-sm sm:text-base text-[#9ac43e] font-mono font-bold hidden md:inline">
