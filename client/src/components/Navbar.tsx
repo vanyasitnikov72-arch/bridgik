@@ -132,7 +132,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           <div className="relative flex items-center">
             {isAvatarPickerOpen && (
-              <div className="absolute top-12 right-0 z-50">
+              <div className="absolute top-14 right-0 z-50">
                 <AvatarPicker
                   currentAvatar={userAvatar || getAvatarForName(userName)}
                   onSelectAvatar={(src) => {
@@ -144,21 +144,23 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             )}
 
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#222222] border border-[#3a3a3a] text-base text-[#ededed]">
+            <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-[#222222] border border-[#3a3a3a] text-base text-[#ededed]">
               <button
                 type="button"
                 onClick={() => setIsAvatarPickerOpen(!isAvatarPickerOpen)}
-                className="relative cursor-pointer hover:scale-105 active:scale-95 transition-transform shrink-0"
+                className={`relative cursor-pointer hover:scale-105 active:scale-95 transition-transform shrink-0 ${
+                  isAvatarPickerOpen ? 'ring-2 ring-[#789d2a] rounded-full scale-105' : ''
+                }`}
                 title="Кликните, чтобы сменить маскота"
               >
                 <img
                   src={userAvatar || getAvatarForName(userName)}
                   alt={userName}
-                  className="w-7 h-7 rounded-full object-cover border border-[#789d2a] shadow-sm bg-[#171717]"
+                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border-2 border-[#789d2a] shadow-[0_0_8px_rgba(120,157,42,0.35)] bg-[#171717]"
                   style={{ imageRendering: 'pixelated' }}
                 />
                 <span
-                  className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-[#222222] ${
+                  className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#222222] ${
                     isConnected ? 'bg-[#789d2a]' : 'bg-[#e8b33c]'
                   }`}
                   title={isConnected ? 'В сети' : 'Подключение...'}
