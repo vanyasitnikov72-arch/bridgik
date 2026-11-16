@@ -106,6 +106,28 @@
   animation: bridge-flow-packet 3.2s infinite linear;
 }
 
+@keyframes bridge-flow-packet-reverse {
+  0% {
+    left: 94%;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    left: 4%;
+    opacity: 0;
+  }
+}
+
+.animate-bridge-flow-reverse {
+  position: absolute;
+  animation: bridge-flow-packet-reverse 3.6s infinite linear;
+}
+
 @keyframes beacon-blink {
   0%, 100% {
     opacity: 0.35;
