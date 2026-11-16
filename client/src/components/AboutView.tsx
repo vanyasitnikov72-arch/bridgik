@@ -147,7 +147,7 @@ export const AboutView: React.FC<AboutViewProps> = ({ onBack: _onBack }) => {
                 </li>
                 <li className="flex items-start gap-2.5">
                   <span className="text-[#9ac43e] font-bold">•</span>
-                  <span><strong>Общий блокнот (Scratchpad):</strong> совместный черновик заметок с моментальной синхронизацией по DataChannel и скачиванием в .md.</span>
+                  <span><strong>Канвас (Canvas):</strong> совместный черновик заметок и планов с моментальной синхронизацией по DataChannel и скачиванием в .md.</span>
                 </li>
                 <li className="flex items-start gap-2.5">
                   <span className="text-[#9ac43e] font-bold">•</span>
@@ -310,7 +310,7 @@ export const AboutView: React.FC<AboutViewProps> = ({ onBack: _onBack }) => {
             </div>
             <div>
               <h2 className="text-2xl sm:text-3xl font-extrabold text-[#ededed]">
-                Голос, трансляция экрана и блокнот (в режиме «Комната»)
+                Голос, трансляция экрана и Канвас (в режиме «Комната»)
               </h2>
               <p className="text-sm sm:text-base text-[#9ac43e] font-semibold">
                 Полноценная переговорная без сторонних сервисов
@@ -318,7 +318,7 @@ export const AboutView: React.FC<AboutViewProps> = ({ onBack: _onBack }) => {
             </div>
           </div>
           <p className="text-lg sm:text-xl text-[#cccccc] leading-relaxed mb-3">
-            В режиме <strong className="text-white">«Комната»</strong> участникам доступны прямой P2P-стриминг медиа (чистый Opus для голоса, 60 FPS захват экрана) и общий синхронный блокнот (Scratchpad).
+            В режиме <strong className="text-white">«Комната»</strong> участникам доступны прямой P2P-стриминг медиа (чистый Opus для голоса, 60 FPS захват экрана) и совместный синхронный Канвас (Canvas).
           </p>
           <p className="text-lg sm:text-xl text-[#cccccc] leading-relaxed">
             При этом режим <strong className="text-white">«Мост»</strong> остаётся строго сфокусированным на быстрой передаче файлов между устройствами — в нём нет лишних кнопок звонка, чтобы ничто не отвлекало от мгновенного переброса данных.

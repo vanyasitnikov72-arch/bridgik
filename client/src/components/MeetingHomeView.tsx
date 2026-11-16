@@ -40,7 +40,7 @@ export const MeetingHomeView: React.FC<MeetingHomeViewProps> = ({
           Комната <span className="text-[#9ac43e]">·</span> переговорная без следов
         </h1>
         <p className="text-xl sm:text-2xl text-[#bbbbbb] leading-relaxed">
-          Приватная аудиосвязь, демонстрация экрана и общий блокнот. Прямое зашифрованное P2P-соединение. Закрыли вкладку — ни следа.
+          Приватная аудиосвязь, демонстрация экрана и совместный Канвас. Прямое зашифрованное P2P-соединение. Закрыли вкладку — ни следа.
         </p>
       </div>
 
@@ -49,7 +49,7 @@ export const MeetingHomeView: React.FC<MeetingHomeViewProps> = ({
         <span className="font-bold text-xl leading-none shrink-0 mt-0.5">ⓘ</span>
         <div className="space-y-1 leading-snug">
           <p className="text-[#d4e8a8]">
-            Связь строится напрямую браузер ↔ браузер (WebRTC DTLS/SRTP). Разговоры не записываются, видеопоток не проходит через сторонние сервера, история переписки и блокнот очищаются при выходе.
+            Связь строится напрямую браузер ↔ браузер (WebRTC DTLS/SRTP). Разговоры не записываются, видеопоток не проходит через сторонние сервера, история переписки и Канвас очищаются при выходе.
           </p>
         </div>
       </div>
@@ -138,9 +138,9 @@ export const MeetingHomeView: React.FC<MeetingHomeViewProps> = ({
             <FileText className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-[#ededed] mb-1">Общий блокнот (Scratchpad)</h3>
+            <h3 className="text-xl font-bold text-[#ededed] mb-1">Канвас (Canvas)</h3>
             <p className="text-base text-[#aaaaaa] leading-snug">
-              Совместный черновик заметок встречи с синхронизацией в реальном времени.
+              Совместный черновик заметок и тезисов встречи с синхронизацией в реальном времени.
             </p>
           </div>
         </div>

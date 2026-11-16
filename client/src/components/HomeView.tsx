@@ -315,7 +315,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               </div>
 
               <p className="text-base text-[#cccccc] leading-relaxed">
-                Изолированное пространство для приватного созвона: чистый голос Opus 48 kHz, показ экрана 60 FPS и общий блокнот.
+                Изолированное пространство для приватного созвона: чистый голос Opus 48 kHz, показ экрана 60 FPS и совместный Канвас.
               </p>
             </div>
 
@@ -517,7 +517,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               </div>
               <div className="flex items-center gap-2 text-sm text-[#bbbbbb]">
                 <FileText className="w-4 h-4 text-[#9ac43e]" />
-                <span>Общий блокнот с экспортом в .md</span>
+                <span>Совместный Канвас с экспортом в .md</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-[#bbbbbb]">
                 <Lock className="w-4 h-4 text-[#9ac43e]" />

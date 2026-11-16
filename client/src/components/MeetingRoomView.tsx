@@ -32,9 +32,12 @@ import {
   Lock,
   Unlock,
   Armchair,
+  Smile,
 } from 'lucide-react';
 import { FileTransfer, Peer, TextMessage } from '../types/index.js';
 import { sound } from '../utils/sound.js';
+import { EmotePicker } from './EmotePicker.js';
+import { ChatMessageBubble } from './ChatMessageBubble.js';
 
 export type RoomId = 'cyber-lounge' | 'cozy-loft' | 'skyline-penthouse' | 'retro-lounge';
 
@@ -427,6 +430,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isRoomPickerOpen, setIsRoomPickerOpen] = useState(false);
   const [isTheaterMode, setIsTheaterMode] = useState(false);
+  const [isEmotePickerOpen, setIsEmotePickerOpen] = useState(false);
   const [customNameInput, setCustomNameInput] = useState(myUserName || '');
   const [nameSavedSuccess, setNameSavedSuccess] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
@@ -1068,7 +1072,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
               }`}
             >
               <FileText className="w-4 h-4 text-[#9ac43e]" />
-              <span>Общий блокнот</span>
+              <span>Канвас</span>
             </button>
             <button
               onClick={() => setActiveSideTab('chat')}
@@ -1083,19 +1087,19 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
             </button>
           </div>
 
-          {/* Tab Content: Shared Scratchpad */}
+          {/* Tab Content: Shared Scratchpad / Canvas */}
           {activeSideTab === 'notes' ? (
             <div className="flex-1 flex flex-col p-4">
               <div className="flex items-center justify-between mb-3 text-xs sm:text-sm text-[#aaaaaa]">
                 <span className="font-semibold text-[#9ac43e] flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-[#789d2a]" />
-                  <span>Синхронизация в реальном времени</span>
+                  <span>Канвас · Синхронизация на лету</span>
                 </span>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleCopyNotes}
                     className="p-1.5 hover:text-white rounded bg-[#272727] hover:bg-[#333333] transition-colors cursor-pointer text-xs flex items-center gap-1"
-                    title="Скопировать весь блокнот"
+                    title="Скопировать Канвас"
                   >
                     {copiedNotes ? <Check className="w-3.5 h-3.5 text-[#9ac43e]" /> : <Copy className="w-3.5 h-3.5" />}
                     <span>{copiedNotes ? 'Скопировано' : 'Копировать'}</span>
@@ -1114,19 +1118,19 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
               <textarea
                 value={scratchpadText}
                 onChange={(e) => onUpdateScratchpad(e.target.value)}
-                placeholder="Общий блокнот встречи... Набросайте план, тезисы, ссылки или код. Все изменения моментально видны собеседникам."
+                placeholder="Канвас комнаты... Набросайте план, тезисы, ссылки или код. Все изменения моментально видны собеседникам."
                 className="flex-1 w-full bg-[#141414] border border-[#333333] rounded-xl p-3.5 text-base sm:text-lg text-[#ededed] placeholder-[#666666] outline-none focus:border-[#789d2a] resize-none font-mono leading-relaxed transition-colors"
               />
 
               <div className="mt-2 text-xs text-[#888888] flex items-center justify-between">
-                <span>Заметки не сохраняются на сервере</span>
+                <span>Канвас не сохраняется на сервере (P2P)</span>
                 <span>Символов: {scratchpadText.length}</span>
               </div>
             </div>
           ) : (
             /* Tab Content: Meeting Chat */
-            <div className="flex-1 flex flex-col">
-              <div className="flex-1 p-4 overflow-y-auto space-y-3">
+            <div className="flex-1 flex flex-col min-h-0">
+              <div className="flex-1 p-4 overflow-y-auto space-y-3 scrollbar-thin">
                 {messages.length === 0 ? (
                   <div className="h-full flex items-center justify-center text-center text-[#777777] text-sm">
                     Сообщений пока нет. Напишите что-нибудь собеседникам в гостиной.
@@ -1135,44 +1139,58 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                   messages.map((m) => {
                     const isMe = m.senderId === myPeerId;
                     return (
-                      <div
+                      <ChatMessageBubble
                         key={m.id}
-                        className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
-                      >
-                        <span className="text-xs text-[#888888] mb-0.5 px-1">{m.senderName}</span>
-                        <div
-                          className={`max-w-[85%] p-3 rounded-xl text-base leading-snug break-words ${
-                            isMe
-                              ? 'bg-[#1b2413] border border-[#789d2a]/50 text-[#d4e8a8]'
-                              : 'bg-[#272727] border border-[#353535] text-[#ededed]'
-                          }`}
-                        >
-                          {m.text}
-                        </div>
-                      </div>
+                        senderName={m.senderName}
+                        text={m.text}
+                        isMe={isMe}
+                      />
                     );
                   })
                 )}
                 <div ref={chatBottomRef} />
               </div>
 
-              {/* Chat Input */}
-              <form onSubmit={handleSendChat} className="p-3 border-t border-[#353535] bg-[#171717] flex gap-2">
-                <input
-                  type="text"
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  placeholder="Сообщение или ссылка..."
-                  className="flex-1 bg-[#141414] border border-[#333333] rounded-xl px-3.5 py-2 text-base text-[#ededed] placeholder-[#666666] outline-none focus:border-[#789d2a] transition-colors"
+              {/* Chat Input Bar with 7TV Emote Picker */}
+              <div className="relative border-t border-[#353535] bg-[#171717]">
+                <EmotePicker
+                  isOpen={isEmotePickerOpen}
+                  onClose={() => setIsEmotePickerOpen(false)}
+                  onSelectEmote={(emote) => {
+                    setChatInput((prev) => (prev ? `${prev} ${emote.code} ` : `${emote.code} `));
+                    setIsEmotePickerOpen(false);
+                  }}
                 />
-                <button
-                  type="submit"
-                  disabled={!chatInput.trim()}
-                  className="px-4 py-2 bg-[#789d2a] hover:bg-[#8cb632] disabled:opacity-40 text-white rounded-xl font-bold text-sm transition-colors cursor-pointer flex items-center justify-center"
-                >
-                  <Send className="w-4 h-4" />
-                </button>
-              </form>
+
+                <form onSubmit={handleSendChat} className="p-3 flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    placeholder="Сообщение или ссылка..."
+                    className="flex-1 bg-[#141414] border border-[#333333] rounded-xl px-3.5 py-2 text-base text-[#ededed] placeholder-[#666666] outline-none focus:border-[#789d2a] transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setIsEmotePickerOpen(!isEmotePickerOpen)}
+                    className={`p-2.5 rounded-xl border transition-colors cursor-pointer flex items-center justify-center shrink-0 ${
+                      isEmotePickerOpen
+                        ? 'bg-[#789d2a]/20 border-[#789d2a] text-[#9ac43e]'
+                        : 'bg-[#222222] border-[#333333] text-[#888888] hover:text-[#ededed] hover:border-[#555555]'
+                    }`}
+                    title="Смайлики (7TV и мемы)"
+                  >
+                    <Smile className="w-5 h-5" />
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!chatInput.trim()}
+                    className="px-4 py-2.5 bg-[#789d2a] hover:bg-[#8cb632] disabled:opacity-40 text-white rounded-xl font-bold text-sm transition-colors cursor-pointer flex items-center justify-center shrink-0 shadow-md shadow-[#789d2a]/20"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                </form>
+              </div>
             </div>
           )}
         </div>
