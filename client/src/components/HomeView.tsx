@@ -6,8 +6,6 @@ import {
   Smartphone,
   Send,
   Radio,
-  Check,
-  X,
   Mic,
   FileText,
   Lock,
@@ -50,9 +48,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
   nearbyPeers,
   onPairWithNearby,
   isPairing,
-  incomingPairRequest,
-  onAcceptPair,
-  onRejectPair,
+  incomingPairRequest: _incomingPairRequest,
+  onAcceptPair: _onAcceptPair,
+  onRejectPair: _onRejectPair,
   myUserName: _myUserName,
   myDeviceType: _myDeviceType,
   lanIp,
@@ -328,45 +326,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </div>
         </div>
       </div>
-
-      {/* Incoming Pair Request Modal / Card */}
-      {incomingPairRequest && (
-        <div className="mb-6 p-5 sm:p-6 rounded-xl bg-[#1c2214] border-2 border-[#789d2a] shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-lg bg-[#789d2a]/20 border border-[#789d2a] flex items-center justify-center text-[#9ac43e] shrink-0">
-              {incomingPairRequest.fromDevice === 'mobile' ? (
-                <Smartphone className="w-6 h-6" />
-              ) : (
-                <Monitor className="w-6 h-6" />
-              )}
-            </div>
-            <div>
-              <p className="text-lg font-bold text-[#ededed]">
-                Входящее подключение для передачи файлов
-              </p>
-              <p className="text-base text-[#9ac43e]">
-                <strong>{incomingPairRequest.fromName}</strong> хочет передать вам файлы
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 w-full sm:w-auto">
-            <button
-              onClick={onAcceptPair}
-              className="flex-1 sm:flex-none px-6 py-2.5 rounded-lg bg-[#789d2a] hover:bg-[#8cb632] text-white font-bold text-base transition-colors cursor-pointer flex items-center justify-center gap-2"
-            >
-              <Check className="w-5 h-5" />
-              <span>Принять</span>
-            </button>
-            <button
-              onClick={onRejectPair}
-              className="flex-1 sm:flex-none px-5 py-2.5 rounded-lg bg-[#2d2d2d] hover:bg-[#3a3a3a] text-[#ededed] font-bold text-base transition-colors cursor-pointer flex items-center justify-center gap-1.5"
-            >
-              <X className="w-5 h-5" />
-              <span>Отклонить</span>
-            </button>
-          </div>
-        </div>
-      )}
 
       {errorMessage && (
         <div className="mb-6 p-4 rounded-lg bg-[#ef9282]/10 border border-[#ed2b3b]/30 text-[#ef9282] text-base font-semibold">

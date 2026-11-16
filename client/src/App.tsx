@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { Smartphone, Monitor, Check, X, Radio, AlertCircle } from 'lucide-react';
 import { Navbar } from './components/Navbar.js';
 import { HomeView } from './components/HomeView.js';
 import { RoomView } from './components/RoomView.js';
@@ -40,6 +41,9 @@ export function App() {
   const [nearbyPeers, setNearbyPeers] = useState<NearbyPeer[]>([]);
   const [incomingPairRequest, setIncomingPairRequest] = useState<PairRequest | null>(null);
   const [isPairing, setIsPairing] = useState(false);
+  const [pairingTargetName, setPairingTargetName] = useState<string>('');
+  const [pairingTargetSocketId, setPairingTargetSocketId] = useState<string>('');
+  const [pairRejectionNotice, setPairRejectionNotice] = useState<string | null>(null);
   const [lanIp, setLanIp] = useState<string | null>(null);
   const [destinationDirName, setDestinationDirName] = useState<string | null>(null);
   const destinationDirHandleRef = useRef<any>(null);
@@ -98,6 +102,15 @@ export function App() {
       .catch(() => {});
   }, []);
 
+  // Auto-dismiss pair rejection notice after 6s
+  useEffect(() => {
+    if (!pairRejectionNotice) return;
+    const timer = setTimeout(() => {
+      setPairRejectionNotice(null);
+    }, 6000);
+    return () => clearTimeout(timer);
+  }, [pairRejectionNotice]);
+
   // Sync user name changes
   const handleUpdateUserName = (name: string) => {
     setUserName(name);
@@ -110,6 +123,9 @@ export function App() {
     );
     if (socket && roomId) {
       socket.emit('update-peer-name', { roomId, name });
+    }
+    if (socket && !roomId) {
+      socket.emit('lobby-update-name', { name });
     }
   };
 
@@ -305,6 +321,7 @@ export function App() {
       name: userName,
       deviceType,
     });
+    socket.emit('lobby-query');
 
     const handleNearby = (peers: NearbyPeer[]) => {
       setNearbyPeers(peers);
@@ -315,24 +332,34 @@ export function App() {
       setIncomingPairRequest(req);
     };
 
-    const handlePairResult = (res: { roomId: string; pin: string; accepted: boolean }) => {
+    const handlePairCancelled = () => {
+      setIncomingPairRequest(null);
+    };
+
+    const handlePairResult = (res: { roomId: string; pin: string; accepted: boolean; reason?: string }) => {
       setIsPairing(false);
+      setPairingTargetSocketId('');
+      setPairingTargetName('');
       if (res.accepted) {
         sound.playConnect();
-        handleJoinRoom(res.roomId);
+        handleJoinRoom(res.roomId, 'bridge');
       } else {
-        setErrorMessage('Устройство отклонило запрос на передачу файлов');
+        const reason = res.reason || 'Устройство отклонило запрос на передачу файлов';
+        setPairRejectionNotice(reason);
+        sound.playClick();
       }
     };
 
     socket.on('nearby-peers', handleNearby);
     socket.on('incoming-pair-request', handleIncomingPair);
+    socket.on('pair-request-cancelled', handlePairCancelled);
     socket.on('direct-pair-result', handlePairResult);
 
     return () => {
       socket.emit('lobby-leave');
       socket.off('nearby-peers', handleNearby);
       socket.off('incoming-pair-request', handleIncomingPair);
+      socket.off('pair-request-cancelled', handlePairCancelled);
       socket.off('direct-pair-result', handlePairResult);
     };
   }, [socket, isConnected, roomId, userName, deviceType]);
@@ -392,8 +419,14 @@ export function App() {
   // Pair via local radar in 1 click
   const handlePairWithNearby = (targetSocketId: string) => {
     if (!socket) return;
+    const targetPeer = nearbyPeers.find((p) => p.socketId === targetSocketId);
+    const targetName = targetPeer?.name || 'Устройство';
+    setPairingTargetName(targetName);
+    setPairingTargetSocketId(targetSocketId);
     setIsPairing(true);
     setErrorMessage(undefined);
+    setPairRejectionNotice(null);
+
     socket.emit('direct-pair-request', {
       toSocketId: targetSocketId,
       myName: userName,
@@ -401,9 +434,20 @@ export function App() {
     });
   };
 
+  const handleCancelPairRequest = () => {
+    if (!socket) return;
+    if (pairingTargetSocketId) {
+      socket.emit('cancel-pair-request', { toSocketId: pairingTargetSocketId });
+    }
+    setIsPairing(false);
+    setPairingTargetSocketId('');
+    setPairingTargetName('');
+  };
+
   const handleAcceptPair = () => {
     if (!socket || !incomingPairRequest) return;
     const req = incomingPairRequest;
+    sound.playConnect();
     socket.emit('direct-pair-response', {
       toSocketId: req.fromSocketId,
       roomId: req.roomId,
@@ -411,17 +455,19 @@ export function App() {
       accepted: true,
     });
     setIncomingPairRequest(null);
-    handleJoinRoom(req.roomId);
+    handleJoinRoom(req.roomId, 'bridge');
   };
 
   const handleRejectPair = () => {
     if (!socket || !incomingPairRequest) return;
     const req = incomingPairRequest;
+    sound.playClick();
     socket.emit('direct-pair-response', {
       toSocketId: req.fromSocketId,
       roomId: req.roomId,
       pin: req.pin,
       accepted: false,
+      reason: 'Устройство отклонило запрос на передачу файлов',
     });
     setIncomingPairRequest(null);
   };
@@ -763,6 +809,106 @@ export function App() {
         pin={pin}
         roomUrl={roomUrl}
       />
+
+      {/* ============================================================== */}
+      {/* TOP FLOATING NOTIFICATIONS (Always visible above any scroll)   */}
+      {/* ============================================================== */}
+
+      {/* 1. Incoming Pair Request (Receiver) */}
+      {incomingPairRequest && (
+        <aside aria-label="Входящий запрос на передачу" className="fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-2xl animate-in slide-in-from-top-6 duration-300">
+          <div className="p-4 sm:p-5 rounded-2xl bg-[#1c2214]/95 border-2 border-[#789d2a] shadow-[0_12px_45px_rgba(0,0,0,0.85)] backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5 min-w-0 w-full sm:w-auto">
+              <div className="w-12 h-12 rounded-xl bg-[#789d2a]/20 border border-[#789d2a] flex items-center justify-center text-[#9ac43e] shrink-0 relative">
+                <span className="absolute inset-0 rounded-xl border border-[#789d2a] animate-ping opacity-35 pointer-events-none" />
+                {incomingPairRequest.fromDevice === 'mobile' ? (
+                  <Smartphone className="w-6 h-6" />
+                ) : (
+                  <Monitor className="w-6 h-6" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="text-base sm:text-lg font-bold text-[#ededed] leading-snug">
+                  Входящее подключение для передачи файлов
+                </p>
+                <p className="text-sm sm:text-base text-[#9ac43e] truncate">
+                  <strong className="text-[#c7ea6a]">{incomingPairRequest.fromName}</strong> хочет передать вам файлы
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2.5 w-full sm:w-auto shrink-0">
+              <button
+                onClick={handleAcceptPair}
+                className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl bg-[#789d2a] hover:bg-[#8cb632] text-white font-bold text-base transition-colors cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-[#789d2a]/30"
+              >
+                <Check className="w-5 h-5" />
+                <span>Принять</span>
+              </button>
+              <button
+                onClick={handleRejectPair}
+                className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-[#2d2d2d] hover:bg-[#3a3a3a] text-[#ededed] font-bold text-base transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <X className="w-5 h-5" />
+                <span>Отклонить</span>
+              </button>
+            </div>
+          </div>
+        </aside>
+      )}
+
+      {/* 2. Pair Request Rejection Alert */}
+      {pairRejectionNotice && (
+        <aside aria-label="Запрос отклонен" className="fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-xl animate-in slide-in-from-top-6 duration-300">
+          <div className="p-4 sm:p-5 rounded-2xl bg-[#221616]/95 border-2 border-[#ed2b3b]/60 shadow-[0_12px_45px_rgba(0,0,0,0.85)] backdrop-blur-md flex items-center justify-between gap-3.5">
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="w-11 h-11 rounded-xl bg-[#ed2b3b]/20 border border-[#ed2b3b]/40 flex items-center justify-center text-[#ef9282] shrink-0">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-base sm:text-lg font-bold text-[#ededed] leading-snug">
+                  Запрос на передачу отклонен
+                </p>
+                <p className="text-sm sm:text-base text-[#ef9282] truncate">
+                  {pairRejectionNotice}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setPairRejectionNotice(null)}
+              className="px-4 py-2 rounded-xl bg-[#2e1d1d] hover:bg-[#3d2727] text-[#ededed] text-sm font-bold border border-[#ed2b3b]/30 transition-colors cursor-pointer shrink-0"
+            >
+              Закрыть
+            </button>
+          </div>
+        </aside>
+      )}
+
+      {/* 3. Sender Waiting Notification */}
+      {isPairing && (
+        <aside aria-label="Ожидание ответа" className="fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-xl animate-in slide-in-from-top-6 duration-300">
+          <div className="p-4 sm:p-5 rounded-2xl bg-[#171c12]/95 border-2 border-[#789d2a]/60 shadow-[0_12px_45px_rgba(0,0,0,0.85)] backdrop-blur-md flex items-center justify-between gap-3.5">
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="w-11 h-11 rounded-xl bg-[#789d2a]/20 border border-[#789d2a] flex items-center justify-center text-[#9ac43e] shrink-0">
+                <Radio className="w-6 h-6 animate-pulse text-[#9ac43e]" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-base sm:text-lg font-bold text-[#ededed] leading-snug">
+                  Ожидание подтверждения...
+                </p>
+                <p className="text-sm sm:text-base text-[#9ac43e] truncate">
+                  Запрос отправлен на устройство <strong>{pairingTargetName || 'собеседника'}</strong>
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleCancelPairRequest}
+              className="px-4 py-2 rounded-xl bg-[#262626] hover:bg-[#333333] text-[#ededed] text-sm font-bold border border-[#3a3a3a] transition-colors cursor-pointer shrink-0"
+            >
+              Отмена
+            </button>
+          </div>
+        </aside>
+      )}
 
       <Footer onOpenAbout={() => setActiveTab('about')} />
       {/* Hidden audio element to play remote peer microphone live */}

@@ -45,26 +45,68 @@ interface LobbyPeer {
   socketId: string;
   name: string;
   deviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown';
+  subnet: string;
   ip: string;
 }
 const lobbyPeers: Map<string, LobbyPeer> = new Map();
 
 function getClientIp(socket: any): string {
   const forwarded = socket.handshake.headers['x-forwarded-for'];
+  let ip = '';
   if (typeof forwarded === 'string') {
-    return forwarded.split(',')[0].trim();
+    ip = forwarded.split(',')[0].trim();
+  } else {
+    ip = socket.handshake.address || '127.0.0.1';
   }
-  const addr = socket.handshake.address || '127.0.0.1';
-  if (addr === '::1' || addr === '127.0.0.1' || addr.includes('::ffff:127.0.0.1')) {
-    return '127.0.0.1';
+  if (ip.startsWith('::ffff:')) {
+    ip = ip.slice(7);
   }
-  return addr;
+  return ip;
 }
 
-function broadcastNearbyPeers(ip: string) {
-  const peersOnIp = Array.from(lobbyPeers.values()).filter((p) => p.ip === ip);
-  peersOnIp.forEach((peer) => {
-    const others = peersOnIp
+function getClientNetworkSubnet(socket: any): string {
+  let ip = getClientIp(socket);
+  const lanIp = getLocalLanIp();
+
+  // If localhost, it is running on the server host machine, so it shares the server's LAN IP
+  if (ip === '127.0.0.1' || ip === '::1' || ip === 'localhost') {
+    ip = lanIp;
+  }
+
+  // Parse IPv4 address
+  const parts = ip.split('.').map(Number);
+  if (parts.length === 4 && !parts.some(isNaN)) {
+    // 192.168.x.x -> group by /24 subnet (e.g. 192.168.8)
+    if (parts[0] === 192 && parts[1] === 168) {
+      return `lan-192.168.${parts[2]}`;
+    }
+    // 10.x.x.x -> group by /24
+    if (parts[0] === 10) {
+      return `lan-10.${parts[1]}.${parts[2]}`;
+    }
+    // 172.16.x.x - 172.31.x.x
+    if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) {
+      return `lan-172.${parts[1]}.${parts[2]}`;
+    }
+  }
+
+  // Check if IP belongs to the same local network as the server
+  if (lanIp && lanIp !== '127.0.0.1') {
+    const lanParts = lanIp.split('.').map(Number);
+    if (lanParts.length === 4 && parts.length === 4) {
+      if (parts[0] === lanParts[0] && parts[1] === lanParts[1]) {
+        return `lan-${lanParts[0]}.${lanParts[1]}.${lanParts[2]}`;
+      }
+    }
+  }
+
+  return `pub-${ip}`;
+}
+
+function broadcastNearbyPeers(subnet: string) {
+  const peersInSubnet = Array.from(lobbyPeers.values()).filter((p) => p.subnet === subnet);
+  peersInSubnet.forEach((peer) => {
+    const others = peersInSubnet
       .filter((p) => p.socketId !== peer.socketId)
       .map((p) => ({
         socketId: p.socketId,
@@ -79,7 +121,7 @@ function removeFromLobby(socketId: string) {
   const existing = lobbyPeers.get(socketId);
   if (existing) {
     lobbyPeers.delete(socketId);
-    broadcastNearbyPeers(existing.ip);
+    broadcastNearbyPeers(existing.subnet);
   }
 }
 
@@ -122,16 +164,42 @@ if (fs.existsSync(clientDistPath)) {
 // Socket.io WebRTC Signaling
 io.on('connection', (socket) => {
   const clientIp = getClientIp(socket);
+  const clientSubnet = getClientNetworkSubnet(socket);
 
   // 0. Local Network Discovery (Snapdrop / AirDrop radar)
   socket.on('lobby-join', (data: { name: string; deviceType: any }) => {
+    const currentSubnet = getClientNetworkSubnet(socket);
     lobbyPeers.set(socket.id, {
       socketId: socket.id,
       name: data.name || 'Устройство',
       deviceType: data.deviceType || 'unknown',
+      subnet: currentSubnet,
       ip: clientIp,
     });
-    broadcastNearbyPeers(clientIp);
+    broadcastNearbyPeers(currentSubnet);
+  });
+
+  socket.on('lobby-update-name', (data: { name: string }) => {
+    const peer = lobbyPeers.get(socket.id);
+    if (peer) {
+      peer.name = data.name || 'Устройство';
+      broadcastNearbyPeers(peer.subnet);
+    }
+  });
+
+  socket.on('lobby-query', () => {
+    const currentSubnet = getClientNetworkSubnet(socket);
+    const peersInSubnet = Array.from(lobbyPeers.values()).filter(
+      (p) => p.subnet === currentSubnet && p.socketId !== socket.id
+    );
+    socket.emit(
+      'nearby-peers',
+      peersInSubnet.map((p) => ({
+        socketId: p.socketId,
+        name: p.name,
+        deviceType: p.deviceType,
+      }))
+    );
   });
 
   socket.on('lobby-leave', () => {
@@ -141,9 +209,17 @@ io.on('connection', (socket) => {
   // Direct 1-click pair request
   socket.on('direct-pair-request', (data: { toSocketId: string; myName: string; myDevice: any }) => {
     const target = lobbyPeers.get(data.toSocketId);
-    if (!target) return;
+    if (!target) {
+      socket.emit('direct-pair-result', {
+        accepted: false,
+        reason: 'Устройство не найдено или вышло из сети',
+      });
+      return;
+    }
 
     const room = roomManager.createRoom();
+    room.mode = 'bridge';
+    room.maxSeats = 2;
 
     io.to(data.toSocketId).emit('incoming-pair-request', {
       fromSocketId: socket.id,
@@ -154,13 +230,21 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('direct-pair-response', (data: { toSocketId: string; roomId: string; pin: string; accepted: boolean }) => {
-    io.to(data.toSocketId).emit('direct-pair-result', {
-      roomId: data.roomId,
-      pin: data.pin,
-      accepted: data.accepted,
-    });
+  socket.on('cancel-pair-request', (data: { toSocketId: string }) => {
+    io.to(data.toSocketId).emit('pair-request-cancelled');
   });
+
+  socket.on(
+    'direct-pair-response',
+    (data: { toSocketId: string; roomId: string; pin: string; accepted: boolean; reason?: string }) => {
+      io.to(data.toSocketId).emit('direct-pair-result', {
+        roomId: data.roomId,
+        pin: data.pin,
+        accepted: data.accepted,
+        reason: data.reason || (data.accepted ? undefined : 'Устройство отклонило запрос на передачу файлов'),
+      });
+    }
+  );
 
   // 1. Create Room
   socket.on(
@@ -324,7 +408,7 @@ io.on('connection', (socket) => {
     const peer = room.peers.get(socket.id);
     if (peer) {
       peer.name = data.name;
-      socket.to(room.id).to(room.pin).emit('peer-updated', peer);
+      io.to(room.id).to(room.pin).emit('peer-updated', peer);
     }
   });
 
