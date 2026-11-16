@@ -424,7 +424,8 @@ export function App() {
           if (res.mySeat !== undefined) setMySeatIndex(res.mySeat);
           setupWebRTC(socket, res.peerId);
           const modeQuery = mode === 'meeting' ? '&mode=meeting' : '';
-          window.history.pushState({}, '', `?room=${res.pin}${modeQuery}`);
+          const targetRoom = res.roomId || res.pin;
+          window.history.pushState({}, '', `?room=${targetRoom}${modeQuery}`);
         } else {
           setErrorMessage(res.error || 'Не удалось создать комнату');
         }
@@ -534,12 +535,19 @@ export function App() {
           if (res.mySeat !== undefined) setMySeatIndex(res.mySeat);
           setupWebRTC(socket, res.peerId);
           const modeQuery = resolvedMode === 'meeting' ? '&mode=meeting' : '';
-          window.history.pushState({}, '', `?room=${res.pin}${modeQuery}`);
+          const targetRoom = res.roomId || res.pin;
+          window.history.pushState({}, '', `?room=${targetRoom}${modeQuery}`);
         } else {
           sound.playClick();
           window.history.replaceState({}, '', window.location.pathname);
           const errText = res.error || 'Комната не найдена';
-          if (res.code === 'ROOM_LOCKED' || errText.includes('закрыт') || errText.includes('заблокирован')) {
+          if (res.code === 'RATE_LIMITED') {
+            setRoomAlertNotice({
+              type: 'locked',
+              title: 'Слишком много попыток',
+              message: errText,
+            });
+          } else if (res.code === 'ROOM_LOCKED' || errText.includes('закрыт') || errText.includes('заблокирован')) {
             setRoomAlertNotice({
               type: 'locked',
               title: 'Комната закрыта',
@@ -722,7 +730,8 @@ export function App() {
       window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const host = isLocalhost && lanIp ? `${lanIp}:${window.location.port}` : window.location.host;
     const modeQuery = roomMode === 'meeting' ? '&mode=meeting' : '';
-    return `${window.location.protocol}//${host}?room=${pin}${modeQuery}`;
+    const targetRoom = roomId || pin;
+    return `${window.location.protocol}//${host}?room=${targetRoom}${modeQuery}`;
   })();
 
   // Theme Classes

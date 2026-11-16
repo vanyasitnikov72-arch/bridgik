@@ -50,6 +50,14 @@ interface LobbyPeer {
 }
 const lobbyPeers: Map<string, LobbyPeer> = new Map();
 
+// Rate limiting against brute-force PIN guessing
+interface FailedPinAttempt {
+  count: number;
+  lastAttempt: number;
+  blockedUntil?: number;
+}
+const failedPinAttempts: Map<string, FailedPinAttempt> = new Map();
+
 function getClientIp(socket: any): string {
   const forwarded = socket.handshake.headers['x-forwarded-for'];
   let ip = '';
@@ -319,17 +327,49 @@ io.on('connection', (socket) => {
     ) => {
       removeFromLobby(socket.id);
       try {
-        const room = roomManager.getRoom(data.roomIdOrPin);
-        if (!room) {
+        const clientIp = getClientIp(socket);
+        const attemptKey = `${clientIp}_${socket.id}`;
+        const attemptInfo = failedPinAttempts.get(attemptKey);
+        const now = Date.now();
+
+        if (attemptInfo?.blockedUntil && attemptInfo.blockedUntil > now) {
+          const waitSec = Math.ceil((attemptInfo.blockedUntil - now) / 1000);
           if (typeof callback === 'function') {
             return callback({
               success: false,
-              code: 'ROOM_NOT_FOUND',
-              error: 'Комната не найдена или код неверен',
+              code: 'RATE_LIMITED',
+              error: `Слишком много неверных попыток ввода PIN. Подождите ${waitSec} сек.`,
             });
           }
           return;
         }
+
+        const room = roomManager.getRoom(data.roomIdOrPin);
+        if (!room) {
+          const prevCount =
+            attemptInfo && now - attemptInfo.lastAttempt < 60000 ? attemptInfo.count : 0;
+          const newCount = prevCount + 1;
+          const blockedUntil = newCount >= 5 ? now + 60000 : undefined;
+          failedPinAttempts.set(attemptKey, {
+            count: newCount,
+            lastAttempt: now,
+            blockedUntil,
+          });
+
+          if (typeof callback === 'function') {
+            return callback({
+              success: false,
+              code: newCount >= 5 ? 'RATE_LIMITED' : 'ROOM_NOT_FOUND',
+              error:
+                newCount >= 5
+                  ? 'Слишком много неверных попыток ввода PIN. Доступ заблокирован на 60 сек.'
+                  : 'Комната не найдена или код неверен',
+            });
+          }
+          return;
+        }
+
+        failedPinAttempts.delete(attemptKey);
 
         if (room.isLocked) {
           if (typeof callback === 'function') {
