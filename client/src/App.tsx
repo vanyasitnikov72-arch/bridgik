@@ -310,7 +310,7 @@ export function App() {
       case 'lofi':
         return 'bg-[#181412] text-[#f2e9e4] font-sans selection:bg-amber-600 selection:text-white';
       default:
-        return 'bg-neutral-950 text-neutral-100 font-sans selection:bg-cyan-500 selection:text-black';
+        return 'bg-[#171717] text-[#ededed] font-sans selection:bg-[#789d2a] selection:text-white';
     }
   };
 
