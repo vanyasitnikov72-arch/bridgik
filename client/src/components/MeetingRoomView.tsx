@@ -33,6 +33,9 @@ import {
   Unlock,
   Armchair,
   Smile,
+  Eye,
+  Music,
+  Film,
 } from 'lucide-react';
 import { FileTransfer, Peer, TextMessage } from '../types/index.js';
 import { sound } from '../utils/sound.js';
@@ -449,6 +452,29 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   const dragCounter = useRef(0);
   const [fileToast, setFileToast] = useState<string | null>(null);
 
+  // Media Preview Lightbox state (images, video, audio)
+  const [previewMedia, setPreviewMedia] = useState<{
+    url: string;
+    name: string;
+    type: 'image' | 'video' | 'audio' | 'doc';
+    size: number;
+  } | null>(null);
+
+  const isImageFile = (name: string, mime?: string) => {
+    if (mime?.startsWith('image/')) return true;
+    return /\.(png|jpe?g|webp|gif|svg|bmp|ico)$/i.test(name);
+  };
+
+  const isAudioFile = (name: string, mime?: string) => {
+    if (mime?.startsWith('audio/')) return true;
+    return /\.(mp3|wav|ogg|m4a|aac|flac)$/i.test(name);
+  };
+
+  const isVideoFile = (name: string, mime?: string) => {
+    if (mime?.startsWith('video/')) return true;
+    return /\.(mp4|webm|mov|mkv|avi)$/i.test(name);
+  };
+
   // Unread chat badge (+1, +2, etc.) & toast notification
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const prevMessagesLength = useRef(messages.length);
@@ -525,7 +551,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
         e.preventDefault();
         sound.playConnect();
         onSendFiles(e.clipboardData.files);
-        setFileToast(`Файл из буфера добавлен в файлы встречи`);
+        setFileToast(`Файл из буфера добавлен в файлы комнаты`);
         setTimeout(() => setFileToast(null), 3500);
       }
     };
@@ -1004,7 +1030,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                     meetingFilesSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
                   }}
                   className="px-2.5 py-1.5 rounded-xl bg-[#25252c] hover:bg-[#303038] text-[#ededed] border border-white/10 text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-                  title="Файлы встречи"
+                  title="Файлы комнаты"
                 >
                   <Paperclip className="w-4 h-4 text-[#9ac43e]" />
                   <span className="hidden md:inline">Файлы</span>
@@ -1102,12 +1128,17 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
             </div>
           )}
 
-          {/* Meeting Files Drawer / Dropzone */}
+          {/* Room Files Drawer / Dropzone with Rich Media Previews */}
           <div ref={meetingFilesSectionRef} className="bg-[#1e1e1e] border border-[#353535] rounded-2xl p-4 sm:p-5 shadow-sm scroll-mt-6">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Paperclip className="w-4 h-4 text-[#9ac43e]" />
-                <h3 className="text-base sm:text-lg font-bold text-[#ededed]">Файлы встречи</h3>
+                <h3 className="text-base sm:text-lg font-bold text-[#ededed]">Файлы комнаты</h3>
+                {transfers.length > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-[#272727] text-[#9ac43e] text-xs font-mono font-bold">
+                    {transfers.length}
+                  </span>
+                )}
               </div>
               <button
                 onClick={() => fileInputRef.current?.click()}
@@ -1132,49 +1163,154 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
               />
             </div>
 
-            {/* Transferred Files in Meeting */}
+            {/* Transferred Files with Thumbnails, Audio Player & Preview Lightbox */}
             {transfers.length > 0 ? (
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {transfers.map((t) => (
-                  <div
-                    key={t.id}
-                    className="p-3 rounded-xl bg-[#141414] border border-[#333333] flex items-center justify-between gap-3 text-sm"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <File className="w-4 h-4 text-[#9ac43e]" />
-                      <div className="min-w-0">
-                        <p className="font-bold text-[#ededed] truncate">{t.name}</p>
-                        <p className="text-xs text-[#aaaaaa]">
-                          {(t.size / 1024 / 1024).toFixed(1)} МБ · {t.status === 'completed' ? 'Готово' : `${t.progress}%`}
-                        </p>
+              <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1 scrollbar-thin">
+                {transfers.map((t) => {
+                  const isImg = isImageFile(t.name, t.mimeType);
+                  const isAud = isAudioFile(t.name, t.mimeType);
+                  const isVid = isVideoFile(t.name, t.mimeType);
+
+                  return (
+                    <div
+                      key={t.id}
+                      className="p-3 rounded-xl bg-[#141416] border border-[#2e2e38] hover:border-[#789d2a]/50 transition-all flex flex-col gap-2 text-sm shadow-sm"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          {/* Image Thumbnail with Click-to-preview */}
+                          {isImg && t.blobUrl ? (
+                            <div
+                              onClick={() =>
+                                setPreviewMedia({
+                                  url: t.blobUrl!,
+                                  name: t.name,
+                                  type: 'image',
+                                  size: t.size,
+                                })
+                              }
+                              className="relative w-12 h-12 rounded-xl overflow-hidden bg-[#1f1f26] border border-[#383844] hover:border-[#789d2a] shrink-0 cursor-pointer group/thumb shadow-sm"
+                              title="Нажмите для просмотра в полном размере"
+                            >
+                              <img
+                                src={t.blobUrl}
+                                alt={t.name}
+                                className="w-full h-full object-cover group-hover/thumb:scale-110 transition-transform"
+                              />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity text-white">
+                                <Eye className="w-4 h-4 text-[#9ac43e]" />
+                              </div>
+                            </div>
+                          ) : isVid ? (
+                            <div
+                              onClick={() =>
+                                t.blobUrl &&
+                                setPreviewMedia({
+                                  url: t.blobUrl,
+                                  name: t.name,
+                                  type: 'video',
+                                  size: t.size,
+                                })
+                              }
+                              className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border ${
+                                t.blobUrl
+                                  ? 'bg-[#1b1724] border-[#9146FF]/50 hover:border-[#9146FF] cursor-pointer text-[#bf94ff]'
+                                  : 'bg-[#1c1c24] border-[#383844] text-[#888888]'
+                              }`}
+                              title={t.blobUrl ? 'Смотреть видео' : 'Видео'}
+                            >
+                              <Film className="w-5 h-5" />
+                            </div>
+                          ) : isAud ? (
+                            <div
+                              className="w-12 h-12 rounded-xl bg-[#172214] border border-[#789d2a]/50 flex items-center justify-center shrink-0 text-[#9ac43e]"
+                              title="Аудио файл"
+                            >
+                              <Music className="w-5 h-5" />
+                            </div>
+                          ) : (
+                            <div className="w-12 h-12 rounded-xl bg-[#1c1c24] border border-[#383844] flex items-center justify-center shrink-0 text-[#aaaaaa]">
+                              <File className="w-5 h-5 text-[#9ac43e]" />
+                            </div>
+                          )}
+
+                          <div className="min-w-0">
+                            <p className="font-bold text-[#ededed] truncate max-w-[200px] sm:max-w-xs">{t.name}</p>
+                            <p className="text-xs text-[#888888] flex items-center gap-2 mt-0.5 font-mono">
+                              <span>{(t.size / 1024 / 1024).toFixed(1)} МБ</span>
+                              <span>•</span>
+                              <span className={t.type === 'upload' ? 'text-[#9ac43e]' : 'text-[#888888]'}>
+                                {t.type === 'upload' ? 'Отправлено' : 'Получено'}
+                              </span>
+                              <span>•</span>
+                              <span className={t.status === 'completed' ? 'text-[#9ac43e] font-semibold' : 'text-[#d4e8a8]'}>
+                                {t.status === 'completed' ? 'Готово' : `${t.progress}%`}
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Action buttons: Preview & Download */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {t.status === 'completed' && t.blobUrl && (
+                            <>
+                              {(isImg || isVid) && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPreviewMedia({
+                                      url: t.blobUrl!,
+                                      name: t.name,
+                                      type: isImg ? 'image' : 'video',
+                                      size: t.size,
+                                    })
+                                  }
+                                  className="p-2 rounded-xl bg-[#25252e] hover:bg-[#30303c] text-[#ededed] hover:text-[#9ac43e] border border-white/10 transition-colors cursor-pointer"
+                                  title="Предпросмотр файла"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </button>
+                              )}
+
+                              <a
+                                href={t.blobUrl}
+                                download={t.name}
+                                className="p-2 rounded-xl bg-[#25252e] hover:bg-[#30303c] text-[#9ac43e] hover:text-[#b4e64f] border border-white/10 transition-colors cursor-pointer"
+                                title="Скачать файл"
+                              >
+                                <Download className="w-4 h-4" />
+                              </a>
+                            </>
+                          )}
+
+                          {t.status === 'pending_approval' && (
+                            <button
+                              onClick={() => onAcceptFile(t.id)}
+                              className="px-3.5 py-1.5 rounded-xl bg-[#789d2a] hover:bg-[#8cb632] text-white font-bold text-xs cursor-pointer shadow-md shadow-[#789d2a]/20"
+                            >
+                              Принять
+                            </button>
+                          )}
+                        </div>
                       </div>
+
+                      {/* Built-in Audio Player for audio files */}
+                      {isAud && t.blobUrl && t.status === 'completed' && (
+                        <div className="mt-1 pt-2 border-t border-white/5">
+                          <audio
+                            controls
+                            src={t.blobUrl}
+                            className="w-full h-8 rounded-lg bg-[#111116] opacity-90"
+                          />
+                        </div>
+                      )}
                     </div>
-
-                    {t.status === 'pending_approval' && (
-                      <button
-                        onClick={() => onAcceptFile(t.id)}
-                        className="px-3 py-1 rounded-md bg-[#789d2a] hover:bg-[#8cb632] text-white font-bold text-xs cursor-pointer"
-                      >
-                        Принять
-                      </button>
-                    )}
-
-                    {t.status === 'completed' && t.blobUrl && (
-                      <a
-                        href={t.blobUrl}
-                        download={t.name}
-                        className="p-1.5 rounded-md bg-[#252525] hover:bg-[#303030] text-[#9ac43e] transition-colors cursor-pointer"
-                        title="Скачать файл"
-                      >
-                        <Download className="w-4 h-4" />
-                      </a>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="py-4 text-center text-xs sm:text-sm text-[#888888] border border-dashed border-[#333333] rounded-xl">
-                Перетащите сюда документы или файлы для участников встречи
+                Перетащите сюда документы или файлы для участников комнаты
               </div>
             )}
           </div>
@@ -1233,7 +1369,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     className="p-1.5 hover:text-white rounded bg-[#272727] hover:bg-[#333333] transition-colors cursor-pointer text-xs flex items-center gap-1 border border-[#383838]"
-                    title="Прикрепить файл к встрече"
+                    title="Прикрепить файл к комнате"
                   >
                     <Paperclip className="w-3.5 h-3.5 text-[#9ac43e]" />
                     <span>Файл</span>
@@ -1316,7 +1452,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     className="p-2.5 rounded-xl border bg-[#222222] border-[#333333] text-[#888888] hover:text-[#9ac43e] hover:border-[#789d2a] transition-colors cursor-pointer flex items-center justify-center shrink-0"
-                    title="Прикрепить файл к встрече"
+                    title="Прикрепить файл к комнате"
                   >
                     <Paperclip className="w-5 h-5" />
                   </button>
@@ -1654,10 +1790,71 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
             Отпустите файлы в любом месте
           </h2>
           <p className="text-sm sm:text-base text-[#bbbbbb] text-center max-w-md">
-            Файлы мгновенно прикрепятся к встрече и передадутся участникам напрямую по зашифрованному P2P-каналу
+            Файлы мгновенно прикрепятся к комнате и передадутся участникам напрямую по зашифрованному P2P-каналу
           </p>
           <div className="mt-4 px-3 py-1 rounded-full bg-[#1b2413] border border-[#789d2a]/50 text-[#9ac43e] text-xs font-mono">
             Direct WebRTC DataChannel · Нулевые следы на сервере
+          </div>
+        </div>
+      )}
+
+      {/* Media Preview Lightbox Modal */}
+      {previewMedia && (
+        <div
+          onClick={() => setPreviewMedia(null)}
+          className="fixed inset-0 z-[130] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 animate-in fade-in duration-150"
+        >
+          {/* Lightbox Header Bar */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-4xl flex items-center justify-between pb-3 mb-3 border-b border-white/10 text-white"
+          >
+            <div className="min-w-0 pr-4">
+              <p className="text-base sm:text-lg font-extrabold truncate">{previewMedia.name}</p>
+              <p className="text-xs text-[#888888] font-mono">
+                {(previewMedia.size / 1024 / 1024).toFixed(2)} МБ · P2P Предпросмотр
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <a
+                href={previewMedia.url}
+                download={previewMedia.name}
+                className="px-3.5 py-1.5 rounded-xl bg-[#789d2a] hover:bg-[#8cb632] text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-lg cursor-pointer"
+              >
+                <Download className="w-4 h-4" />
+                <span>Скачать</span>
+              </a>
+              <button
+                type="button"
+                onClick={() => setPreviewMedia(null)}
+                className="p-1.5 rounded-xl bg-[#25252e] hover:bg-[#32323e] text-[#aaaaaa] hover:text-white transition-colors cursor-pointer"
+                title="Закрыть"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Lightbox Media Container */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-4xl flex-1 max-h-[80vh] flex items-center justify-center overflow-hidden rounded-2xl bg-[#0e0e12] border border-[#2a2a35] shadow-2xl p-2 relative"
+          >
+            {previewMedia.type === 'image' && (
+              <img
+                src={previewMedia.url}
+                alt={previewMedia.name}
+                className="max-w-full max-h-[75vh] object-contain rounded-xl select-none"
+              />
+            )}
+            {previewMedia.type === 'video' && (
+              <video
+                controls
+                autoPlay
+                src={previewMedia.url}
+                className="max-w-full max-h-[75vh] rounded-xl shadow-2xl"
+              />
+            )}
           </div>
         </div>
       )}

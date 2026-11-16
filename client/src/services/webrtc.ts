@@ -644,6 +644,8 @@ export class WebRTCManager {
       }
     });
 
+    const senderBlobUrl = URL.createObjectURL(file);
+
     this.callbacks.onTransferProgress({
       id: fileId,
       name: file.name,
@@ -655,6 +657,7 @@ export class WebRTCManager {
       progress: 0,
       speed: 0,
       status: 'transferring',
+      blobUrl: senderBlobUrl,
     });
 
     // 2. Prepare binary header buffer
@@ -762,6 +765,7 @@ export class WebRTCManager {
       progress: 100,
       speed: 0,
       status: 'completed',
+      blobUrl: senderBlobUrl,
     });
   }
 
