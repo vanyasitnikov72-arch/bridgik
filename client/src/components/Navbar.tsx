@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Edit2, Check, Volume2, VolumeX } from 'lucide-react';
 import { ThemeMode, AppTab } from '../types/index.js';
 import { sound } from '../utils/sound.js';
-import { PixelMascot, getSavedMascot } from './mascots/PixelMascot.js';
 
 interface NavbarProps {
   userName: string;
@@ -29,15 +28,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [tempName, setTempName] = useState(userName);
   const [soundEnabled, setSoundEnabled] = useState(() => sound.isEnabled());
-  const [mascotConfig, setMascotConfig] = useState(getSavedMascot);
-
-  useEffect(() => {
-    const handleUpdate = () => {
-      setMascotConfig(getSavedMascot());
-    };
-    window.addEventListener('bridgik_mascot_updated', handleUpdate);
-    return () => window.removeEventListener('bridgik_mascot_updated', handleUpdate);
-  }, []);
 
   const handleToggleSound = () => {
     const nextState = sound.toggle();
@@ -57,28 +47,23 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <header className="border-b border-white/[0.08] bg-[#171717] sticky top-0 z-40">
       <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-        {/* Brand in Handjet font with dynamic pixel mascot */}
+        {/* Official Brand Logo: Cyber-Dino + bridgik */}
         <div
           onClick={() => {
             if (onSelectTab) onSelectTab('bridge');
             onGoHome?.();
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
-          className="flex items-center gap-2.5 cursor-pointer select-none group"
+          className="flex items-center gap-2 cursor-pointer select-none group"
+          title="bridgik · На главную"
         >
-          <div className="p-1 rounded-lg bg-[#202020] border border-[#3a3a3a] group-hover:border-[#789d2a] transition-all shrink-0 shadow-xs group-hover:shadow-[0_0_12px_rgba(120,157,42,0.3)]">
-            <PixelMascot
-              id={mascotConfig.id}
-              palette={mascotConfig.palette}
-              size={28}
-              animated={true}
-              className="group-hover:scale-105 transition-transform"
-            />
-          </div>
-          <span className="font-extrabold text-3xl tracking-tight text-[#ededed] group-hover:text-[#9ac43e] transition-colors">
-            bridgik
-          </span>
-          <span className="text-xs uppercase font-extrabold tracking-wider px-2 py-0.5 rounded bg-[#222222] text-[#9ac43e] border border-[#3a3a3a]">
+          <img
+            src="/mascots/dino_logo_transparent.png"
+            alt="bridgik"
+            className="h-10 sm:h-11 w-auto object-contain group-hover:scale-105 transition-transform drop-shadow-[0_0_12px_rgba(120,157,42,0.25)]"
+            style={{ imageRendering: 'pixelated' }}
+          />
+          <span className="text-xs uppercase font-extrabold tracking-wider px-2 py-0.5 rounded bg-[#222222] text-[#9ac43e] border border-[#3a3a3a] hidden sm:inline-block">
             p2p
           </span>
         </div>
