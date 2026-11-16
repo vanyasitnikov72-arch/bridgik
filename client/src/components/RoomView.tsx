@@ -23,7 +23,7 @@ import {
   Square,
 } from 'lucide-react';
 import { FileTransfer, Peer, TextMessage } from '../types/index.js';
-import { formatBytes, formatSpeed } from '../utils/device.js';
+import { formatBytes, formatSpeed, getAvatarForName } from '../utils/device.js';
 import { extractFilesFromDataTransfer } from '../utils/files.js';
 import { sound } from '../utils/sound.js';
 import { CustomAudioPlayer } from './CustomAudioPlayer.js';
@@ -33,6 +33,7 @@ interface RoomViewProps {
   roomId: string;
   pin: string;
   myPeerId: string;
+  userAvatar?: string;
   roomUrl: string;
   peers: Peer[];
   transfers: FileTransfer[];
@@ -61,6 +62,7 @@ export const RoomView: React.FC<RoomViewProps> = ({
   roomId: _roomId,
   pin,
   myPeerId,
+  userAvatar,
   roomUrl,
   peers,
   transfers,
@@ -720,7 +722,15 @@ export const RoomView: React.FC<RoomViewProps> = ({
                   className="p-3.5 rounded-lg bg-[#171717] border border-[#3a3a3a] group"
                 >
                   <div className="flex items-center justify-between text-xs text-[#aaaaaa] mb-2 font-semibold">
-                    <span className="font-bold text-[#ededed]">{m.senderName}</span>
+                    <div className="flex items-center gap-2">
+                      <img
+                        src={m.senderAvatar || getAvatarForName(m.senderName)}
+                        alt={m.senderName}
+                        className="w-5 h-5 rounded-full object-cover border border-[#789d2a]/50 bg-[#222]"
+                        style={{ imageRendering: 'pixelated' }}
+                      />
+                      <span className="font-bold text-[#ededed]">{m.senderName}</span>
+                    </div>
                     <span>{new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
 
@@ -765,7 +775,14 @@ export const RoomView: React.FC<RoomViewProps> = ({
 
           {/* Text Input Box */}
           <form onSubmit={handleTextSubmit} className="mt-3.5 pt-3.5 border-t border-[#3a3a3a] shrink-0">
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+              <img
+                src={userAvatar || getAvatarForName(peers.find((p) => p.id === myPeerId)?.name || 'Вы')}
+                alt="Ваш аватар"
+                className="w-9 h-9 rounded-full object-cover border-2 border-[#789d2a] shadow-[0_0_8px_rgba(120,157,42,0.3)] bg-[#171717] shrink-0"
+                style={{ imageRendering: 'pixelated' }}
+                title="Ваш аватар"
+              />
               <input
                 type="text"
                 value={textInput}
@@ -776,7 +793,7 @@ export const RoomView: React.FC<RoomViewProps> = ({
               <button
                 type="submit"
                 disabled={!textInput.trim()}
-                className="px-5 py-2.5 rounded-lg bg-[#789d2a] hover:bg-[#8cb632] text-white font-bold text-base transition-colors disabled:opacity-40 cursor-pointer"
+                className="px-5 py-2.5 rounded-lg bg-[#789d2a] hover:bg-[#8cb632] text-white font-bold text-base transition-colors disabled:opacity-40 cursor-pointer shrink-0"
               >
                 Отправить
               </button>

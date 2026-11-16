@@ -5,6 +5,7 @@ export type RoomMode = 'bridge' | 'meeting';
 export interface Peer {
   id: string;
   name: string;
+  avatar?: string;
   deviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown';
   joinedAt: number;
   isHost: boolean;
@@ -29,6 +30,7 @@ export interface TextMessage {
   id: string;
   senderId: string;
   senderName: string;
+  senderAvatar?: string;
   text: string;
   timestamp: number;
   isClipboard?: boolean;
@@ -64,6 +66,7 @@ export type WebRTCMessage =
       id: string;
       senderId: string;
       senderName: string;
+      senderAvatar?: string;
       text: string;
       timestamp: number;
       isClipboard?: boolean;

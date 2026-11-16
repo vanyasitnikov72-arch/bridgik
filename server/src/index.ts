@@ -261,6 +261,7 @@ io.on('connection', (socket) => {
       data: {
         customId?: string;
         peerName: string;
+        avatar?: string;
         deviceType: any;
         mode?: 'bridge' | 'meeting';
         maxSeats?: number;
@@ -282,6 +283,7 @@ io.on('connection', (socket) => {
           id: peerId,
           socketId: socket.id,
           name: data.peerName || 'Гость',
+          avatar: data.avatar,
           deviceType: data.deviceType || 'desktop',
           joinedAt: Date.now(),
           isHost: true,
@@ -322,6 +324,7 @@ io.on('connection', (socket) => {
       data: {
         roomIdOrPin: string;
         peerName: string;
+        avatar?: string;
         deviceType: any;
         preferredSeat?: number;
         browserId?: string;
@@ -424,6 +427,7 @@ io.on('connection', (socket) => {
           id: peerId,
           socketId: socket.id,
           name: data.peerName || 'Гость',
+          avatar: data.avatar,
           deviceType: data.deviceType || 'unknown',
           joinedAt: Date.now(),
           isHost,

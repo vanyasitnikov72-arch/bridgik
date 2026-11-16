@@ -10,7 +10,7 @@ import { LegalView, LegalDocType } from './components/LegalView.js';
 import { QRCodeModal } from './components/QRCodeModal.js';
 import { Footer } from './components/Footer.js';
 import { FileTransfer, Peer, TextMessage, ThemeMode, NearbyPeer, PairRequest, AppTab, RoomMode } from './types/index.js';
-import { detectDeviceType, generateRandomName, getBrowserDeviceId } from './utils/device.js';
+import { detectDeviceType, generateRandomName, getRandomAvatar, getBrowserDeviceId } from './utils/device.js';
 import { WebRTCManager } from './services/webrtc.js';
 import { sound } from './utils/sound.js';
 
@@ -23,6 +23,13 @@ interface RoomAlertNotice {
 export function App() {
   const [userName, setUserName] = useState<string>(() => {
     return localStorage.getItem('bridgik_username') || localStorage.getItem('bridgit_username') || localStorage.getItem('airbridge_username') || generateRandomName();
+  });
+  const [userAvatar, setUserAvatar] = useState<string>(() => {
+    const saved = localStorage.getItem('bridgik_user_avatar');
+    if (saved) return saved;
+    const randomAv = getRandomAvatar();
+    localStorage.setItem('bridgik_user_avatar', randomAv);
+    return randomAv;
   });
   const [deviceType] = useState(detectDeviceType());
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -157,6 +164,17 @@ export function App() {
     }
   };
 
+  const handleUpdateUserAvatar = (avatar: string) => {
+    setUserAvatar(avatar);
+    localStorage.setItem('bridgik_user_avatar', avatar);
+    if (webrtcRef.current) {
+      webrtcRef.current.updateMyAvatar(avatar);
+    }
+    setPeers((prev) =>
+      prev.map((p) => (p.id === myPeerId ? { ...p, avatar } : p))
+    );
+  };
+
   // Toggle Theme
   const handleToggleTheme = () => {
     const nextTheme: ThemeMode =
@@ -254,7 +272,7 @@ export function App() {
       onScratchpadSync: (text) => {
         setScratchpadText(text);
       },
-    });
+    }, userAvatar);
 
     if (destinationDirHandleRef.current) {
       manager.setDestinationDirectory(destinationDirHandleRef.current);
@@ -448,6 +466,7 @@ export function App() {
       'create-room',
       {
         peerName: userName,
+        avatar: userAvatar,
         deviceType,
         mode,
         maxSeats: 8,
@@ -559,6 +578,7 @@ export function App() {
       {
         roomIdOrPin: pinOrId,
         peerName: userName,
+        avatar: userAvatar,
         deviceType,
         browserId: getBrowserDeviceId(),
       },
@@ -827,6 +847,8 @@ export function App() {
       <Navbar
         userName={userName}
         onUpdateUserName={handleUpdateUserName}
+        userAvatar={userAvatar}
+        onUpdateUserAvatar={handleUpdateUserAvatar}
         deviceType={deviceType}
         theme={theme}
         onToggleTheme={handleToggleTheme}
@@ -870,6 +892,8 @@ export function App() {
             myPeerId={myPeerId}
             myUserName={userName}
             onUpdateUserName={handleUpdateUserName}
+            userAvatar={userAvatar}
+            onUpdateUserAvatar={handleUpdateUserAvatar}
             roomTheme={roomTheme}
             onRoomThemeChange={(theme) => setRoomTheme(theme)}
             maxSeats={maxSeats}
@@ -902,6 +926,7 @@ export function App() {
             roomId={roomId}
             pin={pin}
             myPeerId={myPeerId}
+            userAvatar={userAvatar}
             roomUrl={roomUrl}
             peers={peers}
             transfers={transfers}

@@ -2,10 +2,14 @@ import React, { useState } from 'react';
 import { Edit2, Check, Volume2, VolumeX } from 'lucide-react';
 import { ThemeMode, AppTab } from '../types/index.js';
 import { sound } from '../utils/sound.js';
+import { AvatarPicker } from './AvatarPicker.js';
+import { getAvatarForName } from '../utils/device.js';
 
 interface NavbarProps {
   userName: string;
   onUpdateUserName: (name: string) => void;
+  userAvatar?: string;
+  onUpdateUserAvatar?: (avatar: string) => void;
   deviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown';
   theme: ThemeMode;
   onToggleTheme: () => void;
@@ -18,6 +22,8 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   userName,
   onUpdateUserName,
+  userAvatar,
+  onUpdateUserAvatar,
   theme: _theme,
   onToggleTheme: _onToggleTheme,
   isConnected,
@@ -26,6 +32,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSelectTab,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
+  const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
   const [tempName, setTempName] = useState(userName);
   const [soundEnabled, setSoundEnabled] = useState(() => sound.isEnabled());
 
@@ -123,43 +130,71 @@ export const Navbar: React.FC<NavbarProps> = ({
             {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
           </button>
 
-          <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-lg bg-[#222222] border border-[#3a3a3a] text-base text-[#ededed]">
-            <span
-              className={`w-2.5 h-2.5 rounded-full ${
-                isConnected ? 'bg-[#789d2a]' : 'bg-[#e8b33c]'
-              }`}
-              title={isConnected ? 'В сети' : 'Подключение...'}
-            />
-            {isEditing ? (
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="text"
-                  value={tempName}
-                  onChange={(e) => setTempName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSaveName()}
-                  autoFocus
-                  className="bg-[#171717] text-[#ededed] px-2 py-0.5 rounded text-base outline-none border border-[#789d2a] w-32 font-bold"
+          <div className="relative flex items-center">
+            {isAvatarPickerOpen && (
+              <div className="absolute top-12 right-0 z-50">
+                <AvatarPicker
+                  currentAvatar={userAvatar || getAvatarForName(userName)}
+                  onSelectAvatar={(src) => {
+                    onUpdateUserAvatar?.(src);
+                    setIsAvatarPickerOpen(false);
+                  }}
+                  onClose={() => setIsAvatarPickerOpen(false)}
                 />
-                <button
-                  onClick={handleSaveName}
-                  className="p-1 hover:text-[#9ac43e] transition-colors"
-                >
-                  <Check className="w-4 h-4 text-[#9ac43e]" />
-                </button>
               </div>
-            ) : (
-              <button
-                onClick={() => {
-                  setTempName(userName);
-                  setIsEditing(true);
-                }}
-                className="flex items-center gap-2 hover:text-white transition-colors cursor-pointer"
-                title="Кликните, чтобы изменить имя"
-              >
-                <span className="font-extrabold max-w-[140px] truncate">{userName}</span>
-                <Edit2 className="w-3.5 h-3.5 text-[#aaaaaa] hover:text-[#9ac43e]" />
-              </button>
             )}
+
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#222222] border border-[#3a3a3a] text-base text-[#ededed]">
+              <button
+                type="button"
+                onClick={() => setIsAvatarPickerOpen(!isAvatarPickerOpen)}
+                className="relative cursor-pointer hover:scale-105 active:scale-95 transition-transform shrink-0"
+                title="Кликните, чтобы сменить маскота"
+              >
+                <img
+                  src={userAvatar || getAvatarForName(userName)}
+                  alt={userName}
+                  className="w-7 h-7 rounded-full object-cover border border-[#789d2a] shadow-sm bg-[#171717]"
+                  style={{ imageRendering: 'pixelated' }}
+                />
+                <span
+                  className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-[#222222] ${
+                    isConnected ? 'bg-[#789d2a]' : 'bg-[#e8b33c]'
+                  }`}
+                  title={isConnected ? 'В сети' : 'Подключение...'}
+                />
+              </button>
+              {isEditing ? (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    value={tempName}
+                    onChange={(e) => setTempName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSaveName()}
+                    autoFocus
+                    className="bg-[#171717] text-[#ededed] px-2 py-0.5 rounded text-base outline-none border border-[#789d2a] w-32 font-bold"
+                  />
+                  <button
+                    onClick={handleSaveName}
+                    className="p-1 hover:text-[#9ac43e] transition-colors"
+                  >
+                    <Check className="w-4 h-4 text-[#9ac43e]" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    setTempName(userName);
+                    setIsEditing(true);
+                  }}
+                  className="flex items-center gap-2 hover:text-white transition-colors cursor-pointer"
+                  title="Кликните, чтобы изменить имя"
+                >
+                  <span className="font-extrabold max-w-[140px] truncate">{userName}</span>
+                  <Edit2 className="w-3.5 h-3.5 text-[#aaaaaa] hover:text-[#9ac43e]" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

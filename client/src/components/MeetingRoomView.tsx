@@ -33,6 +33,7 @@ import {
   Eye,
   Music,
   Film,
+  Sparkles,
 } from 'lucide-react';
 import { FileTransfer, Peer, TextMessage } from '../types/index.js';
 import { sound } from '../utils/sound.js';
@@ -40,6 +41,8 @@ import { EmotePicker } from './EmotePicker.js';
 import { ChatMessageBubble } from './ChatMessageBubble.js';
 import { CustomAudioPlayer } from './CustomAudioPlayer.js';
 import { CustomVideoPlayer } from './CustomVideoPlayer.js';
+import { AvatarPicker } from './AvatarPicker.js';
+import { getAvatarForName, MASCOT_AVATARS } from '../utils/device.js';
 
 export type RoomId = 'cyber-lounge' | 'cozy-loft' | 'skyline-penthouse' | 'retro-lounge';
 
@@ -154,6 +157,7 @@ const sanitizeRoomId = (val: string | null): RoomId => {
 // Interactive Avatar Token (clean on furniture, details only on hover)
 interface PixelAvatarSeatProps {
   name: string;
+  avatar?: string;
   isMe: boolean;
   deviceType?: 'desktop' | 'mobile' | 'tablet' | 'unknown' | string;
   isMicActive: boolean;
@@ -166,6 +170,7 @@ interface PixelAvatarSeatProps {
 
 const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
   name,
+  avatar,
   isMe,
   deviceType,
   isMicActive,
@@ -259,7 +264,7 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
 
         {/* Avatar Token sitting cleanly on the furniture */}
         <div
-          className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 flex items-center justify-center transition-all duration-200 shadow-2xl relative cursor-pointer drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)] overflow-visible ${
+          className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 flex items-center justify-center transition-all duration-200 shadow-2xl relative cursor-pointer drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)] overflow-hidden ${
             isHovered ? 'scale-115 ring-2 ring-white/50' : 'hover:scale-105'
           } ${isMicActive ? 'bg-[#152414]' : 'bg-[#191922]'}`}
           style={{
@@ -268,9 +273,10 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
           }}
         >
           <img
-            src="/mascots/dino_avatar_transparent.png"
+            src={avatar || getAvatarForName(name)}
             alt={name}
-            className="w-7 h-7 sm:w-9 sm:h-9 object-contain pointer-events-none select-none drop-shadow-sm"
+            className="w-full h-full object-cover pointer-events-none select-none drop-shadow-sm"
+            style={{ imageRendering: 'pixelated' }}
           />
 
           {/* Corner Mic Indicator */}
@@ -353,6 +359,8 @@ interface MeetingRoomViewProps {
   myPeerId: string;
   myUserName?: string;
   onUpdateUserName?: (name: string) => void;
+  userAvatar?: string;
+  onUpdateUserAvatar?: (avatar: string) => void;
   roomTheme?: string;
   onRoomThemeChange?: (theme: string) => void;
   maxSeats: number;
@@ -388,6 +396,8 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   myPeerId,
   myUserName,
   onUpdateUserName,
+  userAvatar,
+  onUpdateUserAvatar,
   roomTheme,
   onRoomThemeChange,
   maxSeats,
@@ -436,6 +446,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isRoomPickerOpen, setIsRoomPickerOpen] = useState(false);
   const [isEmotePickerOpen, setIsEmotePickerOpen] = useState(false);
+  const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
   const [customNameInput, setCustomNameInput] = useState(myUserName || '');
   const [nameSavedSuccess, setNameSavedSuccess] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
@@ -901,6 +912,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                     seatContent = (
                       <PixelAvatarSeat
                         name={activeMyName}
+                        avatar={userAvatar || getAvatarForName(activeMyName)}
                         isMe={true}
                         deviceType={myPeer?.deviceType}
                         isMicActive={isMicActive}
@@ -916,6 +928,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                     seatContent = (
                       <PixelAvatarSeat
                         name={peer.name}
+                        avatar={peer.avatar || getAvatarForName(peer.name)}
                         isMe={false}
                         deviceType={peer.deviceType}
                         isMicActive={Boolean(peer.isMicActive)}
@@ -1380,6 +1393,8 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                         text={m.text}
                         isMe={isMe}
                         isSystem={m.isSystem || m.senderId === 'system'}
+                        avatar={m.senderAvatar || getAvatarForName(m.senderName)}
+                        time={new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       />
                     );
                   })
@@ -1387,7 +1402,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 <div ref={chatBottomRef} />
               </div>
 
-              {/* Chat Input Bar with 7TV Emote Picker */}
+              {/* Chat Input Bar with 7TV Emote Picker and Avatar Picker */}
               <div className="relative border-t border-[#353535] bg-[#171717]">
                 <EmotePicker
                   isOpen={isEmotePickerOpen}
@@ -1398,7 +1413,43 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                   }}
                 />
 
+                {isAvatarPickerOpen && (
+                  <div className="absolute bottom-16 left-3 z-30 shadow-2xl">
+                    <AvatarPicker
+                      currentAvatar={userAvatar || getAvatarForName(activeMyName)}
+                      onSelectAvatar={(src) => {
+                        onUpdateUserAvatar?.(src);
+                        setIsAvatarPickerOpen(false);
+                      }}
+                      onClose={() => setIsAvatarPickerOpen(false)}
+                    />
+                  </div>
+                )}
+
                 <form onSubmit={handleSendChat} className="p-3 flex items-center gap-2">
+                  {/* Current User's Round Mascot Avatar */}
+                  <div className="relative shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAvatarPickerOpen(!isAvatarPickerOpen);
+                        if (isEmotePickerOpen) setIsEmotePickerOpen(false);
+                      }}
+                      className={`block relative rounded-full transition-transform hover:scale-105 active:scale-95 cursor-pointer ${
+                        isAvatarPickerOpen ? 'ring-2 ring-[#789d2a] scale-105' : ''
+                      }`}
+                      title={`Ваш аватар (${activeMyName}). Кликните, чтобы выбрать маскота`}
+                    >
+                      <img
+                        src={userAvatar || getAvatarForName(activeMyName)}
+                        alt={activeMyName}
+                        className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border-2 border-[#789d2a] shadow-[0_0_8px_rgba(120,157,42,0.35)] bg-[#171717]"
+                        style={{ imageRendering: 'pixelated' }}
+                      />
+                      <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-[#789d2a] rounded-full border-2 border-[#171717]" />
+                    </button>
+                  </div>
+
                   <input
                     type="text"
                     value={chatInput}
@@ -1638,6 +1689,59 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                     {nameSavedSuccess ? <Check className="w-4 h-4" /> : null}
                     <span>{nameSavedSuccess ? 'Сохранено' : 'Сохранить'}</span>
                   </button>
+                </div>
+              </div>
+
+              {/* Section 2.1: Mascot Avatar Selection */}
+              <div className="space-y-3 pt-3 border-t border-[#303038]">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-[#9ac43e]" />
+                    <h4 className="text-base font-bold text-[#ededed]">Ваш маскот-аватар</h4>
+                  </div>
+                  <span className="text-xs font-mono text-[#888888]">16-bit аватарка</span>
+                </div>
+
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
+                  {MASCOT_AVATARS.map((mascot) => {
+                    const isSelected = mascot.src === (userAvatar || getAvatarForName(activeMyName));
+                    return (
+                      <button
+                        key={mascot.id}
+                        type="button"
+                        onClick={() => {
+                          sound.playClick();
+                          onUpdateUserAvatar?.(mascot.src);
+                        }}
+                        className={`p-2 rounded-xl flex flex-col items-center gap-1.5 transition-all cursor-pointer relative group ${
+                          isSelected
+                            ? 'bg-[#222a1b] border-2 border-[#789d2a] shadow-[0_0_12px_rgba(120,157,42,0.4)]'
+                            : 'bg-[#15151a] border border-[#2f2f3a] hover:border-[#555566]'
+                        }`}
+                      >
+                        <div className="relative">
+                          <img
+                            src={mascot.src}
+                            alt={mascot.name}
+                            className="w-11 h-11 rounded-full object-cover border border-white/10 group-hover:scale-105 transition-transform"
+                            style={{ imageRendering: 'pixelated' }}
+                          />
+                          {isSelected && (
+                            <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-[#789d2a] text-white flex items-center justify-center shadow-md">
+                              <Check className="w-2.5 h-2.5 stroke-[3]" />
+                            </div>
+                          )}
+                        </div>
+                        <span
+                          className={`text-[10px] font-bold text-center leading-tight truncate w-full ${
+                            isSelected ? 'text-[#bbf348]' : 'text-[#888888] group-hover:text-white'
+                          }`}
+                        >
+                          {mascot.name}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 

@@ -22,6 +22,7 @@ import {
   getFaviconUrl,
   EmoteItem,
 } from '../utils/emotes.js';
+import { getAvatarForName } from '../utils/device.js';
 
 interface ChatMessageBubbleProps {
   senderName: string;
@@ -29,6 +30,7 @@ interface ChatMessageBubbleProps {
   isMe: boolean;
   time?: string;
   isSystem?: boolean;
+  avatar?: string;
 }
 
 export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
@@ -37,6 +39,7 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
   isMe,
   time,
   isSystem,
+  avatar,
 }) => {
   if (isSystem || senderName === 'Система') {
     const isJoin = text.includes('присоединился');
@@ -133,24 +136,53 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
     return <span key={idx}>{token}</span>;
   });
 
-  return (
-    <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-full`}>
-      <div className="flex items-center gap-2 mb-1 px-1">
-        <span className="text-xs font-bold text-[#aaaaaa]">{senderName}</span>
-        {time && <span className="text-[10px] text-[#666666] font-mono">{time}</span>}
-      </div>
+  const avatarSrc = avatar || getAvatarForName(senderName);
 
-      <div
-        className={`max-w-[92%] sm:max-w-[85%] rounded-2xl text-base leading-relaxed break-words shadow-sm transition-all ${
-          allTokensAreEmotes
-            ? 'bg-transparent border-0 p-1'
-            : isPureLink
-            ? 'p-1.5 bg-transparent border-0'
-            : isMe
-            ? 'p-3.5 bg-[#1b2413] border border-[#789d2a]/50 text-[#d4e8a8]'
-            : 'p-3.5 bg-[#252525] border border-[#383838] text-[#ededed]'
-        }`}
-      >
+  return (
+    <div
+      className={`flex items-end gap-2.5 max-w-full my-1.5 animate-in fade-in duration-150 ${
+        isMe ? 'justify-end' : 'justify-start'
+      }`}
+    >
+      {/* Peer's Round Avatar on Left */}
+      {!isMe && (
+        <div className="shrink-0 mb-1 select-none" title={senderName}>
+          <img
+            src={avatarSrc}
+            alt={senderName}
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover border border-[#444444] bg-[#1a1a1a] shadow-md transition-transform hover:scale-105"
+            style={{ imageRendering: 'pixelated' }}
+          />
+        </div>
+      )}
+
+      {/* Message Bubble + Sender Name */}
+      <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[85%] sm:max-w-[80%]`}>
+        <div className="flex items-center gap-2 mb-1 px-1">
+          {isMe ? (
+            <>
+              {time && <span className="text-[10px] text-[#666666] font-mono">{time}</span>}
+              <span className="text-xs font-bold text-[#aaaaaa]">{senderName}</span>
+            </>
+          ) : (
+            <>
+              <span className="text-xs font-bold text-[#aaaaaa]">{senderName}</span>
+              {time && <span className="text-[10px] text-[#666666] font-mono">{time}</span>}
+            </>
+          )}
+        </div>
+
+        <div
+          className={`rounded-2xl text-base leading-relaxed break-words shadow-sm transition-all ${
+            allTokensAreEmotes
+              ? 'bg-transparent border-0 p-1'
+              : isPureLink
+              ? 'p-1.5 bg-transparent border-0'
+              : isMe
+              ? 'p-3.5 bg-[#1b2413] border border-[#789d2a]/50 text-[#d4e8a8]'
+              : 'p-3.5 bg-[#252525] border border-[#383838] text-[#ededed]'
+          }`}
+        >
         {/* Render text or emotes as long as it is not a pure link */}
         {!isPureLink && (
           <div className="leading-snug">{renderedContent}</div>
@@ -483,6 +515,19 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
           </div>
         )}
       </div>
+      </div>
+
+      {/* My Round Avatar on Right */}
+      {isMe && (
+        <div className="shrink-0 mb-1 select-none" title={`${senderName} (Вы)`}>
+          <img
+            src={avatarSrc}
+            alt={senderName}
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover border-2 border-[#789d2a]/80 shadow-[0_0_8px_rgba(120,157,42,0.3)] bg-[#1a1a1a] transition-transform hover:scale-105"
+            style={{ imageRendering: 'pixelated' }}
+          />
+        </div>
+      )}
     </div>
   );
 };

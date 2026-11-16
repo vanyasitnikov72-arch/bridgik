@@ -79,6 +79,7 @@ export class WebRTCManager {
   private socket: Socket;
   private myPeerId: string;
   private myName: string;
+  private myAvatar: string = '/mascots/dino_avatar.jpg';
   private callbacks: WebRTCCallbacks;
   private connections: Map<string, PeerConnectionBundle> = new Map();
   private localStream: MediaStream | null = null;
@@ -134,11 +135,22 @@ export class WebRTCManager {
   // Active outgoing transfer cancellations
   private cancelledTransfers: Set<string> = new Set();
 
-  constructor(socket: Socket, myPeerId: string, myName: string, callbacks: WebRTCCallbacks) {
+  constructor(
+    socket: Socket,
+    myPeerId: string,
+    myName: string,
+    callbacks: WebRTCCallbacks,
+    myAvatar?: string
+  ) {
     this.socket = socket;
     this.myPeerId = myPeerId;
     this.myName = myName;
+    if (myAvatar) this.myAvatar = myAvatar;
     this.callbacks = callbacks;
+  }
+
+  public updateMyAvatar(avatar: string) {
+    this.myAvatar = avatar;
   }
 
   public updateMyName(name: string) {
@@ -276,6 +288,7 @@ export class WebRTCManager {
             id: msg.id,
             senderId: msg.senderId,
             senderName: msg.senderName,
+            senderAvatar: msg.senderAvatar,
             text: msg.text,
             timestamp: msg.timestamp,
             isClipboard: msg.isClipboard,
@@ -536,6 +549,7 @@ export class WebRTCManager {
       id: Math.random().toString(36).substring(2, 10),
       senderId: this.myPeerId,
       senderName: this.myName,
+      senderAvatar: this.myAvatar,
       text,
       timestamp: Date.now(),
       isClipboard,
@@ -553,6 +567,7 @@ export class WebRTCManager {
       id: msg.id,
       senderId: this.myPeerId,
       senderName: this.myName,
+      senderAvatar: this.myAvatar,
       text,
       timestamp: msg.timestamp,
       isClipboard,

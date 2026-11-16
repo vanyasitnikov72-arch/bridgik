@@ -62,6 +62,31 @@ export function getBrowserDeviceId(): string {
   return id;
 }
 
+export const MASCOT_AVATARS = [
+  { id: 'dino', name: 'Кибер-Дино', src: '/mascots/dino_avatar.jpg' },
+  { id: 'frog', name: 'Жабик Бриджик', src: '/mascots/frog_avatar.jpg' },
+  { id: 'cat', name: 'Кибер-Кот', src: '/mascots/cyber_cat_avatar.jpg' },
+  { id: 'alien', name: 'Неоновый Пришелец', src: '/mascots/alien_avatar.jpg' },
+  { id: 'robot', name: 'Ретро-Робот', src: '/mascots/crt_robot_avatar.jpg' },
+  { id: 'turtle', name: 'Кибер-Черепашка', src: '/mascots/turtle_avatar.jpg' },
+];
+
+export function getRandomAvatar(): string {
+  const item = MASCOT_AVATARS[Math.floor(Math.random() * MASCOT_AVATARS.length)];
+  return item.src;
+}
+
+export function getAvatarForName(name: string): string {
+  if (!name || name === 'Система') return MASCOT_AVATARS[0].src;
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash << 5) - hash + name.charCodeAt(i);
+    hash |= 0;
+  }
+  const index = Math.abs(hash) % MASCOT_AVATARS.length;
+  return MASCOT_AVATARS[index].src;
+}
+
 export function formatEta(seconds: number): string {
   if (!isFinite(seconds) || seconds <= 0) return '--';
   if (seconds < 60) return `${Math.round(seconds)}с`;

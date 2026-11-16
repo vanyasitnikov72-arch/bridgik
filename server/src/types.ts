@@ -2,6 +2,7 @@ export interface PeerInfo {
   id: string;
   socketId: string;
   name: string;
+  avatar?: string;
   deviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown';
   joinedAt: number;
   isHost: boolean;
