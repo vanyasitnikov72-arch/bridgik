@@ -8,6 +8,40 @@ const BUFFER_LOW = 1024 * 1024; // 1 MB resume threshold
 const HEADER_SIZE = 40; // 32 bytes fileId + 4 bytes chunkIndex + 4 bytes totalChunks
 const LARGE_FILE_THRESHOLD = 200 * 1024 * 1024; // 200 MB: files above this offer direct-to-disk streaming
 
+export function normalizeMimeType(fileName: string, mime?: string): string {
+  const ext = fileName.toLowerCase().split('.').pop() || '';
+  if (ext === 'mov') return 'video/mp4'; // Chromium natively decodes H.264 MOV as MP4 container
+  if (ext === 'mp4') return 'video/mp4';
+  if (ext === 'webm') return 'video/webm';
+  if (ext === 'mkv') return 'video/x-matroska';
+  if (ext === 'avi') return 'video/x-msvideo';
+  if (ext === 'mp3') return 'audio/mpeg';
+  if (ext === 'wav') return 'audio/wav';
+  if (ext === 'ogg' || ext === 'oga') return 'audio/ogg';
+  if (ext === 'm4a') return 'audio/mp4';
+  if (ext === 'png') return 'image/png';
+  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+  if (ext === 'gif') return 'image/gif';
+  if (ext === 'webp') return 'image/webp';
+  if (ext === 'svg') return 'image/svg+xml';
+  if (ext === 'pdf') return 'application/pdf';
+  return mime && mime !== 'application/octet-stream' ? mime : 'application/octet-stream';
+}
+
+export function createMediaBlobUrl(file: File): string {
+  const ext = file.name.toLowerCase().split('.').pop() || '';
+  if (ext === 'mov') {
+    try {
+      // Re-type .mov to video/mp4 so Chromium's native MP4 hardware parser decodes it directly
+      const mp4Blob = file.slice(0, file.size, 'video/mp4');
+      return URL.createObjectURL(mp4Blob);
+    } catch {
+      return URL.createObjectURL(file);
+    }
+  }
+  return URL.createObjectURL(file);
+}
+
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
@@ -463,8 +497,9 @@ export class WebRTCManager {
           this.callbacks.onTransferComplete(completedTransfer);
           this.incomingFiles.delete(fileId);
         } else {
+          const resolvedMime = normalizeMimeType(incoming.meta.name, incoming.meta.mimeType);
           const blob = new Blob(incoming.receivedChunks as BlobPart[], {
-            type: incoming.meta.mimeType || 'application/octet-stream',
+            type: resolvedMime,
           });
           const blobUrl = URL.createObjectURL(blob);
 
@@ -548,7 +583,7 @@ export class WebRTCManager {
    */
   public async sendFile(file: File, targetPeerId?: string) {
     const fileId = Math.random().toString(36).substring(2, 12);
-    const senderBlobUrl = URL.createObjectURL(file);
+    const senderBlobUrl = createMediaBlobUrl(file);
 
     // Filter target channels
     const activeBundles: PeerConnectionBundle[] = [];
@@ -655,7 +690,7 @@ export class WebRTCManager {
       }
     });
 
-    const senderBlobUrl = URL.createObjectURL(file);
+    const senderBlobUrl = createMediaBlobUrl(file);
 
     this.callbacks.onTransferProgress({
       id: fileId,

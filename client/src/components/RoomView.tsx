@@ -27,6 +27,7 @@ import { formatBytes, formatSpeed } from '../utils/device.js';
 import { extractFilesFromDataTransfer } from '../utils/files.js';
 import { sound } from '../utils/sound.js';
 import { CustomAudioPlayer } from './CustomAudioPlayer.js';
+import { CustomVideoPlayer } from './CustomVideoPlayer.js';
 
 interface RoomViewProps {
   roomId: string;
@@ -87,8 +88,11 @@ export const RoomView: React.FC<RoomViewProps> = ({
   const [copiedTextId, setCopiedTextId] = useState<string | null>(null);
   const [textInput, setTextInput] = useState('');
   const [isDragging, setIsDragging] = useState(false);
-  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
-  const [previewImageName, setPreviewImageName] = useState<string | null>(null);
+  const [previewMedia, setPreviewMedia] = useState<{
+    url: string;
+    name: string;
+    type: 'image' | 'video' | 'audio';
+  } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -490,6 +494,9 @@ export const RoomView: React.FC<RoomViewProps> = ({
                   const isImage =
                     t.mimeType.startsWith('image/') ||
                     /\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(t.name);
+                  const isVideo =
+                    t.mimeType.startsWith('video/') ||
+                    /\.(mp4|webm|mov|mkv|avi)$/i.test(t.name);
                   const isAudio =
                     t.mimeType.startsWith('audio/') ||
                     /\.(mp3|wav|ogg|m4a|aac)$/i.test(t.name);
@@ -508,19 +515,30 @@ export const RoomView: React.FC<RoomViewProps> = ({
                                 src={t.blobUrl}
                                 alt={t.name}
                                 onClick={() => {
-                                  setPreviewImageUrl(t.blobUrl!);
-                                  setPreviewImageName(t.name);
+                                  setPreviewMedia({ url: t.blobUrl!, name: t.name, type: 'image' });
                                 }}
                                 className="w-13 h-13 object-cover rounded-lg border border-[#3a3a3a] cursor-pointer group-hover:border-[#789d2a] transition-all"
                                 title="Нажмите для просмотра в полном размере"
                               />
                               <div
                                 onClick={() => {
-                                  setPreviewImageUrl(t.blobUrl!);
-                                  setPreviewImageName(t.name);
+                                  setPreviewMedia({ url: t.blobUrl!, name: t.name, type: 'image' });
                                 }}
                                 className="absolute inset-0 bg-black/50 rounded-lg opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity text-white"
                               >
+                                <Eye className="w-4 h-4" />
+                              </div>
+                            </div>
+                          ) : isVideo && t.blobUrl ? (
+                            <div
+                              onClick={() => {
+                                setPreviewMedia({ url: t.blobUrl!, name: t.name, type: 'video' });
+                              }}
+                              className="relative group shrink-0 w-13 h-13 rounded-lg bg-[#151522] border border-[#3a3a3a] group-hover:border-[#789d2a] flex items-center justify-center cursor-pointer transition-all"
+                              title="Нажмите для предпросмотра видео"
+                            >
+                              <Video className="w-6 h-6 text-[#9ac43e]" />
+                              <div className="absolute inset-0 bg-black/50 rounded-lg opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white">
                                 <Eye className="w-4 h-4" />
                               </div>
                             </div>
@@ -557,6 +575,23 @@ export const RoomView: React.FC<RoomViewProps> = ({
                               <Check className="w-4 h-4" />
                               <span>Сохранено на диск</span>
                             </span>
+                          )}
+
+                          {t.blobUrl && (isImage || isVideo || isAudio) && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPreviewMedia({
+                                  url: t.blobUrl!,
+                                  name: t.name,
+                                  type: isImage ? 'image' : isVideo ? 'video' : 'audio',
+                                })
+                              }
+                              className="p-2 rounded-lg bg-[#222222] hover:bg-[#2d2d2d] text-[#aaaaaa] hover:text-[#9ac43e] border border-[#3a3a3a] transition-colors cursor-pointer"
+                              title="Предпросмотр"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
                           )}
 
                           {t.status === 'completed' && !t.savedToDisk && t.blobUrl && (
@@ -750,40 +785,63 @@ export const RoomView: React.FC<RoomViewProps> = ({
         </div>
       </div>
 
-      {/* Image Lightbox Modal */}
-      {previewImageUrl && (
+      {/* Media Lightbox Modal */}
+      {previewMedia && (
         <div
           className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-4 animate-in fade-in"
-          onClick={() => setPreviewImageUrl(null)}
+          onClick={() => setPreviewMedia(null)}
         >
           <div
             className="relative max-w-4xl w-full flex flex-col items-center"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-full flex items-center justify-between pb-3 text-base text-[#ededed]">
-              <span className="font-bold truncate max-w-md">{previewImageName}</span>
+              <span className="font-bold truncate max-w-md">{previewMedia.name}</span>
               <div className="flex items-center gap-2">
                 <a
-                  href={previewImageUrl}
-                  download={previewImageName || 'image'}
-                  className="px-4 py-2 rounded-lg bg-[#789d2a] text-white text-sm font-bold hover:bg-[#8cb632] transition-colors flex items-center gap-1.5"
+                  href={previewMedia.url}
+                  download={previewMedia.name}
+                  className="px-4 py-2 rounded-lg bg-[#789d2a] text-white text-sm font-bold hover:bg-[#8cb632] transition-colors flex items-center gap-1.5 shadow-md"
                 >
                   <Download className="w-4 h-4" />
                   <span>Скачать</span>
                 </a>
                 <button
-                  onClick={() => setPreviewImageUrl(null)}
+                  onClick={() => setPreviewMedia(null)}
                   className="p-2 rounded-lg bg-[#222222] border border-[#3a3a3a] text-[#aaaaaa] hover:text-white transition-colors cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
-            <img
-              src={previewImageUrl}
-              alt={previewImageName || 'Preview'}
-              className="max-h-[80vh] max-w-full object-contain rounded-lg border border-[#3a3a3a] shadow-2xl bg-[#171717]"
-            />
+            {previewMedia.type === 'image' && (
+              <img
+                src={previewMedia.url}
+                alt={previewMedia.name}
+                className="max-h-[80vh] max-w-full object-contain rounded-lg border border-[#3a3a3a] shadow-2xl bg-[#171717]"
+              />
+            )}
+            {previewMedia.type === 'video' && (
+              <CustomVideoPlayer
+                src={previewMedia.url}
+                title={previewMedia.name}
+                autoPlay
+                className="w-full"
+                onDownload={() => {
+                  const a = document.createElement('a');
+                  a.href = previewMedia.url;
+                  a.download = previewMedia.name;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                }}
+              />
+            )}
+            {previewMedia.type === 'audio' && (
+              <div className="p-6 rounded-2xl bg-[#1c1c24] border border-[#3a3a45] w-full max-w-lg">
+                <CustomAudioPlayer src={previewMedia.url} title={previewMedia.name} autoPlay />
+              </div>
+            )}
           </div>
         </div>
       )}

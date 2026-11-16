@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, Mic, Monitor, FileText, Lock } from 'lucide-react';
+import { ArrowRight, Mic, Paperclip, FileText, Lock } from 'lucide-react';
 
 interface MeetingHomeViewProps {
   onCreateMeeting: () => void;
@@ -40,7 +40,7 @@ export const MeetingHomeView: React.FC<MeetingHomeViewProps> = ({
           Комната <span className="text-[#9ac43e]">·</span> переговорная без следов
         </h1>
         <p className="text-xl sm:text-2xl text-[#bbbbbb] leading-relaxed">
-          Приватная аудиосвязь, демонстрация экрана и совместный Канвас. Прямое зашифрованное P2P-соединение. Закрыли вкладку — ни следа.
+          Приватная аудиосвязь, обмен файлами и совместный Канвас. Прямое зашифрованное P2P-соединение. Закрыли вкладку — ни следа.
         </p>
       </div>
 
@@ -123,12 +123,12 @@ export const MeetingHomeView: React.FC<MeetingHomeViewProps> = ({
 
         <div className="p-5 rounded-xl bg-[#202020] border border-[#3a3a3a] flex items-start gap-3.5">
           <div className="w-10 h-10 rounded-lg bg-[#282828] border border-[#3a3a3a] flex items-center justify-center text-[#9ac43e] shrink-0">
-            <Monitor className="w-5 h-5" />
+            <Paperclip className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-[#ededed] mb-1">Демонстрация экрана 60 FPS</h3>
+            <h3 className="text-xl font-bold text-[#ededed] mb-1">P2P-обмен файлами</h3>
             <p className="text-base text-[#aaaaaa] leading-snug">
-              Показывайте браузер, презентации, макеты Figma или код коллегам в 1 клик.
+              Передавайте фото, видео и файлы любого размера прямо во время встречи без ограничений.
             </p>
           </div>
         </div>

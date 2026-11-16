@@ -143,7 +143,7 @@ export const AboutView: React.FC<AboutViewProps> = ({ onBack: _onBack }) => {
                 </li>
                 <li className="flex items-start gap-2.5">
                   <span className="text-[#9ac43e] font-bold">•</span>
-                  <span><strong>Демонстрация экрана 60 FPS:</strong> показ рабочего стола, Figma-макетов, презентаций или кода.</span>
+                  <span><strong>Мгновенный P2P-обмен файлами:</strong> быстрая отправка фото, видео и документов любого объема прямо в комнате.</span>
                 </li>
                 <li className="flex items-start gap-2.5">
                   <span className="text-[#9ac43e] font-bold">•</span>
@@ -157,7 +157,7 @@ export const AboutView: React.FC<AboutViewProps> = ({ onBack: _onBack }) => {
             </div>
 
             <div className="mt-6 pt-3.5 border-t border-[#333333] flex items-center justify-between text-xs sm:text-sm font-mono text-[#999999]">
-              <span className="text-[#9ac43e]">Фокус: живой созвон и экран</span>
+              <span className="text-[#9ac43e]">Фокус: живой созвон, канвас и файлы</span>
               <span>Кнопка экстренного завершения</span>
             </div>
           </div>
@@ -310,7 +310,7 @@ export const AboutView: React.FC<AboutViewProps> = ({ onBack: _onBack }) => {
             </div>
             <div>
               <h2 className="text-2xl sm:text-3xl font-extrabold text-[#ededed]">
-                Голос, трансляция экрана и Канвас (в режиме «Комната»)
+                Голос, файлы и Канвас (в режиме «Комната»)
               </h2>
               <p className="text-sm sm:text-base text-[#9ac43e] font-semibold">
                 Полноценная переговорная без сторонних сервисов
@@ -318,7 +318,7 @@ export const AboutView: React.FC<AboutViewProps> = ({ onBack: _onBack }) => {
             </div>
           </div>
           <p className="text-lg sm:text-xl text-[#cccccc] leading-relaxed mb-3">
-            В режиме <strong className="text-white">«Комната»</strong> участникам доступны прямой P2P-стриминг медиа (чистый Opus для голоса, 60 FPS захват экрана) и совместный синхронный Канвас (Canvas).
+            В режиме <strong className="text-white">«Комната»</strong> участникам доступны прямой P2P-стриминг медиа (чистый Opus для голоса), передача файлов любого размера и совместный синхронный Канвас (Canvas).
           </p>
           <p className="text-lg sm:text-xl text-[#cccccc] leading-relaxed">
             При этом режим <strong className="text-white">«Мост»</strong> остаётся строго сфокусированным на быстрой передаче файлов между устройствами — в нём нет лишних кнопок звонка, чтобы ничто не отвлекало от мгновенного переброса данных.

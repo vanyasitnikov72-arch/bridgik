@@ -39,6 +39,7 @@ import { sound } from '../utils/sound.js';
 import { EmotePicker } from './EmotePicker.js';
 import { ChatMessageBubble } from './ChatMessageBubble.js';
 import { CustomAudioPlayer } from './CustomAudioPlayer.js';
+import { CustomVideoPlayer } from './CustomVideoPlayer.js';
 
 export type RoomId = 'cyber-lounge' | 'cozy-loft' | 'skyline-penthouse' | 'retro-lounge';
 
@@ -1442,9 +1443,9 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
       {/* Settings Modal */}
       {isSettingsOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-[#1b1b1f] border border-[#35353f] rounded-3xl max-w-xl w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-[#303038]">
+          <div className="bg-[#1b1b1f] border border-[#35353f] rounded-3xl max-w-xl w-full shadow-2xl relative max-h-[88vh] flex flex-col overflow-hidden">
+            {/* Modal Header (Pinned at top) */}
+            <div className="flex items-center justify-between p-5 sm:p-6 pb-4 border-b border-[#303038] shrink-0 bg-[#1b1b1f]">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-[#25252e] border border-[#383845] flex items-center justify-center text-[#9ac43e]">
                   <Settings className="w-5 h-5" />
@@ -1465,7 +1466,8 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
               </button>
             </div>
 
-            <div className="py-5 space-y-6">
+            {/* Scrollable Modal Content (Clipped strictly within card) */}
+            <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-5 space-y-6 [scrollbar-color:#383848_transparent] [scrollbar-width:thin]">
               {/* Host Settings Section (if isHost) */}
               {isHost && (
                 <div className="p-4 rounded-2xl bg-[#14141c] border border-[#f59e0b]/30 space-y-4">
@@ -1687,8 +1689,8 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
               </div>
             </div>
 
-            {/* Modal Footer */}
-            <div className="pt-4 border-t border-[#303038] flex justify-end">
+            {/* Modal Footer (Pinned at bottom) */}
+            <div className="p-5 sm:p-6 pt-4 border-t border-[#303038] flex justify-end shrink-0 bg-[#1b1b1f]">
               <button
                 onClick={() => {
                   setIsSettingsOpen(false);
@@ -1805,11 +1807,19 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
               />
             )}
             {previewMedia.type === 'video' && (
-              <video
-                controls
-                autoPlay
+              <CustomVideoPlayer
                 src={previewMedia.url}
-                className="max-w-full max-h-[75vh] rounded-xl shadow-2xl"
+                title={previewMedia.name}
+                autoPlay
+                className="w-full"
+                onDownload={() => {
+                  const a = document.createElement('a');
+                  a.href = previewMedia.url;
+                  a.download = previewMedia.name;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                }}
               />
             )}
             {previewMedia.type === 'audio' && (

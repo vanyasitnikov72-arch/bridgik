@@ -10,6 +10,7 @@ import {
   FileText,
   Lock,
   Users,
+  Paperclip,
 } from 'lucide-react';
 import { NearbyPeer, PairRequest } from '../types/index.js';
 import { BridgeIcon } from './icons/BridgeIcon.js';
@@ -210,12 +211,12 @@ export const HomeView: React.FC<HomeViewProps> = ({
               </div>
 
               <p className="text-base text-[#cccccc] leading-relaxed">
-                Изолированное пространство для приватного созвона: чистый голос Opus 48 kHz, показ экрана 60 FPS и совместный Канвас.
+                Изолированное пространство для приватного созвона: чистый голос Opus 48 kHz, мгновенная передача файлов и совместный Канвас.
               </p>
             </div>
 
             <div className="pt-3 border-t border-white/10 flex items-center justify-between text-xs font-mono text-[#999999]">
-              <span className="text-[#9ac43e] font-semibold">Opus 48 kHz · Экран 60 FPS</span>
+              <span className="text-[#9ac43e] font-semibold">Opus 48 kHz · Канвас · Файлы</span>
               <span>Нулевые следы</span>
             </div>
           </div>
@@ -407,8 +408,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 <span>Голос Opus 48 kHz без задержек</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-[#bbbbbb]">
-                <Monitor className="w-4 h-4 text-[#9ac43e]" />
-                <span>Демонстрация экрана в 60 FPS</span>
+                <Paperclip className="w-4 h-4 text-[#9ac43e]" />
+                <span>Мгновенный обмен файлами любого размера</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-[#bbbbbb]">
                 <FileText className="w-4 h-4 text-[#9ac43e]" />
