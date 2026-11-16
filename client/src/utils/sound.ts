@@ -121,6 +121,32 @@ class RetroAudio {
     osc.start(now);
     osc.stop(now + 0.16);
   }
+
+  /**
+   * Crisp 8-bit UI button / toggle click
+   */
+  public playClick() {
+    if (!this.soundEnabled) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(600, now);
+    osc.frequency.setValueAtTime(400, now + 0.02);
+
+    gain.gain.setValueAtTime(0.04, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.06);
+  }
 }
 
 export const sound = new RetroAudio();

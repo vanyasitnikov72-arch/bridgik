@@ -574,6 +574,8 @@ export function App() {
             roomId={roomId}
             pin={pin}
             myPeerId={myPeerId}
+            myUserName={userName}
+            onUpdateUserName={handleUpdateUserName}
             roomUrl={roomUrl}
             peers={peers}
             transfers={transfers}
