@@ -4,6 +4,7 @@ import { Navbar } from './components/Navbar.js';
 import { HomeView } from './components/HomeView.js';
 import { RoomView } from './components/RoomView.js';
 import { QRCodeModal } from './components/QRCodeModal.js';
+import { Footer } from './components/Footer.js';
 import { FileTransfer, Peer, TextMessage, ThemeMode } from './types/index.js';
 import { detectDeviceType, generateRandomName } from './utils/device.js';
 import { WebRTCManager } from './services/webrtc.js';
@@ -366,6 +367,8 @@ export function App() {
         pin={pin}
         roomUrl={roomUrl}
       />
+
+      <Footer />
     </div>
   );
 }

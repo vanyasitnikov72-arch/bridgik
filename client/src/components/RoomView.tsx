@@ -323,8 +323,8 @@ export const RoomView: React.FC<RoomViewProps> = ({
             <p className="text-xs text-[#aaaaaa] max-w-sm mx-auto mb-3">
               Или нажмите для выбора. Любой размер (10 ГБ, 50 ГБ+) — прямое P2P-соединение без серверов.
             </p>
-            <span className="inline-block px-2.5 py-1 rounded-md bg-[#171717] border border-[#3a3a3a] text-[11px] font-semibold text-[#9ac43e]">
-              ⚡ Максимальная скорость канала
+            <span className="inline-block px-3 py-1 rounded-full bg-[#171717] border border-[#3a3a3a] text-xs font-semibold text-[#9ac43e]">
+              Прямой P2P-канал WebRTC
             </span>
           </div>
 

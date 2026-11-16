@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Zap, Laptop, Smartphone, Tablet, Edit2, Check, Palette } from 'lucide-react';
+import { Edit2, Check } from 'lucide-react';
 import { ThemeMode } from '../types/index.js';
 
 interface NavbarProps {
@@ -15,9 +15,8 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   userName,
   onUpdateUserName,
-  deviceType,
-  theme,
-  onToggleTheme,
+  theme: _theme,
+  onToggleTheme: _onToggleTheme,
   isConnected,
   onGoHome,
 }) => {
@@ -31,43 +30,51 @@ export const Navbar: React.FC<NavbarProps> = ({
     setIsEditing(false);
   };
 
-  const getDeviceIcon = () => {
-    switch (deviceType) {
-      case 'mobile':
-        return <Smartphone className="w-3.5 h-3.5 text-[#9ac43e]" />;
-      case 'tablet':
-        return <Tablet className="w-3.5 h-3.5 text-[#9ac43e]" />;
-      default:
-        return <Laptop className="w-3.5 h-3.5 text-[#9ac43e]" />;
-    }
-  };
-
   return (
-    <header className="border-b border-white/[0.08] bg-[#171717]/90 backdrop-blur-md sticky top-0 z-40 transition-colors">
-      <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-        {/* Brand */}
+    <header className="border-b border-white/[0.08] bg-[#171717] sticky top-0 z-40">
+      <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+        {/* Brand in Handjet font */}
         <div
           onClick={onGoHome}
-          className="flex items-center gap-2.5 cursor-pointer group select-none"
+          className="flex items-center gap-2 cursor-pointer select-none group"
         >
-          <div className="w-8 h-8 rounded-md bg-[#789d2a] flex items-center justify-center shadow-md group-hover:bg-[#8cb632] transition-colors">
-            <Zap className="w-4 h-4 text-white fill-white" />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="font-bold tracking-tight text-base text-[#ededed] group-hover:text-white transition-colors">
-              AirBridge
-            </span>
-            <span className="text-[11px] font-bold tracking-wide uppercase px-1.5 py-0.5 rounded bg-[#2d2d2d] text-[#9ac43e] border border-[#3a3a3a]">
-              P2P
-            </span>
-          </div>
+          <span className="font-extrabold text-2xl tracking-tight text-[#ededed] group-hover:text-white transition-colors">
+            airbridge<span className="text-[#9ac43e]">.id</span>
+          </span>
+          <span className="text-xs uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-[#222222] text-[#9ac43e] border border-[#3a3a3a]">
+            p2p
+          </span>
         </div>
 
-        {/* Right Actions */}
-        <div className="flex items-center gap-2.5">
-          {/* Identity Pill */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-[#222222] border border-[#3a3a3a] text-xs text-[#ededed]">
-            {getDeviceIcon()}
+        {/* Center / Navigation Tabs like on eblo.id */}
+        <nav className="hidden sm:flex items-center gap-6 text-base font-semibold">
+          <button
+            onClick={onGoHome}
+            className="text-[#ededed] border-b-2 border-[#789d2a] pb-1 cursor-pointer transition-colors"
+          >
+            Передача
+          </button>
+          <a
+            href="#features"
+            className="text-[#aaaaaa] hover:text-[#ededed] pb-1 transition-colors"
+          >
+            О сервисе
+          </a>
+          <span className="text-[#999999]/60">·</span>
+          <span className="text-xs text-[#9ac43e] font-mono">
+            {isConnected ? 'сеть активна' : 'подключение...'}
+          </span>
+        </nav>
+
+        {/* Right: User Identity */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#222222] border border-[#3a3a3a] text-sm text-[#ededed]">
+            <span
+              className={`w-2 h-2 rounded-full ${
+                isConnected ? 'bg-[#789d2a]' : 'bg-[#e8b33c]'
+              }`}
+              title={isConnected ? 'В сети' : 'Подключение...'}
+            />
             {isEditing ? (
               <div className="flex items-center gap-1">
                 <input
@@ -76,7 +83,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   onChange={(e) => setTempName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSaveName()}
                   autoFocus
-                  className="bg-[#171717] text-[#ededed] px-2 py-0.5 rounded text-xs outline-none border border-[#789d2a] w-28"
+                  className="bg-[#171717] text-[#ededed] px-2 py-0.5 rounded text-sm outline-none border border-[#789d2a] w-28"
                 />
                 <button
                   onClick={handleSaveName}
@@ -91,30 +98,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                   setTempName(userName);
                   setIsEditing(true);
                 }}
-                className="flex items-center gap-1.5 hover:text-white transition-colors group"
+                className="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer"
                 title="Кликните, чтобы изменить имя"
               >
-                <span className="font-medium max-w-[120px] truncate">{userName}</span>
-                <Edit2 className="w-3 h-3 text-[#aaaaaa] group-hover:text-[#9ac43e] transition-colors" />
+                <span className="font-bold max-w-[120px] truncate">{userName}</span>
+                <Edit2 className="w-3 h-3 text-[#aaaaaa] hover:text-[#9ac43e]" />
               </button>
             )}
-            <span
-              className={`w-2 h-2 rounded-full ${
-                isConnected ? 'bg-[#789d2a] shadow-sm shadow-[#789d2a]/50' : 'bg-[#e8b33c]'
-              }`}
-              title={isConnected ? 'В сети (WebRTC Signaling)' : 'Подключение...'}
-            />
           </div>
-
-          {/* Theme switcher */}
-          <button
-            onClick={onToggleTheme}
-            className="p-1.5 px-2 rounded-md bg-[#222222] border border-[#3a3a3a] hover:bg-[#2d2d2d] text-[#aaaaaa] hover:text-[#ededed] transition-colors flex items-center gap-1.5 text-xs font-medium cursor-pointer"
-            title="Сменить палитру темы"
-          >
-            <Palette className="w-3.5 h-3.5 text-[#9ac43e]" />
-            <span className="hidden sm:inline capitalize">{theme}</span>
-          </button>
         </div>
       </div>
     </header>
