@@ -1,6 +1,27 @@
 import React, { useState } from 'react';
-import { ExternalLink, Play, Copy, Check, Image as ImageIcon, Globe } from 'lucide-react';
-import { findEmote, extractYouTubeId, isImageUrl, getDomainFromUrl, EmoteItem } from '../utils/emotes.js';
+import {
+  ExternalLink,
+  Play,
+  Copy,
+  Check,
+  Image as ImageIcon,
+  Globe,
+  Lock,
+  Tv,
+  Send as TelegramIcon,
+  Code2,
+} from 'lucide-react';
+import {
+  findEmote,
+  extractYouTubeId,
+  extractTwitchChannel,
+  extractTelegramInfo,
+  extractGitHubInfo,
+  isImageUrl,
+  getDomainFromUrl,
+  getFaviconUrl,
+  EmoteItem,
+} from '../utils/emotes.js';
 
 interface ChatMessageBubbleProps {
   senderName: string;
@@ -16,6 +37,7 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
   time,
 }) => {
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
+  const [faviconFailed, setFaviconFailed] = useState<Record<string, boolean>>({});
 
   const handleCopyLink = (url: string) => {
     navigator.clipboard.writeText(url);
@@ -27,17 +49,21 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
   const urlRegex = /(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/g;
   const urls = text.match(urlRegex) || [];
 
-  // Split text by URLs and whitespace to process emotes and links
+  // Check if message is PURELY a link (or link + whitespace)
+  const trimmed = text.trim();
+  const isPureLink = urls.length === 1 && trimmed === urls[0];
+
+  // Split text by whitespace for tokenizing emotes & links
   const tokens = text.split(/(\s+)/);
 
-  // Check if entire message consists ONLY of 1-3 emotes
+  // Check if entire message consists ONLY of 1-4 emotes
   const nonWhitespaceTokens = tokens.filter((t) => t.trim().length > 0);
   const allTokensAreEmotes =
     nonWhitespaceTokens.length > 0 &&
     nonWhitespaceTokens.length <= 4 &&
     nonWhitespaceTokens.every((t) => Boolean(findEmote(t)));
 
-  // Render tokens inline
+  // Render text tokens inline
   const renderedContent = tokens.map((token, idx) => {
     if (!token.trim()) {
       return <span key={idx}>{token}</span>;
@@ -95,37 +121,46 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
       </div>
 
       <div
-        className={`max-w-[90%] sm:max-w-[85%] rounded-2xl text-base leading-relaxed break-words shadow-sm ${
+        className={`max-w-[92%] sm:max-w-[85%] rounded-2xl text-base leading-relaxed break-words shadow-sm transition-all ${
           allTokensAreEmotes
             ? 'bg-transparent border-0 p-1'
+            : isPureLink
+            ? 'p-1.5 bg-transparent border-0'
             : isMe
             ? 'p-3.5 bg-[#1b2413] border border-[#789d2a]/50 text-[#d4e8a8]'
             : 'p-3.5 bg-[#252525] border border-[#383838] text-[#ededed]'
         }`}
       >
-        <div className="leading-snug">{renderedContent}</div>
+        {/* Render text only if not pure link and not pure emotes */}
+        {!isPureLink && !allTokensAreEmotes && (
+          <div className="leading-snug">{renderedContent}</div>
+        )}
 
-        {/* Rich Link Previews (YouTube, Direct Images, Web Link Cards) */}
+        {/* Rich Link Previews */}
         {urls.length > 0 && !allTokensAreEmotes && (
-          <div className="mt-2.5 pt-2 border-t border-white/10 space-y-2.5">
+          <div className={`${isPureLink ? '' : 'mt-2.5 pt-2 border-t border-white/10'} space-y-2.5`}>
             {urls.slice(0, 2).map((url, uIdx) => {
               const ytId = extractYouTubeId(url);
+              const twitchInfo = extractTwitchChannel(url);
+              const tgInfo = extractTelegramInfo(url);
+              const ghInfo = extractGitHubInfo(url);
               const isImg = isImageUrl(url);
               const domain = getDomainFromUrl(url);
+              const faviconUrl = getFaviconUrl(url);
 
-              // 1. YouTube Rich Card
+              // 1. YouTube Rich Video Card
               if (ytId) {
                 const thumbUrl = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
                 return (
                   <div
                     key={uIdx}
-                    className="rounded-xl overflow-hidden bg-[#141414] border border-[#3a3a3a] shadow-lg group hover:border-[#ff0000]/60 transition-colors"
+                    className="rounded-2xl overflow-hidden bg-[#141414] border border-[#3a3a3a] shadow-xl group hover:border-[#ff0000]/70 transition-all max-w-sm sm:max-w-md"
                   >
                     <a
                       href={url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="relative block aspect-video w-full max-h-48 overflow-hidden bg-black"
+                      className="relative block aspect-video w-full overflow-hidden bg-black"
                     >
                       <img
                         src={thumbUrl}
@@ -133,23 +168,26 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                       <div className="absolute inset-0 bg-black/30 group-hover:bg-black/15 transition-colors flex items-center justify-center">
-                        <div className="w-12 h-12 rounded-full bg-[#ff0000]/90 text-white flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform">
+                        <div className="w-12 h-12 rounded-full bg-[#ff0000] text-white flex items-center justify-center shadow-2xl group-hover:scale-110 transition-transform">
                           <Play className="w-6 h-6 fill-white ml-0.5" />
                         </div>
                       </div>
-                      <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/80 text-white text-[11px] font-bold font-mono flex items-center gap-1">
+                      <div className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-lg bg-black/80 backdrop-blur-md text-white text-[11px] font-bold font-mono flex items-center gap-1.5 border border-white/10">
                         <span className="w-2 h-2 rounded-full bg-[#ff0000]" />
-                        <span>YouTube</span>
+                        <span>YouTube Video</span>
                       </div>
                     </a>
 
-                    <div className="p-2.5 flex items-center justify-between gap-2 text-xs">
-                      <span className="text-[#cccccc] font-semibold truncate">Видео на YouTube</span>
+                    <div className="p-3 bg-[#181818] flex items-center justify-between gap-3 text-xs">
+                      <div className="min-w-0">
+                        <p className="text-[#ededed] font-bold truncate">Видео на YouTube</p>
+                        <p className="text-[#888888] text-[11px] font-mono truncate">{domain}</p>
+                      </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         <button
                           type="button"
                           onClick={() => handleCopyLink(url)}
-                          className="p-1 rounded hover:bg-[#252525] text-[#aaaaaa] hover:text-white cursor-pointer"
+                          className="p-1.5 rounded-lg bg-[#242424] hover:bg-[#303030] text-[#aaaaaa] hover:text-white transition-colors cursor-pointer"
                           title="Скопировать ссылку"
                         >
                           {copiedUrl === url ? (
@@ -162,7 +200,7 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
                           href={url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="px-2.5 py-1 rounded bg-[#2a2a2a] hover:bg-[#333333] text-white font-bold flex items-center gap-1 transition-colors"
+                          className="px-3 py-1.5 rounded-lg bg-[#ff0000] hover:bg-[#d60000] text-white font-bold flex items-center gap-1.5 transition-colors shadow-md shadow-[#ff0000]/20"
                         >
                           <span>Смотреть</span>
                           <ExternalLink className="w-3 h-3" />
@@ -173,23 +211,170 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
                 );
               }
 
-              // 2. Direct Image Preview Card
+              // 2. Twitch Rich Stream Card
+              if (twitchInfo) {
+                return (
+                  <div
+                    key={uIdx}
+                    className="rounded-2xl overflow-hidden bg-gradient-to-br from-[#1b1424] via-[#161616] to-[#121212] border border-[#9146FF]/40 hover:border-[#9146FF] shadow-xl p-3.5 sm:p-4 transition-all max-w-sm sm:max-w-md"
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-2.5">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-9 h-9 rounded-xl bg-[#9146FF] text-white flex items-center justify-center shrink-0 shadow-lg shadow-[#9146FF]/30">
+                          <Tv className="w-5 h-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#9146FF]/20 text-[#bf94ff] border border-[#9146FF]/40 font-mono">
+                              Twitch
+                            </span>
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#bf94ff] animate-ping" />
+                          </div>
+                          <p className="text-sm font-extrabold text-[#ededed] truncate">
+                            Канал {twitchInfo.channel}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleCopyLink(url)}
+                          className="p-1.5 rounded-lg bg-[#242424] hover:bg-[#303030] text-[#aaaaaa] hover:text-white transition-colors cursor-pointer"
+                          title="Скопировать ссылку"
+                        >
+                          {copiedUrl === url ? (
+                            <Check className="w-3.5 h-3.5 text-[#9ac43e]" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-[#aaaaaa] mb-3 leading-snug">
+                      Прямой эфир, стримы и трансляции на Twitch
+                    </p>
+
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-2 px-3 rounded-xl bg-[#9146FF] hover:bg-[#772ce8] text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-lg shadow-[#9146FF]/30"
+                    >
+                      <span>Смотреть стрим на Twitch</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                );
+              }
+
+              // 3. Telegram Card
+              if (tgInfo) {
+                return (
+                  <div
+                    key={uIdx}
+                    className="rounded-2xl overflow-hidden bg-gradient-to-br from-[#121c25] via-[#161616] to-[#121212] border border-[#229ED9]/40 hover:border-[#229ED9] shadow-xl p-3.5 transition-all max-w-sm sm:max-w-md"
+                  >
+                    <div className="flex items-center justify-between gap-3 mb-2.5">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-8 h-8 rounded-xl bg-[#229ED9] text-white flex items-center justify-center shrink-0 shadow-lg shadow-[#229ED9]/30">
+                          <TelegramIcon className="w-4 h-4 ml-0.5" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-[#229ED9] font-mono">
+                            Telegram
+                          </span>
+                          <p className="text-sm font-bold text-[#ededed] truncate">@{tgInfo.handle}</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyLink(url)}
+                        className="p-1.5 rounded-lg bg-[#242424] hover:bg-[#303030] text-[#aaaaaa] hover:text-white transition-colors cursor-pointer"
+                        title="Скопировать"
+                      >
+                        {copiedUrl === url ? (
+                          <Check className="w-3.5 h-3.5 text-[#9ac43e]" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
+
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-1.5 px-3 rounded-xl bg-[#229ED9] hover:bg-[#1d8bc0] text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-md shadow-[#229ED9]/20"
+                    >
+                      <span>Открыть в Telegram</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                );
+              }
+
+              // 4. GitHub Card
+              if (ghInfo) {
+                return (
+                  <div
+                    key={uIdx}
+                    className="rounded-2xl overflow-hidden bg-[#181818] border border-[#444444] hover:border-white/50 shadow-xl p-3.5 transition-all max-w-sm sm:max-w-md"
+                  >
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-8 h-8 rounded-xl bg-[#252525] text-white flex items-center justify-center shrink-0 border border-[#444]">
+                          <Code2 className="w-5 h-5 text-[#9ac43e]" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-[#9ac43e] font-mono">
+                            GitHub Repository
+                          </span>
+                          <p className="text-sm font-mono font-bold text-[#ededed] truncate">
+                            {ghInfo.owner} {ghInfo.repo ? `/ ${ghInfo.repo}` : ''}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyLink(url)}
+                        className="p-1.5 rounded-lg bg-[#242424] hover:bg-[#303030] text-[#aaaaaa] hover:text-white transition-colors cursor-pointer"
+                      >
+                        {copiedUrl === url ? <Check className="w-3.5 h-3.5 text-[#9ac43e]" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-1.5 px-3 rounded-xl bg-[#2a2a2a] hover:bg-[#353535] text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors border border-[#444]"
+                    >
+                      <span>Открыть на GitHub</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                );
+              }
+
+              // 5. Direct Image Preview Card
               if (isImg) {
                 return (
                   <div
                     key={uIdx}
-                    className="rounded-xl overflow-hidden bg-[#141414] border border-[#3a3a3a] shadow-lg"
+                    className="rounded-2xl overflow-hidden bg-[#141414] border border-[#3a3a3a] shadow-xl max-w-sm sm:max-w-md"
                   >
-                    <a href={url} target="_blank" rel="noopener noreferrer" className="block max-h-52 overflow-hidden">
+                    <a href={url} target="_blank" rel="noopener noreferrer" className="block max-h-60 overflow-hidden group">
                       <img
                         src={url}
                         alt="Preview"
                         loading="lazy"
-                        className="w-full h-auto max-h-52 object-contain bg-[#111111]"
+                        className="w-full h-auto max-h-60 object-contain bg-[#111111] group-hover:scale-105 transition-transform"
                       />
                     </a>
-                    <div className="p-2 flex items-center justify-between text-xs text-[#aaaaaa]">
-                      <span className="flex items-center gap-1 truncate">
+                    <div className="p-2.5 bg-[#181818] flex items-center justify-between text-xs text-[#aaaaaa]">
+                      <span className="flex items-center gap-1.5 truncate">
                         <ImageIcon className="w-3.5 h-3.5 text-[#9ac43e]" />
                         <span>Изображение</span>
                       </span>
@@ -197,9 +382,9 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
                         href={url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="hover:text-white font-bold flex items-center gap-1"
+                        className="px-2.5 py-1 rounded bg-[#252525] hover:bg-[#303030] text-white font-bold flex items-center gap-1 transition-colors"
                       >
-                        <span>Открыть</span>
+                        <span>Оригинал</span>
                         <ExternalLink className="w-3 h-3" />
                       </a>
                     </div>
@@ -207,46 +392,71 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
                 );
               }
 
-              // 3. Generic Web Link Card
+              // 6. Universal Rich Web Link Card (with REAL Favicon & SSL badge)
               return (
                 <div
                   key={uIdx}
-                  className="p-2.5 rounded-xl bg-[#181818] border border-[#333333] flex items-center justify-between gap-2.5 hover:border-[#789d2a]/50 transition-colors"
+                  className="rounded-2xl bg-gradient-to-r from-[#1c1c1c] to-[#151515] border border-[#353535] hover:border-[#789d2a]/60 shadow-xl p-3 sm:p-3.5 transition-all max-w-sm sm:max-w-md"
                 >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-7 h-7 rounded-lg bg-[#222222] border border-[#3a3a3a] flex items-center justify-center text-[#9ac43e] shrink-0">
-                      <Globe className="w-4 h-4" />
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-xl bg-[#222222] border border-[#3a3a3a] flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
+                        {!faviconFailed[domain] ? (
+                          <img
+                            src={faviconUrl}
+                            alt=""
+                            className="w-5 h-5 object-contain"
+                            onError={() => setFaviconFailed((prev) => ({ ...prev, [domain]: true }))}
+                          />
+                        ) : (
+                          <Globe className="w-4 h-4 text-[#9ac43e]" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <Lock className="w-3 h-3 text-[#9ac43e]" />
+                          <span className="text-[11px] font-bold text-white uppercase tracking-wider font-mono truncate">
+                            {domain}
+                          </span>
+                        </div>
+                        <p className="text-xs text-[#888888] font-mono truncate">{url}</p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-                        {domain}
-                      </p>
-                      <p className="text-xs text-[#888888] truncate">{url}</p>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleCopyLink(url)}
+                        className="p-1.5 rounded-lg bg-[#242424] hover:bg-[#303030] text-[#aaaaaa] hover:text-white transition-colors cursor-pointer"
+                        title="Скопировать ссылку"
+                      >
+                        {copiedUrl === url ? (
+                          <Check className="w-3.5 h-3.5 text-[#9ac43e]" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 rounded-lg bg-[#272727] hover:bg-[#353535] text-[#9ac43e] hover:text-[#b4e64f] transition-colors cursor-pointer"
+                        title="Перейти по ссылке"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => handleCopyLink(url)}
-                      className="p-1.5 rounded-lg bg-[#222222] hover:bg-[#2c2c2c] text-[#aaaaaa] hover:text-white cursor-pointer"
-                      title="Скопировать"
-                    >
-                      {copiedUrl === url ? (
-                        <Check className="w-3.5 h-3.5 text-[#9ac43e]" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
-                      )}
-                    </button>
-                    <a
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-1.5 rounded-lg bg-[#222222] hover:bg-[#2c2c2c] text-[#9ac43e] hover:text-[#b4e64f] cursor-pointer"
-                      title="Перейти"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                  </div>
+
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full mt-1.5 py-1.5 px-3 rounded-xl bg-[#242424] hover:bg-[#2e2e2e] text-[#ededed] hover:text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border border-[#333]"
+                  >
+                    <span>Перейти на {domain}</span>
+                    <ExternalLink className="w-3 h-3 text-[#9ac43e]" />
+                  </a>
                 </div>
               );
             })}

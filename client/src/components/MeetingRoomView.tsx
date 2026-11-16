@@ -442,7 +442,76 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   const activeMyName = myUserName || myPeer?.name || 'Quantum Lynx';
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const meetingFilesSectionRef = useRef<HTMLDivElement>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
+
+  const [isGlobalDragging, setIsGlobalDragging] = useState(false);
+  const dragCounter = useRef(0);
+  const [fileToast, setFileToast] = useState<string | null>(null);
+
+  // Global Drag & Drop + Clipboard Paste for meeting files anywhere
+  useEffect(() => {
+    const handleDragEnter = (e: DragEvent) => {
+      e.preventDefault();
+      dragCounter.current += 1;
+      if (e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files')) {
+        setIsGlobalDragging(true);
+      }
+    };
+
+    const handleDragLeave = (e: DragEvent) => {
+      e.preventDefault();
+      dragCounter.current -= 1;
+      if (dragCounter.current <= 0) {
+        dragCounter.current = 0;
+        setIsGlobalDragging(false);
+      }
+    };
+
+    const handleDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = 'copy';
+      }
+    };
+
+    const handleDrop = (e: DragEvent) => {
+      e.preventDefault();
+      dragCounter.current = 0;
+      setIsGlobalDragging(false);
+      if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+        sound.playConnect();
+        onSendFiles(e.dataTransfer.files);
+        setFileToast(`Добавлено файлов: ${e.dataTransfer.files.length}`);
+        setTimeout(() => setFileToast(null), 3500);
+      }
+    };
+
+    const handlePaste = (e: ClipboardEvent) => {
+      // If user is pasting files (e.g. screenshot or copied file)
+      if (e.clipboardData?.files && e.clipboardData.files.length > 0) {
+        e.preventDefault();
+        sound.playConnect();
+        onSendFiles(e.clipboardData.files);
+        setFileToast(`Файл из буфера добавлен в файлы встречи`);
+        setTimeout(() => setFileToast(null), 3500);
+      }
+    };
+
+    window.addEventListener('dragenter', handleDragEnter);
+    window.addEventListener('dragleave', handleDragLeave);
+    window.addEventListener('dragover', handleDragOver);
+    window.addEventListener('drop', handleDrop);
+    window.addEventListener('paste', handlePaste);
+
+    return () => {
+      window.removeEventListener('dragenter', handleDragEnter);
+      window.removeEventListener('dragleave', handleDragLeave);
+      window.removeEventListener('dragover', handleDragOver);
+      window.removeEventListener('drop', handleDrop);
+      window.removeEventListener('paste', handlePaste);
+    };
+  }, [onSendFiles]);
 
   // Seat switching action
   const handleSwitchSeat = (seatIdx: number) => {
@@ -897,6 +966,23 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                   </button>
                 )}
 
+                {/* Files Toolbar Button */}
+                <button
+                  onClick={() => {
+                    meetingFilesSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="px-2.5 py-1.5 rounded-xl bg-[#25252c] hover:bg-[#303038] text-[#ededed] border border-white/10 text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Файлы встречи"
+                >
+                  <Paperclip className="w-4 h-4 text-[#9ac43e]" />
+                  <span className="hidden md:inline">Файлы</span>
+                  {transfers.length > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full bg-[#789d2a] text-white text-[10px] font-mono font-bold">
+                      {transfers.length}
+                    </span>
+                  )}
+                </button>
+
                 {/* QR Code Button */}
                 <button
                   onClick={onOpenQR}
@@ -985,7 +1071,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
           )}
 
           {/* Meeting Files Drawer / Dropzone */}
-          <div className="bg-[#1e1e1e] border border-[#353535] rounded-2xl p-4 sm:p-5 shadow-sm">
+          <div ref={meetingFilesSectionRef} className="bg-[#1e1e1e] border border-[#353535] rounded-2xl p-4 sm:p-5 shadow-sm scroll-mt-6">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Paperclip className="w-4 h-4 text-[#9ac43e]" />
@@ -1006,6 +1092,9 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 onChange={(e) => {
                   if (e.target.files && e.target.files.length > 0) {
                     onSendFiles(e.target.files);
+                    setFileToast(`Добавлено файлов: ${e.target.files.length}`);
+                    setTimeout(() => setFileToast(null), 3500);
+                    e.target.value = '';
                   }
                 }}
               />
@@ -1097,6 +1186,14 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 </span>
                 <div className="flex items-center gap-2">
                   <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-1.5 hover:text-white rounded bg-[#272727] hover:bg-[#333333] transition-colors cursor-pointer text-xs flex items-center gap-1 border border-[#383838]"
+                    title="Прикрепить файл к встрече"
+                  >
+                    <Paperclip className="w-3.5 h-3.5 text-[#9ac43e]" />
+                    <span>Файл</span>
+                  </button>
+                  <button
                     onClick={handleCopyNotes}
                     className="p-1.5 hover:text-white rounded bg-[#272727] hover:bg-[#333333] transition-colors cursor-pointer text-xs flex items-center gap-1"
                     title="Скопировать Канвас"
@@ -1170,6 +1267,14 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                     placeholder="Сообщение или ссылка..."
                     className="flex-1 bg-[#141414] border border-[#333333] rounded-xl px-3.5 py-2 text-base text-[#ededed] placeholder-[#666666] outline-none focus:border-[#789d2a] transition-colors"
                   />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-2.5 rounded-xl border bg-[#222222] border-[#333333] text-[#888888] hover:text-[#9ac43e] hover:border-[#789d2a] transition-colors cursor-pointer flex items-center justify-center shrink-0"
+                    title="Прикрепить файл к встрече"
+                  >
+                    <Paperclip className="w-5 h-5" />
+                  </button>
                   <button
                     type="button"
                     onClick={() => setIsEmotePickerOpen(!isEmotePickerOpen)}
@@ -1456,6 +1561,34 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 Готово
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating File Added Toast */}
+      {fileToast && (
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[110] px-4 py-2.5 rounded-2xl bg-[#1a2313]/95 border border-[#789d2a] text-[#b4e64f] text-sm font-bold shadow-[0_10px_30px_rgba(0,0,0,0.8)] backdrop-blur-md flex items-center gap-2.5 animate-in slide-in-from-top-4 duration-200">
+          <div className="w-6 h-6 rounded-lg bg-[#789d2a]/30 flex items-center justify-center text-[#9ac43e]">
+            <CheckCircle2 className="w-4 h-4" />
+          </div>
+          <span>{fileToast}</span>
+        </div>
+      )}
+
+      {/* Global Drag & Drop Overlay anywhere on the screen */}
+      {isGlobalDragging && (
+        <div className="fixed inset-0 z-[120] bg-black/85 backdrop-blur-md flex flex-col items-center justify-center p-6 border-4 border-dashed border-[#789d2a] animate-in fade-in duration-150 pointer-events-none select-none">
+          <div className="w-24 h-24 rounded-3xl bg-[#789d2a]/20 border-2 border-[#789d2a] flex items-center justify-center text-[#9ac43e] mb-5 shadow-[0_0_50px_rgba(120,157,42,0.4)] animate-bounce">
+            <Upload className="w-12 h-12" />
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-white text-center mb-2">
+            Отпустите файлы в любом месте
+          </h2>
+          <p className="text-sm sm:text-base text-[#bbbbbb] text-center max-w-md">
+            Файлы мгновенно прикрепятся к встрече и передадутся участникам напрямую по зашифрованному P2P-каналу
+          </p>
+          <div className="mt-4 px-3 py-1 rounded-full bg-[#1b2413] border border-[#789d2a]/50 text-[#9ac43e] text-xs font-mono">
+            Direct WebRTC DataChannel · Нулевые следы на сервере
           </div>
         </div>
       )}
