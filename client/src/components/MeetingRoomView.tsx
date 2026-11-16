@@ -487,8 +487,9 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   useEffect(() => {
     if (messages.length > prevMessagesLength.current) {
       const addedMessages = messages.slice(prevMessagesLength.current);
-      // Filter out messages sent by ourselves
+      // Filter out messages sent by ourselves and system notices
       const incomingFromOthers = addedMessages.filter((m) => {
+        if (m.isSystem || m.senderId === 'system' || m.senderName === 'Система') return false;
         if (myPeerId && m.senderId) return m.senderId !== myPeerId;
         if (myUserName && m.senderName) return m.senderName !== myUserName;
         return false;

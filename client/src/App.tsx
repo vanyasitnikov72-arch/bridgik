@@ -269,20 +269,7 @@ export function App() {
         return [...prev, newPeer];
       });
 
-      // System notification message in room chat
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: 'sys_' + Math.random().toString(36).substring(2, 9),
-          senderId: 'system',
-          senderName: 'Система',
-          text: `👋 ${newPeer.name} присоединился к комнате`,
-          timestamp: Date.now(),
-          isSystem: true,
-        },
-      ]);
-
-      // Floating top toast notification
+      // Floating top toast notification (centered)
       setParticipantNotice({ type: 'joined', name: newPeer.name });
       if (participantNoticeTimerRef.current) clearTimeout(participantNoticeTimerRef.current);
       participantNoticeTimerRef.current = setTimeout(() => setParticipantNotice(null), 4000);
@@ -300,20 +287,7 @@ export function App() {
       sound.playDisconnect();
       setPeers((prev) => prev.filter((p) => p.id !== data.peerId));
 
-      // System notification message in room chat
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: 'sys_' + Math.random().toString(36).substring(2, 9),
-          senderId: 'system',
-          senderName: 'Система',
-          text: `🚪 ${peerName} покинул комнату`,
-          timestamp: Date.now(),
-          isSystem: true,
-        },
-      ]);
-
-      // Floating top toast notification
+      // Floating top toast notification (centered)
       setParticipantNotice({ type: 'left', name: peerName });
       if (participantNoticeTimerRef.current) clearTimeout(participantNoticeTimerRef.current);
       participantNoticeTimerRef.current = setTimeout(() => setParticipantNotice(null), 4000);
@@ -1084,14 +1058,21 @@ export function App() {
         </aside>
       )}
 
-      {/* 5. Floating Participant Joined / Left Toast Notification */}
+      {/* 5. Floating Participant Joined / Left Toast Notification (Centered Only) */}
       {participantNotice && (
-        <aside aria-label="Уведомление об участнике" className="fixed top-5 left-1/2 -translate-x-1/2 z-[150] px-4 py-2.5 rounded-2xl bg-[#141419]/95 border-2 shadow-[0_12px_45px_rgba(0,0,0,0.85)] backdrop-blur-xl flex items-center gap-3 text-sm font-bold animate-in slide-in-from-top-4 duration-200 pointer-events-none select-none">
+        <aside
+          aria-label="Уведомление об участнике"
+          className={`fixed top-5 left-1/2 -translate-x-1/2 z-[150] px-4 py-2.5 rounded-2xl backdrop-blur-xl flex items-center gap-3 text-sm font-bold animate-in slide-in-from-top-4 duration-200 pointer-events-none select-none border-2 ${
+            participantNotice.type === 'joined'
+              ? 'bg-[#141d11]/95 border-[#789d2a] shadow-[0_0_25px_rgba(120,157,42,0.45)] text-[#bbf348]'
+              : 'bg-[#221315]/95 border-[#ed2b3b] shadow-[0_0_25px_rgba(237,43,59,0.45)] text-[#ef9282]'
+          }`}
+        >
           <div
-            className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+            className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border ${
               participantNotice.type === 'joined'
-                ? 'bg-[#789d2a]/20 border border-[#789d2a]/50 text-[#9ac43e]'
-                : 'bg-[#ed2b3b]/20 border border-[#ed2b3b]/50 text-[#ef9282]'
+                ? 'bg-[#789d2a]/25 border-[#789d2a] text-[#9ac43e]'
+                : 'bg-[#ed2b3b]/25 border-[#ed2b3b] text-[#ef9282]'
             }`}
           >
             {participantNotice.type === 'joined' ? (
@@ -1100,7 +1081,7 @@ export function App() {
               <UserMinus className="w-4 h-4" />
             )}
           </div>
-          <span className={participantNotice.type === 'joined' ? 'text-[#bbf348]' : 'text-[#ef9282]'}>
+          <span>
             {participantNotice.type === 'joined'
               ? `${participantNotice.name} присоединился к комнате`
               : `${participantNotice.name} покинул комнату`}
