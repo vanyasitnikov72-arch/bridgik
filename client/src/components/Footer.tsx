@@ -1,33 +1,37 @@
 import React from 'react';
 
-export const Footer: React.FC = () => {
+interface FooterProps {
+  onOpenAbout?: () => void;
+}
+
+export const Footer: React.FC<FooterProps> = ({ onOpenAbout }) => {
   return (
     <footer className="mt-auto border-t border-white/[0.08] bg-[#141414] py-8 relative overflow-hidden select-none">
       <div className="max-w-5xl mx-auto px-4 flex flex-col items-center justify-center text-center relative z-10">
         {/* Credits in Handjet font */}
-        <div className="flex items-center justify-center gap-10 mb-4 text-sm sm:text-base">
+        <div className="flex items-center justify-center gap-10 mb-4 text-base sm:text-lg">
           <div>
-            <p className="text-[#999999] text-xs">Протокол</p>
-            <p className="font-bold text-[#ededed] text-lg">WebRTC P2P Direct</p>
+            <p className="text-[#999999] text-sm">Протокол</p>
+            <p className="font-bold text-[#ededed] text-xl">WebRTC P2P Direct</p>
           </div>
           <div>
-            <p className="text-[#999999] text-xs">Принцип</p>
-            <p className="font-bold text-[#9ac43e] text-lg">Zero-Storage · 0 байт на сервере</p>
+            <p className="text-[#999999] text-sm">Принцип</p>
+            <p className="font-bold text-[#9ac43e] text-xl">Zero-Storage · 0 байт на сервере</p>
           </div>
         </div>
 
         {/* Links */}
-        <div className="flex flex-wrap items-center justify-center gap-3.5 text-xs sm:text-sm text-[#aaaaaa] mb-2">
-          <span className="hover:text-white cursor-pointer transition-colors">О сервисе</span>
+        <div className="flex flex-wrap items-center justify-center gap-3.5 text-base sm:text-lg text-[#aaaaaa] mb-2 font-medium">
+          <span onClick={onOpenAbout} className="hover:text-white cursor-pointer transition-colors">Конфиденциальность</span>
           <span className="text-[#3a3a3a]">·</span>
-          <span className="hover:text-white cursor-pointer transition-colors">Конфиденциальность</span>
+          <span onClick={onOpenAbout} className="hover:text-white cursor-pointer transition-colors">Direct-to-Disk</span>
           <span className="text-[#3a3a3a]">·</span>
-          <span className="hover:text-white cursor-pointer transition-colors">Direct-to-Disk</span>
+          <span onClick={onOpenAbout} className="hover:text-white cursor-pointer transition-colors">Zero-Storage манифест</span>
           <span className="text-[#3a3a3a]">·</span>
-          <span className="text-[#9ac43e] font-mono">bridgit</span>
+          <span className="text-[#9ac43e] font-mono font-bold">bridgit</span>
         </div>
 
-        <p className="text-[11px] text-[#999999]">
+        <p className="text-sm sm:text-base text-[#999999]">
           bridgit — мгновенный мост между вашими экранами
         </p>
       </div>

@@ -3,6 +3,7 @@ import { io, Socket } from 'socket.io-client';
 import { Navbar } from './components/Navbar.js';
 import { HomeView } from './components/HomeView.js';
 import { RoomView } from './components/RoomView.js';
+import { AboutView } from './components/AboutView.js';
 import { QRCodeModal } from './components/QRCodeModal.js';
 import { Footer } from './components/Footer.js';
 import { FileTransfer, Peer, TextMessage, ThemeMode, NearbyPeer, PairRequest } from './types/index.js';
@@ -23,6 +24,7 @@ export function App() {
   const [isConnected, setIsConnected] = useState(false);
   const [roomId, setRoomId] = useState<string | null>(null);
   const [pin, setPin] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<'transfer' | 'about'>('transfer');
   const [myPeerId, setMyPeerId] = useState<string>('');
   const [peers, setPeers] = useState<Peer[]>([]);
   const [transfers, setTransfers] = useState<FileTransfer[]>([]);
@@ -278,6 +280,7 @@ export function App() {
     if (!socket) return;
     setIsLoading(true);
     setErrorMessage(undefined);
+    setActiveTab('transfer');
 
     socket.emit(
       'create-room',
@@ -349,6 +352,7 @@ export function App() {
     if (!socket) return;
     setIsLoading(true);
     setErrorMessage(undefined);
+    setActiveTab('transfer');
 
     socket.emit(
       'join-room',
@@ -507,11 +511,15 @@ export function App() {
         theme={theme}
         onToggleTheme={handleToggleTheme}
         isConnected={isConnected}
-        onGoHome={roomId ? handleLeaveRoom : undefined}
+        onGoHome={roomId ? handleLeaveRoom : () => setActiveTab('transfer')}
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
       />
 
       <main className="flex-1">
-        {!roomId ? (
+        {activeTab === 'about' ? (
+          <AboutView onBack={() => setActiveTab('transfer')} />
+        ) : !roomId ? (
           <HomeView
             onCreateRoom={handleCreateRoom}
             onJoinRoom={handleJoinRoom}
@@ -526,6 +534,7 @@ export function App() {
             myUserName={userName}
             myDeviceType={deviceType}
             lanIp={lanIp}
+            onOpenAbout={() => setActiveTab('about')}
           />
         ) : (
           <RoomView
@@ -565,7 +574,7 @@ export function App() {
         roomUrl={roomUrl}
       />
 
-      <Footer />
+      <Footer onOpenAbout={() => setActiveTab('about')} />
       {/* Hidden audio element to play remote peer microphone live */}
       <audio ref={remoteAudioRef} autoPlay playsInline />
     </div>

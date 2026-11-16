@@ -11,6 +11,8 @@ interface NavbarProps {
   onToggleTheme: () => void;
   isConnected: boolean;
   onGoHome?: () => void;
+  activeTab?: 'transfer' | 'about';
+  onSelectTab?: (tab: 'transfer' | 'about') => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -20,6 +22,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onToggleTheme: _onToggleTheme,
   isConnected,
   onGoHome,
+  activeTab = 'transfer',
+  onSelectTab,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [tempName, setTempName] = useState(userName);
@@ -45,7 +49,10 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
         {/* Brand in Handjet font */}
         <div
-          onClick={onGoHome}
+          onClick={() => {
+            if (onSelectTab) onSelectTab('transfer');
+            onGoHome?.();
+          }}
           className="flex items-center gap-2 cursor-pointer select-none group"
         >
           <span className="font-extrabold text-3xl tracking-tight text-[#ededed] group-hover:text-white transition-colors">
@@ -57,21 +64,29 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* Center / Navigation Tabs like on eblo.id */}
-        <nav className="hidden sm:flex items-center gap-7 text-lg font-bold">
+        <nav className="flex items-center gap-5 sm:gap-7 text-lg font-bold">
           <button
-            onClick={onGoHome}
-            className="text-[#ededed] border-b-2 border-[#789d2a] pb-1 cursor-pointer transition-colors"
+            onClick={() => onSelectTab ? onSelectTab('transfer') : onGoHome?.()}
+            className={`pb-1 cursor-pointer transition-colors ${
+              activeTab === 'transfer'
+                ? 'text-[#ededed] border-b-2 border-[#789d2a]'
+                : 'text-[#aaaaaa] hover:text-[#ededed]'
+            }`}
           >
             Передача
           </button>
-          <a
-            href="#features"
-            className="text-[#aaaaaa] hover:text-[#ededed] pb-1 transition-colors"
+          <button
+            onClick={() => onSelectTab?.('about')}
+            className={`pb-1 cursor-pointer transition-colors ${
+              activeTab === 'about'
+                ? 'text-[#ededed] border-b-2 border-[#789d2a]'
+                : 'text-[#aaaaaa] hover:text-[#ededed]'
+            }`}
           >
             О сервисе
-          </a>
-          <span className="text-[#999999]/60">·</span>
-          <span className="text-sm text-[#9ac43e] font-mono font-bold">
+          </button>
+          <span className="text-[#999999]/60 hidden sm:inline">·</span>
+          <span className="text-sm sm:text-base text-[#9ac43e] font-mono font-bold hidden sm:inline">
             {isConnected ? 'сеть активна' : 'подключение...'}
           </span>
         </nav>

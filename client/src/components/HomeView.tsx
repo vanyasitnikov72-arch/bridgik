@@ -16,6 +16,7 @@ interface HomeViewProps {
   myUserName: string;
   myDeviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown';
   lanIp?: string | null;
+  onOpenAbout?: () => void;
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
@@ -32,6 +33,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   myUserName: _myUserName,
   myDeviceType: _myDeviceType,
   lanIp,
+  onOpenAbout,
 }) => {
   const [pin, setPin] = useState('');
 
@@ -235,64 +237,28 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </form>
       </div>
 
-      {/* Feature list in eblo.id doc style */}
-      <div id="features" className="space-y-4 pt-6 border-t border-white/[0.08]">
-        <h2 className="text-3xl font-extrabold text-[#ededed] mb-3">
-          Как это устроено
-        </h2>
-
-        <ul className="space-y-3.5 text-[#ededed] text-lg sm:text-xl list-none leading-relaxed">
-          <li className="flex items-start gap-3">
-            <span className="text-[#9ac43e] font-bold text-xl">•</span>
-            <span>
-              <strong className="text-white">Локальный радар сети (Wi-Fi).</strong> Устройства в одной локальной сети видят друг друга на стартовой странице и могут передать файл в 1 клик без ручного ввода кодов.
-            </span>
-          </li>
-          <li className="flex items-start gap-3">
-            <span className="text-[#9ac43e] font-bold text-xl">•</span>
-            <span>
-              <strong className="text-white">Прямой P2P без ограничений.</strong> Передавайте 10 ГБ, 20 ГБ, 50 ГБ архивов или видео без промежуточного сохранения в облаках.
-            </span>
-          </li>
-          <li className="flex items-start gap-3">
-            <span className="text-[#9ac43e] font-bold text-xl">•</span>
-            <span>
-              <strong className="text-white">Потоковая запись на диск.</strong> Для файлов больше 200 МБ браузер сразу сбрасывает данные на диск (SSD/HDD), не забивая оперативную память вкладки.
-            </span>
-          </li>
-          <li className="flex items-start gap-3">
-            <span className="text-[#9ac43e] font-bold text-xl">•</span>
-            <span>
-              <strong className="text-white">Мгновенный буфер и текст.</strong> Поддержка глобальной вставки Ctrl+V прямо в окно передачи файлов и заметок.
-            </span>
-          </li>
-          <li className="flex items-start gap-3">
-            <span className="text-[#9ac43e] font-bold text-xl">•</span>
-            <span>
-              <strong className="text-white">Полная анонимность.</strong> Без создания аккаунтов, номеров телефонов или авторизаций через соцсети. Закрыли вкладку — комната удалилась.
-            </span>
-          </li>
-        </ul>
-
-        {/* Small Tag Chips */}
-        <div className="flex flex-wrap items-center gap-2.5 pt-5">
-          <span className="px-3.5 py-1.5 rounded-full bg-[#222222] border border-[#3a3a3a] text-sm font-bold text-[#aaaaaa]">
-            Wi-Fi Радар
-          </span>
-          <span className="px-3.5 py-1.5 rounded-full bg-[#222222] border border-[#3a3a3a] text-sm font-bold text-[#aaaaaa]">
-            P2P WebRTC
-          </span>
-          <span className="px-3.5 py-1.5 rounded-full bg-[#222222] border border-[#3a3a3a] text-sm font-bold text-[#aaaaaa]">
-            Direct-to-Disk
-          </span>
-          <span className="px-3.5 py-1.5 rounded-full bg-[#222222] border border-[#3a3a3a] text-sm font-bold text-[#aaaaaa]">
-            Ctrl + V
-          </span>
-          <span className="px-3.5 py-1.5 rounded-full bg-[#222222] border border-[#3a3a3a] text-sm font-bold text-[#aaaaaa]">
-            Без серверов
-          </span>
+      {/* Link to About page in eblo.id style */}
+      {onOpenAbout && (
+        <div
+          onClick={onOpenAbout}
+          className="p-5 sm:p-6 rounded-xl bg-[#202020] border border-[#3a3a3a] hover:border-[#789d2a] flex items-center justify-between group transition-colors cursor-pointer"
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-lg bg-[#282828] border border-[#3a3a3a] flex items-center justify-center text-[#9ac43e] group-hover:border-[#789d2a] shrink-0 font-bold text-xl">
+              ?
+            </div>
+            <div>
+              <p className="text-xl sm:text-2xl font-bold text-[#ededed] group-hover:text-white transition-colors">
+                Как устроен bridgit и протокол P2P?
+              </p>
+              <p className="text-base sm:text-lg text-[#aaaaaa]">
+                Подробно: Direct-to-Disk, Zero-Storage, Wi-Fi радар и безопасность
+              </p>
+            </div>
+          </div>
+          <ArrowRight className="w-6 h-6 text-[#666666] group-hover:text-[#9ac43e] transition-colors shrink-0 ml-2" />
         </div>
-      </div>
+      )}
     </div>
   );
 };
