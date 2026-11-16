@@ -3,10 +3,12 @@ import { io, Socket } from 'socket.io-client';
 import { Navbar } from './components/Navbar.js';
 import { HomeView } from './components/HomeView.js';
 import { RoomView } from './components/RoomView.js';
+import { MeetingHomeView } from './components/MeetingHomeView.js';
+import { MeetingRoomView } from './components/MeetingRoomView.js';
 import { AboutView } from './components/AboutView.js';
 import { QRCodeModal } from './components/QRCodeModal.js';
 import { Footer } from './components/Footer.js';
-import { FileTransfer, Peer, TextMessage, ThemeMode, NearbyPeer, PairRequest } from './types/index.js';
+import { FileTransfer, Peer, TextMessage, ThemeMode, NearbyPeer, PairRequest, AppTab, RoomMode } from './types/index.js';
 import { detectDeviceType, generateRandomName } from './utils/device.js';
 import { WebRTCManager } from './services/webrtc.js';
 import { sound } from './utils/sound.js';
@@ -24,7 +26,9 @@ export function App() {
   const [isConnected, setIsConnected] = useState(false);
   const [roomId, setRoomId] = useState<string | null>(null);
   const [pin, setPin] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'transfer' | 'about'>('transfer');
+  const [activeTab, setActiveTab] = useState<AppTab>('bridge');
+  const [roomMode, setRoomMode] = useState<RoomMode>('bridge');
+  const [scratchpadText, setScratchpadText] = useState<string>('');
   const [myPeerId, setMyPeerId] = useState<string>('');
   const [peers, setPeers] = useState<Peer[]>([]);
   const [transfers, setTransfers] = useState<FileTransfer[]>([]);
@@ -178,6 +182,9 @@ export function App() {
       onPeerConnectionStateChange: (peerId, state) => {
         console.log(`Peer ${peerId} state changed to ${state}`);
       },
+      onScratchpadSync: (text) => {
+        setScratchpadText(text);
+      },
     });
 
     if (destinationDirHandleRef.current) {
@@ -276,11 +283,12 @@ export function App() {
   }, [socket, isConnected]);
 
   // Create Room
-  const handleCreateRoom = () => {
+  const handleCreateRoom = (mode: RoomMode = 'bridge') => {
     if (!socket) return;
     setIsLoading(true);
     setErrorMessage(undefined);
-    setActiveTab('transfer');
+    setRoomMode(mode);
+    setActiveTab(mode);
 
     socket.emit(
       'create-room',
@@ -348,11 +356,17 @@ export function App() {
       return next;
     });
   };
-  const handleJoinRoom = (pinOrId: string) => {
+  const handleCreateMeeting = () => {
+    handleCreateRoom('meeting');
+  };
+
+  const handleJoinRoom = (pinOrId: string, mode?: RoomMode) => {
     if (!socket) return;
     setIsLoading(true);
     setErrorMessage(undefined);
-    setActiveTab('transfer');
+    const targetMode = mode || (activeTab === 'meeting' ? 'meeting' : 'bridge');
+    setRoomMode(targetMode);
+    setActiveTab(targetMode);
 
     socket.emit(
       'join-room',
@@ -444,6 +458,14 @@ export function App() {
     webrtcRef.current.sendTextMessage(text, isClipboard);
   };
 
+  // Shared Scratchpad update
+  const handleUpdateScratchpad = (text: string) => {
+    setScratchpadText(text);
+    if (webrtcRef.current) {
+      webrtcRef.current.sendScratchpadUpdate(text);
+    }
+  };
+
   // Cancel Transfer
   const handleCancelTransfer = (id: string) => {
     if (!webrtcRef.current) return;
@@ -511,30 +533,64 @@ export function App() {
         theme={theme}
         onToggleTheme={handleToggleTheme}
         isConnected={isConnected}
-        onGoHome={roomId ? handleLeaveRoom : () => setActiveTab('transfer')}
+        onGoHome={roomId ? handleLeaveRoom : () => setActiveTab('bridge')}
         activeTab={activeTab}
         onSelectTab={setActiveTab}
       />
 
       <main className="flex-1">
         {activeTab === 'about' ? (
-          <AboutView onBack={() => setActiveTab('transfer')} />
+          <AboutView onBack={() => setActiveTab(roomMode)} />
         ) : !roomId ? (
-          <HomeView
-            onCreateRoom={handleCreateRoom}
-            onJoinRoom={handleJoinRoom}
-            isLoading={isLoading}
-            errorMessage={errorMessage}
-            nearbyPeers={nearbyPeers}
-            onPairWithNearby={handlePairWithNearby}
-            isPairing={isPairing}
-            incomingPairRequest={incomingPairRequest}
-            onAcceptPair={handleAcceptPair}
-            onRejectPair={handleRejectPair}
-            myUserName={userName}
-            myDeviceType={deviceType}
-            lanIp={lanIp}
-            onOpenAbout={() => setActiveTab('about')}
+          activeTab === 'meeting' ? (
+            <MeetingHomeView
+              onCreateMeeting={handleCreateMeeting}
+              onJoinMeeting={(pinOrId) => handleJoinRoom(pinOrId, 'meeting')}
+              isLoading={isLoading}
+              errorMessage={errorMessage}
+              myUserName={userName}
+              onOpenAbout={() => setActiveTab('about')}
+            />
+          ) : (
+            <HomeView
+              onCreateRoom={() => handleCreateRoom('bridge')}
+              onJoinRoom={(pinOrId) => handleJoinRoom(pinOrId, 'bridge')}
+              isLoading={isLoading}
+              errorMessage={errorMessage}
+              nearbyPeers={nearbyPeers}
+              onPairWithNearby={handlePairWithNearby}
+              isPairing={isPairing}
+              incomingPairRequest={incomingPairRequest}
+              onAcceptPair={handleAcceptPair}
+              onRejectPair={handleRejectPair}
+              myUserName={userName}
+              myDeviceType={deviceType}
+              lanIp={lanIp}
+              onOpenAbout={() => setActiveTab('about')}
+            />
+          )
+        ) : roomMode === 'meeting' ? (
+          <MeetingRoomView
+            roomId={roomId}
+            pin={pin}
+            myPeerId={myPeerId}
+            roomUrl={roomUrl}
+            peers={peers}
+            transfers={transfers}
+            messages={messages}
+            scratchpadText={scratchpadText}
+            onUpdateScratchpad={handleUpdateScratchpad}
+            onSendFiles={handleSendFiles}
+            onSendText={handleSendText}
+            onLeaveRoom={handleLeaveRoom}
+            onOpenQR={() => setIsQRModalOpen(true)}
+            onToggleMic={handleToggleMic}
+            onToggleScreen={handleToggleScreen}
+            remoteVideoRef={remoteVideoRef}
+            isMicActive={isMicActive}
+            isScreenActive={isScreenActive}
+            hasRemoteVideo={hasRemoteVideo}
+            onAcceptFile={handleAcceptFile}
           />
         ) : (
           <RoomView

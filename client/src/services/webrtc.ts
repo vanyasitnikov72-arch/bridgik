@@ -38,6 +38,7 @@ export interface WebRTCCallbacks {
   onTransferComplete: (transfer: FileTransfer) => void;
   onRemoteStream: (peerId: string, stream: MediaStream) => void;
   onPeerConnectionStateChange: (peerId: string, state: RTCPeerConnectionState) => void;
+  onScratchpadSync?: (text: string, updatedBy: string) => void;
 }
 
 export class WebRTCManager {
@@ -236,6 +237,8 @@ export class WebRTCManager {
             timestamp: msg.timestamp,
             isClipboard: msg.isClipboard,
           });
+        } else if (msg.type === 'SCRATCHPAD_SYNC') {
+          this.callbacks.onScratchpadSync?.(msg.text, msg.updatedBy);
         } else if (msg.type === 'FILE_OFFER') {
           // Large file offer from peer
           this.pendingOffers.set(msg.fileId, { meta: msg, peerId });
@@ -509,6 +512,24 @@ export class WebRTCManager {
       text,
       timestamp: msg.timestamp,
       isClipboard,
+    });
+  }
+
+  /**
+   * Send shared scratchpad update to connected peers in Meeting mode
+   */
+  public sendScratchpadUpdate(text: string) {
+    const msg: WebRTCMessage = {
+      type: 'SCRATCHPAD_SYNC',
+      text,
+      updatedBy: this.myName,
+      timestamp: Date.now(),
+    };
+    const payload = JSON.stringify(msg);
+    this.connections.forEach(({ controlChannel }) => {
+      if (controlChannel && controlChannel.readyState === 'open') {
+        controlChannel.send(payload);
+      }
     });
   }
 

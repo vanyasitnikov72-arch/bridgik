@@ -11,8 +11,8 @@ interface NavbarProps {
   onToggleTheme: () => void;
   isConnected: boolean;
   onGoHome?: () => void;
-  activeTab?: 'transfer' | 'about';
-  onSelectTab?: (tab: 'transfer' | 'about') => void;
+  activeTab?: 'bridge' | 'meeting' | 'about';
+  onSelectTab?: (tab: 'bridge' | 'meeting' | 'about') => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -22,7 +22,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onToggleTheme: _onToggleTheme,
   isConnected,
   onGoHome,
-  activeTab = 'transfer',
+  activeTab = 'bridge',
   onSelectTab,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -50,7 +50,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Brand in Handjet font */}
         <div
           onClick={() => {
-            if (onSelectTab) onSelectTab('transfer');
+            if (onSelectTab) onSelectTab('bridge');
             onGoHome?.();
           }}
           className="flex items-center gap-2 cursor-pointer select-none group"
@@ -63,17 +63,27 @@ export const Navbar: React.FC<NavbarProps> = ({
           </span>
         </div>
 
-        {/* Center / Navigation Tabs like on eblo.id */}
-        <nav className="flex items-center gap-5 sm:gap-7 text-lg font-bold">
+        {/* Center / Navigation Tabs like on eblo.id: Мост · Комната · О сервисе */}
+        <nav className="flex items-center gap-4 sm:gap-7 text-lg font-bold">
           <button
-            onClick={() => onSelectTab ? onSelectTab('transfer') : onGoHome?.()}
+            onClick={() => onSelectTab ? onSelectTab('bridge') : onGoHome?.()}
             className={`pb-1 cursor-pointer transition-colors ${
-              activeTab === 'transfer'
+              activeTab === 'bridge'
                 ? 'text-[#ededed] border-b-2 border-[#789d2a]'
                 : 'text-[#aaaaaa] hover:text-[#ededed]'
             }`}
           >
-            Передача
+            Мост
+          </button>
+          <button
+            onClick={() => onSelectTab?.('meeting')}
+            className={`pb-1 cursor-pointer transition-colors ${
+              activeTab === 'meeting'
+                ? 'text-[#ededed] border-b-2 border-[#789d2a]'
+                : 'text-[#aaaaaa] hover:text-[#ededed]'
+            }`}
+          >
+            Комната
           </button>
           <button
             onClick={() => onSelectTab?.('about')}

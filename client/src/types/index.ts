@@ -1,4 +1,6 @@
 export type ThemeMode = 'swiss' | 'cyberpunk' | 'lofi';
+export type AppTab = 'bridge' | 'meeting' | 'about';
+export type RoomMode = 'bridge' | 'meeting';
 
 export interface Peer {
   id: string;
@@ -98,4 +100,10 @@ export type WebRTCMessage =
   | {
       type: 'FILE_CANCEL';
       fileId: string;
+    }
+  | {
+      type: 'SCRATCHPAD_SYNC';
+      text: string;
+      updatedBy: string;
+      timestamp: number;
     };
