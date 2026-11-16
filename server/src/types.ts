@@ -13,6 +13,11 @@ export interface Room {
   createdAt: number;
   peers: Map<string, PeerInfo>;
   knockRequired?: boolean;
+  mode?: 'bridge' | 'meeting';
+  maxSeats?: number;
+  isLocked?: boolean;
+  currentRoomTheme?: string;
+  peerSeats?: Record<string, number>;
 }
 
 export interface SignalData {

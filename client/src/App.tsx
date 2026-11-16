@@ -98,6 +98,12 @@ export function App() {
     if (webrtcRef.current) {
       webrtcRef.current.updateMyName(name);
     }
+    setPeers((prev) =>
+      prev.map((p) => (p.id === myPeerId ? { ...p, name } : p))
+    );
+    if (socket && roomId) {
+      socket.emit('update-peer-name', { roomId, name });
+    }
   };
 
   // Toggle Theme
@@ -218,6 +224,23 @@ export function App() {
       }
     });
 
+    socket.on('peer-updated', (updatedPeer: Peer) => {
+      setPeers((prev) =>
+        prev.map((p) => (p.id === updatedPeer.id ? { ...p, ...updatedPeer } : p))
+      );
+    });
+
+    socket.on('kicked', (data: { reason?: string }) => {
+      alert(data?.reason || 'Организатор исключил вас из комнаты.');
+      handleLeaveRoom();
+    });
+
+    socket.on('remote-mute', (_data: { from: string }) => {
+      if (isMicActive) {
+        handleToggleMic();
+      }
+    });
+
     socket.on('signal', ({ from, payload }: { from: string; payload: any }) => {
       if (webrtcRef.current) {
         webrtcRef.current.handleSignal(from, payload);
@@ -227,6 +250,9 @@ export function App() {
     return () => {
       socket.off('peer-joined');
       socket.off('peer-left');
+      socket.off('peer-updated');
+      socket.off('kicked');
+      socket.off('remote-mute');
       socket.off('signal');
     };
   }, [socket]);
@@ -276,8 +302,9 @@ export function App() {
     if (!socket || !isConnected) return;
     const params = new URLSearchParams(window.location.search);
     const roomParam = params.get('room');
+    const modeParam = params.get('mode') as RoomMode | null;
     if (roomParam && !roomId) {
-      handleJoinRoom(roomParam);
+      handleJoinRoom(roomParam, modeParam || undefined);
     }
   }, [socket, isConnected]);
 
@@ -294,6 +321,8 @@ export function App() {
       {
         peerName: userName,
         deviceType,
+        mode,
+        maxSeats: 8,
       },
       (res: any) => {
         setIsLoading(false);
@@ -303,7 +332,8 @@ export function App() {
           setMyPeerId(res.peerId);
           setPeers(res.peers || []);
           setupWebRTC(socket, res.peerId);
-          window.history.pushState({}, '', `?room=${res.pin}`);
+          const modeQuery = mode === 'meeting' ? '&mode=meeting' : '';
+          window.history.pushState({}, '', `?room=${res.pin}${modeQuery}`);
         } else {
           setErrorMessage(res.error || 'Не удалось создать комнату');
         }
@@ -381,8 +411,12 @@ export function App() {
           setPin(res.pin);
           setMyPeerId(res.peerId);
           setPeers(res.peers || []);
+          const resolvedMode = (res.mode as RoomMode) || targetMode;
+          setRoomMode(resolvedMode);
+          setActiveTab(resolvedMode);
           setupWebRTC(socket, res.peerId);
-          window.history.pushState({}, '', `?room=${res.pin}`);
+          const modeQuery = resolvedMode === 'meeting' ? '&mode=meeting' : '';
+          window.history.pushState({}, '', `?room=${res.pin}${modeQuery}`);
         } else {
           setErrorMessage(res.error || 'Комната не найдена');
         }
@@ -505,10 +539,9 @@ export function App() {
     if (typeof window === 'undefined') return '';
     const isLocalhost =
       window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    if (isLocalhost && lanIp) {
-      return `${window.location.protocol}//${lanIp}:${window.location.port}?room=${pin}`;
-    }
-    return `${window.location.origin}?room=${pin}`;
+    const host = isLocalhost && lanIp ? `${lanIp}:${window.location.port}` : window.location.host;
+    const modeQuery = roomMode === 'meeting' ? '&mode=meeting' : '';
+    return `${window.location.protocol}//${host}?room=${pin}${modeQuery}`;
   })();
 
   // Theme Classes
@@ -563,6 +596,7 @@ export function App() {
           />
         ) : roomMode === 'meeting' ? (
           <MeetingRoomView
+            socket={socket}
             roomId={roomId}
             pin={pin}
             myPeerId={myPeerId}

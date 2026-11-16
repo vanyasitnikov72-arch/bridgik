@@ -163,81 +163,245 @@ io.on('connection', (socket) => {
   });
 
   // 1. Create Room
-  socket.on('create-room', (data: { customId?: string; peerName: string; deviceType: any }, callback) => {
-    removeFromLobby(socket.id);
-    try {
-      const room = roomManager.createRoom(data.customId);
-      const peerId = socket.id;
-      const peer: PeerInfo = {
-        id: peerId,
-        socketId: socket.id,
-        name: data.peerName || 'Гость',
-        deviceType: data.deviceType || 'desktop',
-        joinedAt: Date.now(),
-        isHost: true,
-      };
+  socket.on(
+    'create-room',
+    (
+      data: {
+        customId?: string;
+        peerName: string;
+        deviceType: any;
+        mode?: 'bridge' | 'meeting';
+        maxSeats?: number;
+        roomTheme?: string;
+      },
+      callback
+    ) => {
+      removeFromLobby(socket.id);
+      try {
+        const room = roomManager.createRoom(data.customId);
+        room.mode = data.mode || 'bridge';
+        room.maxSeats = data.maxSeats || 8;
+        room.currentRoomTheme = data.roomTheme || 'cyber-lounge';
+        room.peerSeats = { [socket.id]: 0 };
 
-      roomManager.addPeer(room.id, peer);
-      socket.join(room.id);
+        const peerId = socket.id;
+        const peer: PeerInfo = {
+          id: peerId,
+          socketId: socket.id,
+          name: data.peerName || 'Гость',
+          deviceType: data.deviceType || 'desktop',
+          joinedAt: Date.now(),
+          isHost: true,
+        };
 
-      if (typeof callback === 'function') {
-        callback({
-          success: true,
-          roomId: room.id,
-          pin: room.pin,
-          peerId: peer.id,
-          peers: Array.from(room.peers.values()),
-        });
+        roomManager.addPeer(room.id, peer);
+        socket.join(room.id);
+
+        if (typeof callback === 'function') {
+          callback({
+            success: true,
+            roomId: room.id,
+            pin: room.pin,
+            peerId: peer.id,
+            mode: room.mode,
+            maxSeats: room.maxSeats,
+            isLocked: room.isLocked || false,
+            currentRoomTheme: room.currentRoomTheme,
+            peerSeats: room.peerSeats,
+            mySeat: 0,
+            peers: Array.from(room.peers.values()),
+          });
+        }
+      } catch (err: any) {
+        if (typeof callback === 'function') {
+          callback({ success: false, error: err.message });
+        }
       }
-    } catch (err: any) {
-      if (typeof callback === 'function') {
-        callback({ success: false, error: err.message });
+    }
+  );
+
+  // 2. Join Room
+  socket.on(
+    'join-room',
+    (
+      data: {
+        roomIdOrPin: string;
+        peerName: string;
+        deviceType: any;
+        preferredSeat?: number;
+      },
+      callback
+    ) => {
+      removeFromLobby(socket.id);
+      try {
+        const room = roomManager.getRoom(data.roomIdOrPin);
+        if (!room) {
+          if (typeof callback === 'function') {
+            return callback({ success: false, error: 'Комната не найдена или код неверен' });
+          }
+          return;
+        }
+
+        if (room.isLocked) {
+          if (typeof callback === 'function') {
+            return callback({ success: false, error: 'Вход закрыт организатором комнаты' });
+          }
+          return;
+        }
+
+        if (room.maxSeats && room.peers.size >= room.maxSeats) {
+          if (typeof callback === 'function') {
+            return callback({
+              success: false,
+              error: `В комнате достигнут лимит мест (${room.maxSeats} участников)`,
+            });
+          }
+          return;
+        }
+
+        const peerId = socket.id;
+        const isHost = room.peers.size === 0;
+        const peer: PeerInfo = {
+          id: peerId,
+          socketId: socket.id,
+          name: data.peerName || 'Гость',
+          deviceType: data.deviceType || 'unknown',
+          joinedAt: Date.now(),
+          isHost,
+        };
+
+        // Assign free seat
+        if (!room.peerSeats) room.peerSeats = {};
+        const occupiedSeats = new Set(Object.values(room.peerSeats));
+        let assignedSeat = 0;
+        if (data.preferredSeat !== undefined && !occupiedSeats.has(data.preferredSeat)) {
+          assignedSeat = data.preferredSeat;
+        } else {
+          for (let s = 0; s < (room.maxSeats || 8); s++) {
+            if (!occupiedSeats.has(s)) {
+              assignedSeat = s;
+              break;
+            }
+          }
+        }
+        room.peerSeats[peerId] = assignedSeat;
+
+        // Notify existing peers
+        socket.to(room.id).emit('peer-joined', { ...peer, seatIndex: assignedSeat });
+
+        roomManager.addPeer(room.id, peer);
+        socket.join(room.id);
+
+        if (typeof callback === 'function') {
+          callback({
+            success: true,
+            roomId: room.id,
+            pin: room.pin,
+            peerId: peer.id,
+            mode: room.mode || 'bridge',
+            maxSeats: room.maxSeats || 8,
+            isLocked: room.isLocked || false,
+            currentRoomTheme: room.currentRoomTheme || 'cyber-lounge',
+            peerSeats: room.peerSeats,
+            mySeat: assignedSeat,
+            peers: Array.from(room.peers.values()),
+          });
+        }
+      } catch (err: any) {
+        if (typeof callback === 'function') {
+          callback({ success: false, error: err.message });
+        }
       }
+    }
+  );
+
+  // Update peer name
+  socket.on('update-peer-name', (data: { roomId: string; name: string }) => {
+    const room = roomManager.getRoom(data.roomId);
+    if (!room) return;
+    const peer = room.peers.get(socket.id);
+    if (peer) {
+      peer.name = data.name;
+      socket.to(room.id).emit('peer-updated', peer);
     }
   });
 
-  // 2. Join Room
-  socket.on('join-room', (data: { roomIdOrPin: string; peerName: string; deviceType: any }, callback) => {
-    removeFromLobby(socket.id);
-    try {
-      const room = roomManager.getRoom(data.roomIdOrPin);
-      if (!room) {
-        if (typeof callback === 'function') {
-          return callback({ success: false, error: 'Комната не найдена или код неверен' });
-        }
-        return;
-      }
+  // Seat switching
+  socket.on('change-seat', (data: { roomId: string; seatIndex: number }) => {
+    const room = roomManager.getRoom(data.roomId);
+    if (!room) return;
+    if (!room.peerSeats) room.peerSeats = {};
+    room.peerSeats[socket.id] = data.seatIndex;
+    io.to(room.id).emit('peer-seat-changed', {
+      peerId: socket.id,
+      seatIndex: data.seatIndex,
+    });
+  });
 
-      const peerId = socket.id;
-      const peer: PeerInfo = {
-        id: peerId,
-        socketId: socket.id,
-        name: data.peerName || 'Гость',
-        deviceType: data.deviceType || 'unknown',
-        joinedAt: Date.now(),
-        isHost: room.peers.size === 0,
-      };
+  // Host: Update Room Config (max seats, lock room)
+  socket.on(
+    'update-room-config',
+    (data: { roomId: string; maxSeats?: number; isLocked?: boolean }) => {
+      const room = roomManager.getRoom(data.roomId);
+      if (!room) return;
+      const peer = room.peers.get(socket.id);
+      if (!peer?.isHost && room.peers.size > 1) return;
 
-      // Notify existing peers
-      socket.to(room.id).emit('peer-joined', peer);
+      if (data.maxSeats !== undefined) room.maxSeats = data.maxSeats;
+      if (data.isLocked !== undefined) room.isLocked = data.isLocked;
 
-      roomManager.addPeer(room.id, peer);
-      socket.join(room.id);
+      io.to(room.id).emit('room-config-updated', {
+        maxSeats: room.maxSeats,
+        isLocked: room.isLocked,
+      });
+    }
+  );
 
-      if (typeof callback === 'function') {
-        callback({
-          success: true,
-          roomId: room.id,
-          pin: room.pin,
-          peerId: peer.id,
-          peers: Array.from(room.peers.values()),
-        });
-      }
-    } catch (err: any) {
-      if (typeof callback === 'function') {
-        callback({ success: false, error: err.message });
+  // Host: Kick Peer
+  socket.on(
+    'kick-peer',
+    (data: { roomId: string; targetPeerId: string; reason?: string }) => {
+      const room = roomManager.getRoom(data.roomId);
+      if (!room) return;
+      const sender = room.peers.get(socket.id);
+      if (!sender?.isHost && room.peers.size > 1) return;
+
+      const targetPeer = room.peers.get(data.targetPeerId);
+      if (!targetPeer) return;
+
+      io.to(targetPeer.socketId).emit('kicked', {
+        reason: data.reason || 'Организатор исключил вас из комнаты',
+      });
+
+      const { peer } = roomManager.removePeerBySocket(targetPeer.socketId);
+      if (peer) {
+        io.sockets.sockets.get(targetPeer.socketId)?.leave(room.id);
+        if (room.peerSeats) delete room.peerSeats[targetPeer.id];
+        io.to(room.id).emit('peer-left', { peerId: peer.id, kicked: true });
       }
     }
+  );
+
+  // Host: Mute All
+  socket.on('mute-all', (data: { roomId: string }) => {
+    const room = roomManager.getRoom(data.roomId);
+    if (!room) return;
+    const sender = room.peers.get(socket.id);
+    if (!sender?.isHost && room.peers.size > 1) return;
+
+    socket.to(room.id).emit('remote-mute', {
+      from: sender?.name || 'Организатор',
+    });
+  });
+
+  // Host: Synchronize Theme
+  socket.on('change-room-theme', (data: { roomId: string; theme: string }) => {
+    const room = roomManager.getRoom(data.roomId);
+    if (!room) return;
+    room.currentRoomTheme = data.theme;
+    socket.to(room.id).emit('room-theme-changed', {
+      theme: data.theme,
+    });
   });
 
   // 3. WebRTC Signal Relay (offer, answer, ice-candidate)
@@ -271,7 +435,9 @@ io.on('connection', (socket) => {
     removeFromLobby(socket.id);
     const { room, peer } = roomManager.removePeerBySocket(socket.id);
     if (room && peer) {
+      if (room.peerSeats) delete room.peerSeats[peer.id];
       socket.leave(room.id);
+      socket.to(room.id).emit('peer-seat-changed', { peerId: peer.id, seatIndex: -1 });
       socket.to(room.id).emit('peer-left', { peerId: peer.id });
     }
   });
@@ -281,6 +447,8 @@ io.on('connection', (socket) => {
     removeFromLobby(socket.id);
     const { room, peer } = roomManager.removePeerBySocket(socket.id);
     if (room && peer) {
+      if (room.peerSeats) delete room.peerSeats[peer.id];
+      socket.to(room.id).emit('peer-seat-changed', { peerId: peer.id, seatIndex: -1 });
       socket.to(room.id).emit('peer-left', { peerId: peer.id });
     }
   });

@@ -27,6 +27,11 @@ import {
   Plus,
   Home,
   CheckCircle2,
+  Crown,
+  UserX,
+  Lock,
+  Unlock,
+  Armchair,
 } from 'lucide-react';
 import { FileTransfer, Peer, TextMessage } from '../types/index.js';
 import { sound } from '../utils/sound.js';
@@ -149,7 +154,9 @@ interface PixelAvatarSeatProps {
   isMicActive: boolean;
   spotName: string;
   accentColor: string;
+  isHost?: boolean;
   onToggleMic?: () => void;
+  onKick?: () => void;
 }
 
 const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
@@ -159,7 +166,9 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
   isMicActive,
   spotName,
   accentColor,
+  isHost,
   onToggleMic,
+  onKick,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
 
@@ -172,11 +181,13 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
     >
       {/* Floating Tooltip: ONLY VISIBLE ON HOVER */}
       <div
-        className={`absolute -top-11 z-30 transition-all duration-200 pointer-events-none flex flex-col items-center ${
-          isHovered ? 'opacity-100 -translate-y-1 scale-100' : 'opacity-0 translate-y-1 scale-95'
+        className={`absolute -top-11 z-30 transition-all duration-200 flex flex-col items-center ${
+          isHovered
+            ? 'opacity-100 -translate-y-1 scale-100 pointer-events-auto'
+            : 'opacity-0 translate-y-1 scale-95 pointer-events-none'
         }`}
       >
-        <div className="px-3 py-1 rounded-lg bg-[#0e0e14]/95 border border-white/20 shadow-2xl backdrop-blur-md flex items-center gap-2 whitespace-nowrap">
+        <div className="px-3 py-1.5 rounded-xl bg-[#0e0e14]/95 border border-white/20 shadow-2xl backdrop-blur-md flex items-center gap-2 whitespace-nowrap">
           <span
             className={`w-2 h-2 rounded-full ${isMicActive ? 'animate-pulse' : ''}`}
             style={{ backgroundColor: isMicActive ? accentColor : '#666677' }}
@@ -188,9 +199,26 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
             · {spotName}
           </span>
           {isMe && (
-            <span className="text-[10px] text-[#9ac43e] font-mono border-l border-white/10 pl-1.5">
+            <span
+              className="text-[10px] text-[#9ac43e] font-mono border-l border-white/10 pl-1.5 cursor-pointer hover:underline"
+              onClick={onToggleMic}
+            >
               {isMicActive ? 'клик: заглушить' : 'клик: говорить'}
             </span>
+          )}
+          {!isMe && isHost && onKick && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onKick();
+              }}
+              className="text-[10px] text-red-400 font-mono border-l border-white/10 pl-1.5 hover:text-red-300 flex items-center gap-0.5 cursor-pointer"
+              title="Исключить участника из комнаты"
+            >
+              <UserX className="w-2.5 h-2.5" />
+              Кик
+            </button>
           )}
         </div>
         <div className="w-2 h-1 bg-[#0e0e14] border-r border-b border-white/20 rotate-45 -mt-0.5" />
@@ -249,12 +277,13 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
   );
 };
 
-// Interactive Empty Seat on furniture (reveals tooltip on hover)
+// Interactive Empty Seat on furniture (reveals tooltip on hover with switch & invite actions)
 interface EmptyPixelSeatProps {
   spotName: string;
   pin: string;
   copied: boolean;
   accentColor: string;
+  onTakeSeat: () => void;
   onInvite: () => void;
 }
 
@@ -263,6 +292,7 @@ const EmptyPixelSeat: React.FC<EmptyPixelSeatProps> = ({
   pin,
   copied,
   accentColor,
+  onTakeSeat,
   onInvite,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
@@ -272,28 +302,51 @@ const EmptyPixelSeat: React.FC<EmptyPixelSeatProps> = ({
       className="relative flex flex-col items-center select-none"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onClick={onInvite}
+      onClick={onTakeSeat}
     >
       {/* Tooltip on hover */}
       <div
-        className={`absolute -top-10 z-30 transition-all duration-200 pointer-events-none flex flex-col items-center ${
-          isHovered || copied ? 'opacity-100 -translate-y-1 scale-100' : 'opacity-0 translate-y-1 scale-95'
+        className={`absolute -top-11 z-30 transition-all duration-200 flex flex-col items-center ${
+          isHovered || copied
+            ? 'opacity-100 -translate-y-1 scale-100 pointer-events-auto'
+            : 'opacity-0 translate-y-1 scale-95 pointer-events-none'
         }`}
       >
-        <div className="px-2.5 py-1 rounded-lg bg-[#0e0e14]/95 border border-white/20 shadow-2xl backdrop-blur-md flex items-center gap-1.5 whitespace-nowrap">
+        <div className="px-3 py-1.5 rounded-xl bg-[#0e0e14]/95 border border-white/20 shadow-2xl backdrop-blur-md flex items-center gap-2 whitespace-nowrap">
           {copied ? (
             <>
-              <Check className="w-3 h-3 text-[#9ac43e]" />
+              <Check className="w-3.5 h-3.5 text-[#9ac43e]" />
               <span className="text-xs font-bold text-[#9ac43e] font-mono">
-                Ссылка скопирована!
+                Инвайт скопирован!
               </span>
             </>
           ) : (
             <>
-              <Share2 className="w-3 h-3 text-white/70" />
-              <span className="text-xs font-bold text-[#ededed] font-mono">
-                Свободное место: {spotName} (PIN: {pin})
+              <span className="text-xs font-semibold text-[#ededed] font-mono">
+                {spotName}
               </span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTakeSeat();
+                }}
+                className="px-2.5 py-1 rounded-md bg-[#9ac43e] text-black text-xs font-bold font-mono hover:bg-[#bbf348] transition-colors flex items-center gap-1 cursor-pointer shadow-xs"
+              >
+                🛋️ Сесть сюда
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onInvite();
+                }}
+                className="px-2 py-1 rounded-md bg-white/10 text-white/80 text-xs font-mono hover:bg-white/20 hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
+                title="Скопировать ссылку с PIN"
+              >
+                <Share2 className="w-3 h-3" />
+                PIN: {pin}
+              </button>
             </>
           )}
         </div>
@@ -310,6 +363,7 @@ const EmptyPixelSeat: React.FC<EmptyPixelSeatProps> = ({
         style={{
           borderColor: copied ? accentColor : isHovered ? accentColor : undefined,
         }}
+        title="Кликните, чтобы пересесть на это место"
       >
         <Plus
           className={`w-3.5 h-3.5 transition-colors ${
@@ -323,6 +377,7 @@ const EmptyPixelSeat: React.FC<EmptyPixelSeatProps> = ({
 };
 
 interface MeetingRoomViewProps {
+  socket?: any;
   roomId: string;
   pin: string;
   myPeerId: string;
@@ -348,6 +403,7 @@ interface MeetingRoomViewProps {
 }
 
 export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
+  socket,
   roomId: _roomId,
   pin,
   myPeerId,
@@ -377,6 +433,12 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   const [activeSideTab, setActiveSideTab] = useState<'notes' | 'chat'>('notes');
   const [meetingSeconds, setMeetingSeconds] = useState(0);
 
+  // Dynamic Seat & Host State
+  const [mySeatIndex, setMySeatIndex] = useState<number>(0);
+  const [peerSeats, setPeerSeats] = useState<Record<string, number>>({});
+  const [maxSeats, setMaxSeats] = useState<number>(8);
+  const [isLocked, setIsLocked] = useState<boolean>(false);
+
   // Active Room Concept State
   const [currentRoomId, setCurrentRoomId] = useState<RoomId>(() => {
     return sanitizeRoomId(localStorage.getItem('bridgik_pixel_room'));
@@ -391,8 +453,106 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
     return sound.isEnabled();
   });
 
+  const myPeer = peers.find((p) => p.id === myPeerId);
+  const isHost = myPeer?.isHost ?? (peers.length <= 1);
+  const activeMyName = myUserName || myPeer?.name || 'Quantum Lynx';
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
+
+  // Real-time socket listeners for seat changes, host config updates, and theme sync
+  useEffect(() => {
+    if (!socket) return;
+
+    const handlePeerSeatChanged = (data: { peerId: string; seatIndex: number }) => {
+      setPeerSeats((prev) => {
+        if (data.seatIndex === -1) {
+          const next = { ...prev };
+          delete next[data.peerId];
+          return next;
+        }
+        return { ...prev, [data.peerId]: data.seatIndex };
+      });
+    };
+
+    const handleRoomConfigUpdated = (data: { maxSeats?: number; isLocked?: boolean }) => {
+      if (data.maxSeats !== undefined) setMaxSeats(data.maxSeats);
+      if (data.isLocked !== undefined) setIsLocked(data.isLocked);
+    };
+
+    const handleRoomThemeChanged = (data: { theme: string }) => {
+      if (data.theme && data.theme in ROOM_PRESETS) {
+        setCurrentRoomId(data.theme as RoomId);
+      }
+    };
+
+    socket.on('peer-seat-changed', handlePeerSeatChanged);
+    socket.on('room-config-updated', handleRoomConfigUpdated);
+    socket.on('room-theme-changed', handleRoomThemeChanged);
+
+    return () => {
+      socket.off('peer-seat-changed', handlePeerSeatChanged);
+      socket.off('room-config-updated', handleRoomConfigUpdated);
+      socket.off('room-theme-changed', handleRoomThemeChanged);
+    };
+  }, [socket]);
+
+  // Seat switching action
+  const handleSwitchSeat = (seatIdx: number) => {
+    if (seatIdx === mySeatIndex) return;
+    setMySeatIndex(seatIdx);
+    sound.playClick();
+    if (socket) {
+      socket.emit('change-seat', {
+        roomId: pin || _roomId,
+        seatIndex: seatIdx,
+      });
+    }
+  };
+
+  // Host Actions
+  const handleUpdateMaxSeats = (newMax: number) => {
+    setMaxSeats(newMax);
+    sound.playClick();
+    if (socket) {
+      socket.emit('update-room-config', {
+        roomId: pin || _roomId,
+        maxSeats: newMax,
+      });
+    }
+  };
+
+  const handleToggleLockRoom = () => {
+    const nextLocked = !isLocked;
+    setIsLocked(nextLocked);
+    sound.playClick();
+    if (socket) {
+      socket.emit('update-room-config', {
+        roomId: pin || _roomId,
+        isLocked: nextLocked,
+      });
+    }
+  };
+
+  const handleKickPeer = (targetPeerId: string) => {
+    if (!confirm('Вы уверены, что хотите исключить этого участника из комнаты?')) return;
+    sound.playClick();
+    if (socket) {
+      socket.emit('kick-peer', {
+        roomId: pin || _roomId,
+        targetPeerId,
+      });
+    }
+  };
+
+  const handleMuteAll = () => {
+    sound.playClick();
+    if (socket) {
+      socket.emit('mute-all', {
+        roomId: pin || _roomId,
+      });
+    }
+  };
 
   useEffect(() => {
     if (myUserName && !customNameInput) {
@@ -476,8 +636,46 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   };
 
   const otherPeers = peers.filter((p) => p.id !== myPeerId);
-  const myPeer = peers.find((p) => p.id === myPeerId);
   const currentRoom = ROOM_PRESETS[currentRoomId] || ROOM_PRESETS['cyber-lounge'];
+
+  // Slice seats according to current maxSeats capacity (2, 4, 6, or 8)
+  const activeSeats = currentRoom.seats.slice(0, maxSeats);
+
+  // Seat occupancy mapping
+  const actualMySeat = mySeatIndex >= 0 && mySeatIndex < maxSeats ? mySeatIndex : 0;
+  const seatOccupants: Record<number, { type: 'me' } | { type: 'peer'; peer: (typeof otherPeers)[0] }> = {
+    [actualMySeat]: { type: 'me' },
+  };
+
+  const occupiedIndices = new Set<number>([actualMySeat]);
+
+  // First place peers that have an assigned seat index
+  otherPeers.forEach((peer) => {
+    const preferred = peerSeats[peer.id];
+    if (
+      preferred !== undefined &&
+      preferred >= 0 &&
+      preferred < maxSeats &&
+      !occupiedIndices.has(preferred)
+    ) {
+      seatOccupants[preferred] = { type: 'peer', peer };
+      occupiedIndices.add(preferred);
+    }
+  });
+
+  // Then distribute any remaining peers to the next available seats
+  otherPeers.forEach((peer) => {
+    if (Object.values(seatOccupants).some((o) => o.type === 'peer' && o.peer.id === peer.id)) {
+      return;
+    }
+    for (let i = 0; i < maxSeats; i++) {
+      if (!occupiedIndices.has(i)) {
+        seatOccupants[i] = { type: 'peer', peer };
+        occupiedIndices.add(i);
+        break;
+      }
+    }
+  });
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-5">
@@ -497,9 +695,23 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
           <div className="flex items-center gap-2 text-sm text-[#aaaaaa]">
             <Users className="w-4 h-4 text-[#9ac43e]" />
             <span className="font-semibold text-[#ededed]">
-              {peers.length} {peers.length === 1 ? 'участник' : 'участников'} · Все 8 мест в комнате
+              {peers.length} / {maxSeats} {maxSeats === 2 ? 'места' : 'мест'}
             </span>
           </div>
+
+          {isHost && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#f59e0b]/15 border border-[#f59e0b]/30 text-xs font-bold text-[#f59e0b]">
+              <Crown className="w-3.5 h-3.5" />
+              <span>Вы организатор</span>
+            </div>
+          )}
+
+          {isLocked && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#ed2b3b]/15 border border-[#ed2b3b]/30 text-xs font-bold text-[#ef9282]">
+              <Lock className="w-3.5 h-3.5" />
+              <span>Комната закрыта</span>
+            </div>
+          )}
         </div>
 
         {/* Header Right Actions */}
@@ -587,8 +799,8 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
 
                 <div className="flex items-center gap-2 pointer-events-auto">
                   <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#0c0c14]/90 border border-white/10 shadow-lg backdrop-blur-xs text-[11px] font-mono text-[#aaaaaa]">
-                    <ShieldCheck className="w-3.5 h-3.5 text-[#9ac43e]" />
-                    <span>8 мест · P2P Direct</span>
+                    <Armchair className="w-3.5 h-3.5 text-[#9ac43e]" />
+                    <span>{maxSeats} мест · P2P Direct</span>
                   </div>
                 </div>
               </div>
@@ -612,52 +824,53 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 />
 
                 {/* ============================================================== */}
-                {/* ALL 8 ORGANIC SEATS ARE POSITIONED DIRECTLY ON FURNITURE       */}
+                {/* ORGANIC SEATS POSITIONED ON FURNITURE (UP TO maxSeats)        */}
                 {/* ============================================================== */}
-                {currentRoom.seats.map((seat, index) => {
+                {activeSeats.map((seat, index) => {
+                  const occupant = seatOccupants[index];
                   let seatContent: React.ReactNode = null;
 
-                  if (index === 0) {
-                    // Seat 1: Host (You)
+                  if (occupant?.type === 'me') {
+                    // Current user's seat
                     seatContent = (
                       <PixelAvatarSeat
-                        name={myPeer?.name || 'Quantum Lynx'}
+                        name={activeMyName}
                         isMe={true}
                         deviceType={myPeer?.deviceType}
                         isMicActive={isMicActive}
                         spotName={seat.spotName}
                         accentColor={currentRoom.accent}
                         onToggleMic={onToggleMic}
+                        isHost={isHost}
+                      />
+                    );
+                  } else if (occupant?.type === 'peer') {
+                    // Connected Peer sitting on this furniture
+                    const peer = occupant.peer;
+                    seatContent = (
+                      <PixelAvatarSeat
+                        name={peer.name}
+                        isMe={false}
+                        deviceType={peer.deviceType}
+                        isMicActive={true}
+                        spotName={seat.spotName}
+                        accentColor={currentRoom.accent}
+                        isHost={peer.isHost}
+                        onKick={isHost ? () => handleKickPeer(peer.id) : undefined}
                       />
                     );
                   } else {
-                    const peerIndex = index - 1;
-                    const peer = otherPeers[peerIndex];
-
-                    if (peer) {
-                      // An active peer sits on this seat
-                      seatContent = (
-                        <PixelAvatarSeat
-                          name={peer.name}
-                          isMe={false}
-                          deviceType={peer.deviceType}
-                          isMicActive={true}
-                          spotName={seat.spotName}
-                          accentColor={currentRoom.accent}
-                        />
-                      );
-                    } else {
-                      // An empty seat on the furniture, ready to be occupied
-                      seatContent = (
-                        <EmptyPixelSeat
-                          spotName={seat.spotName}
-                          pin={pin}
-                          copied={copiedLink}
-                          accentColor={currentRoom.accent}
-                          onInvite={handleCopyLink}
-                        />
-                      );
-                    }
+                    // Empty seat - clickable to switch seats or invite
+                    seatContent = (
+                      <EmptyPixelSeat
+                        spotName={seat.spotName}
+                        pin={pin}
+                        copied={copiedLink}
+                        accentColor={currentRoom.accent}
+                        onTakeSeat={() => handleSwitchSeat(index)}
+                        onInvite={handleCopyLink}
+                      />
+                    );
                   }
 
                   return (
@@ -764,6 +977,23 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                       <span className="hidden sm:inline">Ссылка</span>
                     </>
                   )}
+                </button>
+
+                {/* Host / Settings Button */}
+                <button
+                  onClick={() => {
+                    setIsSettingsOpen(true);
+                    sound.playClick();
+                  }}
+                  className={`px-2.5 py-1.5 rounded-xl border text-xs sm:text-sm font-bold flex items-center gap-1 transition-colors cursor-pointer ${
+                    isHost
+                      ? 'bg-[#f59e0b]/15 hover:bg-[#f59e0b]/25 text-[#f59e0b] border-[#f59e0b]/30'
+                      : 'bg-[#25252c] hover:bg-[#303038] text-[#ededed] border-white/10'
+                  }`}
+                  title={isHost ? 'Управление комнатой (Организатор)' : 'Настройки комнаты'}
+                >
+                  {isHost ? <Crown className="w-4 h-4" /> : <Settings className="w-4 h-4 text-[#9ac43e]" />}
+                  <span className="hidden sm:inline">{isHost ? 'Хост' : 'Опции'}</span>
                 </button>
 
                 {/* Panic Leave Button */}
@@ -1049,6 +1279,98 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
             </div>
 
             <div className="py-5 space-y-6">
+              {/* Host Settings Section (if isHost) */}
+              {isHost && (
+                <div className="p-4 rounded-2xl bg-[#14141c] border border-[#f59e0b]/30 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Crown className="w-4 h-4 text-[#f59e0b]" />
+                      <h4 className="text-base font-bold text-[#ededed]">Панель организатора</h4>
+                    </div>
+                    <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-[#f59e0b]/20 text-[#f59e0b] border border-[#f59e0b]/40">
+                      Хост
+                    </span>
+                  </div>
+
+                  {/* Seat capacity selector */}
+                  <div>
+                    <label className="text-xs font-semibold text-[#aaaaaa] block mb-1.5">
+                      Количество мест в комнате (на диванах и креслах):
+                    </label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[2, 4, 6, 8].map((seatsCount) => (
+                        <button
+                          key={seatsCount}
+                          type="button"
+                          onClick={() => handleUpdateMaxSeats(seatsCount)}
+                          className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                            maxSeats === seatsCount
+                              ? 'bg-[#789d2a] text-white shadow-md'
+                              : 'bg-[#1e1e28] text-[#cccccc] hover:bg-[#282836] border border-white/5'
+                          }`}
+                        >
+                          <Armchair className="w-3.5 h-3.5" />
+                          <span>{seatsCount} мест</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Lock room & Mute all actions */}
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleToggleLockRoom}
+                      className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer border ${
+                        isLocked
+                          ? 'bg-[#ed2b3b]/15 text-[#ef9282] border-[#ed2b3b]/40 hover:bg-[#ed2b3b]/25'
+                          : 'bg-[#1e1e28] text-[#ededed] border-white/10 hover:bg-[#282836]'
+                      }`}
+                    >
+                      {isLocked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5 text-[#9ac43e]" />}
+                      <span>{isLocked ? 'Комната закрыта (вход заблокирован)' : 'Комната открыта для гостей'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleMuteAll}
+                      className="py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 bg-[#1e1e28] hover:bg-[#282836] text-[#ededed] border border-white/10 transition-all cursor-pointer"
+                      title="Отключить микрофоны всех участников"
+                    >
+                      <MicOff className="w-3.5 h-3.5 text-[#ed2b3b]" />
+                      <span>Заглушить всех</span>
+                    </button>
+                  </div>
+
+                  {/* Peer List with Kick actions */}
+                  {otherPeers.length > 0 && (
+                    <div className="pt-2 border-t border-white/5 space-y-1.5">
+                      <span className="text-[11px] font-bold text-[#888888] uppercase tracking-wider">
+                        Участники в комнате ({otherPeers.length}):
+                      </span>
+                      <div className="space-y-1 max-h-36 overflow-y-auto">
+                        {otherPeers.map((p) => (
+                          <div
+                            key={p.id}
+                            className="flex items-center justify-between p-2 rounded-xl bg-[#1a1a24] border border-white/5 text-xs"
+                          >
+                            <span className="font-semibold text-[#ededed] truncate">{p.name}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleKickPeer(p.id)}
+                              className="px-2 py-1 rounded-lg bg-[#ed2b3b]/15 hover:bg-[#ed2b3b] text-[#ef9282] hover:text-white text-[11px] font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                            >
+                              <UserX className="w-3 h-3" />
+                              <span>Исключить</span>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Section 1: Choose Room Location */}
               <div>
                 <div className="flex items-center justify-between mb-3">
