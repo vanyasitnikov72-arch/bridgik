@@ -8,6 +8,20 @@ export interface Peer {
   isHost: boolean;
 }
 
+export interface NearbyPeer {
+  socketId: string;
+  name: string;
+  deviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown';
+}
+
+export interface PairRequest {
+  fromSocketId: string;
+  fromName: string;
+  fromDevice: 'desktop' | 'mobile' | 'tablet' | 'unknown';
+  roomId: string;
+  pin: string;
+}
+
 export interface TextMessage {
   id: string;
   senderId: string;

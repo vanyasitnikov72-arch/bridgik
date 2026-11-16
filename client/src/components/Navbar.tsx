@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Edit2, Check } from 'lucide-react';
+import { Edit2, Check, Volume2, VolumeX } from 'lucide-react';
 import { ThemeMode } from '../types/index.js';
+import { sound } from '../utils/sound.js';
 
 interface NavbarProps {
   userName: string;
@@ -22,6 +23,15 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [tempName, setTempName] = useState(userName);
+  const [soundEnabled, setSoundEnabled] = useState(() => sound.isEnabled());
+
+  const handleToggleSound = () => {
+    const nextState = sound.toggle();
+    setSoundEnabled(nextState);
+    if (nextState) {
+      sound.playMessage();
+    }
+  };
 
   const handleSaveName = () => {
     if (tempName.trim()) {
@@ -66,8 +76,20 @@ export const Navbar: React.FC<NavbarProps> = ({
           </span>
         </nav>
 
-        {/* Right: User Identity */}
-        <div className="flex items-center gap-3">
+        {/* Right: Sound Toggle & User Identity */}
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={handleToggleSound}
+            className={`p-2 rounded-lg border transition-colors cursor-pointer flex items-center justify-center ${
+              soundEnabled
+                ? 'bg-[#222222] border-[#3a3a3a] text-[#9ac43e] hover:border-[#789d2a]'
+                : 'bg-[#1e1e1e] border-[#333333] text-[#777777] hover:text-[#aaaaaa]'
+            }`}
+            title={soundEnabled ? '8-bit звуки включены' : '8-bit звуки выключены'}
+          >
+            {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+          </button>
+
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#222222] border border-[#3a3a3a] text-sm text-[#ededed]">
             <span
               className={`w-2 h-2 rounded-full ${

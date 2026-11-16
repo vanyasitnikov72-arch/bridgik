@@ -24,6 +24,49 @@ const io = new Server(httpServer, {
 
 const roomManager = new RoomManager();
 
+// Local Wi-Fi Discovery (Snapdrop / AirDrop style radar)
+interface LobbyPeer {
+  socketId: string;
+  name: string;
+  deviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown';
+  ip: string;
+}
+const lobbyPeers: Map<string, LobbyPeer> = new Map();
+
+function getClientIp(socket: any): string {
+  const forwarded = socket.handshake.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string') {
+    return forwarded.split(',')[0].trim();
+  }
+  const addr = socket.handshake.address || '127.0.0.1';
+  if (addr === '::1' || addr === '127.0.0.1' || addr.includes('::ffff:127.0.0.1')) {
+    return '127.0.0.1';
+  }
+  return addr;
+}
+
+function broadcastNearbyPeers(ip: string) {
+  const peersOnIp = Array.from(lobbyPeers.values()).filter((p) => p.ip === ip);
+  peersOnIp.forEach((peer) => {
+    const others = peersOnIp
+      .filter((p) => p.socketId !== peer.socketId)
+      .map((p) => ({
+        socketId: p.socketId,
+        name: p.name,
+        deviceType: p.deviceType,
+      }));
+    io.to(peer.socketId).emit('nearby-peers', others);
+  });
+}
+
+function removeFromLobby(socketId: string) {
+  const existing = lobbyPeers.get(socketId);
+  if (existing) {
+    lobbyPeers.delete(socketId);
+    broadcastNearbyPeers(existing.ip);
+  }
+}
+
 app.use(cors());
 app.use(express.json());
 
@@ -61,8 +104,50 @@ if (fs.existsSync(clientDistPath)) {
 
 // Socket.io WebRTC Signaling
 io.on('connection', (socket) => {
+  const clientIp = getClientIp(socket);
+
+  // 0. Local Network Discovery (Snapdrop / AirDrop radar)
+  socket.on('lobby-join', (data: { name: string; deviceType: any }) => {
+    lobbyPeers.set(socket.id, {
+      socketId: socket.id,
+      name: data.name || 'Устройство',
+      deviceType: data.deviceType || 'unknown',
+      ip: clientIp,
+    });
+    broadcastNearbyPeers(clientIp);
+  });
+
+  socket.on('lobby-leave', () => {
+    removeFromLobby(socket.id);
+  });
+
+  // Direct 1-click pair request
+  socket.on('direct-pair-request', (data: { toSocketId: string; myName: string; myDevice: any }) => {
+    const target = lobbyPeers.get(data.toSocketId);
+    if (!target) return;
+
+    const room = roomManager.createRoom();
+
+    io.to(data.toSocketId).emit('incoming-pair-request', {
+      fromSocketId: socket.id,
+      fromName: data.myName,
+      fromDevice: data.myDevice,
+      roomId: room.id,
+      pin: room.pin,
+    });
+  });
+
+  socket.on('direct-pair-response', (data: { toSocketId: string; roomId: string; pin: string; accepted: boolean }) => {
+    io.to(data.toSocketId).emit('direct-pair-result', {
+      roomId: data.roomId,
+      pin: data.pin,
+      accepted: data.accepted,
+    });
+  });
+
   // 1. Create Room
   socket.on('create-room', (data: { customId?: string; peerName: string; deviceType: any }, callback) => {
+    removeFromLobby(socket.id);
     try {
       const room = roomManager.createRoom(data.customId);
       const peerId = socket.id;
@@ -96,6 +181,7 @@ io.on('connection', (socket) => {
 
   // 2. Join Room
   socket.on('join-room', (data: { roomIdOrPin: string; peerName: string; deviceType: any }, callback) => {
+    removeFromLobby(socket.id);
     try {
       const room = roomManager.getRoom(data.roomIdOrPin);
       if (!room) {
@@ -165,6 +251,7 @@ io.on('connection', (socket) => {
 
   // 5. Leave Room
   socket.on('leave-room', () => {
+    removeFromLobby(socket.id);
     const { room, peer } = roomManager.removePeerBySocket(socket.id);
     if (room && peer) {
       socket.leave(room.id);
@@ -174,6 +261,7 @@ io.on('connection', (socket) => {
 
   // 6. Disconnect
   socket.on('disconnect', () => {
+    removeFromLobby(socket.id);
     const { room, peer } = roomManager.removePeerBySocket(socket.id);
     if (room && peer) {
       socket.to(room.id).emit('peer-left', { peerId: peer.id });

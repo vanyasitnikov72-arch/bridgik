@@ -21,9 +21,14 @@ import {
   Music,
   HardDrive,
   FolderDown,
+  Eye,
+  CheckSquare,
+  Square,
 } from 'lucide-react';
 import { FileTransfer, Peer, TextMessage } from '../types/index.js';
 import { formatBytes, formatSpeed } from '../utils/device.js';
+import { extractFilesFromDataTransfer } from '../utils/files.js';
+import { sound } from '../utils/sound.js';
 
 interface RoomViewProps {
   roomId: string;
@@ -46,6 +51,8 @@ interface RoomViewProps {
   isMicActive: boolean;
   isScreenActive: boolean;
   hasRemoteVideo: boolean;
+  autoDownload: boolean;
+  onToggleAutoDownload: () => void;
 }
 
 export const RoomView: React.FC<RoomViewProps> = ({
@@ -69,17 +76,66 @@ export const RoomView: React.FC<RoomViewProps> = ({
   isMicActive,
   isScreenActive,
   hasRemoteVideo,
+  autoDownload,
+  onToggleAutoDownload,
 }) => {
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedTextId, setCopiedTextId] = useState<string | null>(null);
   const [textInput, setTextInput] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [previewImageName, setPreviewImageName] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Global Ctrl + V Paste Listener anywhere on window
+  useEffect(() => {
+    const handleGlobalPaste = (e: ClipboardEvent) => {
+      const activeEl = document.activeElement as HTMLElement | null;
+      const isInput =
+        activeEl &&
+        (activeEl.tagName === 'INPUT' ||
+          activeEl.tagName === 'TEXTAREA' ||
+          activeEl.isContentEditable);
+
+      // 1. Files in clipboard (screenshots, copied files)
+      if (e.clipboardData?.files && e.clipboardData.files.length > 0) {
+        e.preventDefault();
+        onSendFiles(e.clipboardData.files);
+        sound.playMessage();
+        setToastMessage(`Вставлен файл из буфера: ${e.clipboardData.files[0].name}`);
+        return;
+      }
+
+      // 2. Text in clipboard (if not currently focused inside an input)
+      if (!isInput && e.clipboardData) {
+        const text = e.clipboardData.getData('text');
+        if (text && text.trim()) {
+          e.preventDefault();
+          onSendText(text.trim(), true);
+          sound.playMessage();
+          setToastMessage('Текст отправлен собеседнику (Ctrl+V)');
+        }
+      }
+    };
+
+    window.addEventListener('paste', handleGlobalPaste);
+    return () => window.removeEventListener('paste', handleGlobalPaste);
+  }, [onSendFiles, onSendText]);
+
+  // Toast timer
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => setToastMessage(null), 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(roomUrl);
@@ -106,15 +162,32 @@ export const RoomView: React.FC<RoomViewProps> = ({
       const text = await navigator.clipboard.readText();
       if (text.trim()) {
         onSendText(text.trim(), true);
+        sound.playMessage();
+        setToastMessage('Вставлено из буфера обмена');
       }
     } catch (e) {
       console.warn('Clipboard read permission denied', e);
     }
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  // Drag & drop supporting recursive folders
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
+
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      try {
+        const extracted = await extractFilesFromDataTransfer(e.dataTransfer.items);
+        if (extracted.length > 0) {
+          onSendFiles(extracted);
+          setToastMessage(`Загружено файлов: ${extracted.length}`);
+          return;
+        }
+      } catch (err) {
+        console.warn('Folder recursive read fallback', err);
+      }
+    }
+
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       onSendFiles(e.dataTransfer.files);
     }
@@ -161,6 +234,30 @@ export const RoomView: React.FC<RoomViewProps> = ({
 
           {/* Quick Room Share & Controls */}
           <div className="flex items-center gap-2 flex-wrap">
+            {/* Auto-Download Toggle */}
+            <button
+              onClick={onToggleAutoDownload}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border ${
+                autoDownload
+                  ? 'bg-[#1c2214] border-[#789d2a] text-[#9ac43e]'
+                  : 'bg-[#2d2d2d] border-[#3a3a3a] text-[#aaaaaa] hover:text-[#ededed]'
+              }`}
+              title={
+                autoDownload
+                  ? 'Автосохранение включено: полученные файлы скачиваются сразу'
+                  : 'Автосохранение выключено: файлы скачиваются вручную'
+              }
+            >
+              {autoDownload ? (
+                <CheckSquare className="w-3.5 h-3.5 text-[#9ac43e]" />
+              ) : (
+                <Square className="w-3.5 h-3.5" />
+              )}
+              <span className="hidden sm:inline">
+                {autoDownload ? 'Автосохранение' : 'Автосохранение: ВЫКЛ'}
+              </span>
+            </button>
+
             <button
               onClick={onOpenQR}
               className="px-3 py-1.5 rounded-md bg-[#2d2d2d] hover:bg-[#3a3a3a] text-[#ededed] text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
@@ -318,14 +415,19 @@ export const RoomView: React.FC<RoomViewProps> = ({
               <UploadCloud className="w-7 h-7" />
             </div>
             <h3 className="text-base font-bold text-[#ededed] mb-1">
-              Перетащите любые файлы сюда
+              Перетащите любые файлы или папки сюда
             </h3>
             <p className="text-xs text-[#aaaaaa] max-w-sm mx-auto mb-3">
-              Или нажмите для выбора. Любой размер (10 ГБ, 50 ГБ+) — прямое P2P-соединение без серверов.
+              Или нажмите для выбора. Также работает <strong className="text-[#9ac43e]">Ctrl + V</strong> из буфера обмена.
             </p>
-            <span className="inline-block px-3 py-1 rounded-full bg-[#171717] border border-[#3a3a3a] text-xs font-semibold text-[#9ac43e]">
-              Прямой P2P-канал WebRTC
-            </span>
+            <div className="flex items-center justify-center gap-2">
+              <span className="inline-block px-3 py-1 rounded-full bg-[#171717] border border-[#3a3a3a] text-xs font-semibold text-[#9ac43e]">
+                Прямой P2P WebRTC
+              </span>
+              <span className="inline-block px-3 py-1 rounded-full bg-[#171717] border border-[#3a3a3a] text-xs font-semibold text-[#aaaaaa]">
+                Поддержка папок
+              </span>
+            </div>
           </div>
 
           {/* Transfers List */}
@@ -336,119 +438,165 @@ export const RoomView: React.FC<RoomViewProps> = ({
               </h4>
 
               <div className="space-y-3">
-                {transfers.map((t) => (
-                  <div
-                    key={t.id}
-                    className="p-3.5 rounded-md bg-[#171717] border border-[#3a3a3a] flex flex-col gap-2.5 transition-all"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="p-2 rounded-md bg-[#222222] border border-[#3a3a3a] shrink-0">
-                          {getFileIcon(t.mimeType)}
+                {transfers.map((t) => {
+                  const isImage =
+                    t.mimeType.startsWith('image/') ||
+                    /\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(t.name);
+                  const isAudio =
+                    t.mimeType.startsWith('audio/') ||
+                    /\.(mp3|wav|ogg|m4a|aac)$/i.test(t.name);
+
+                  return (
+                    <div
+                      key={t.id}
+                      className="p-3.5 rounded-md bg-[#171717] border border-[#3a3a3a] flex flex-col gap-2.5 transition-all"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          {/* Image preview thumbnail if available */}
+                          {isImage && t.blobUrl ? (
+                            <div className="relative group shrink-0">
+                              <img
+                                src={t.blobUrl}
+                                alt={t.name}
+                                onClick={() => {
+                                  setPreviewImageUrl(t.blobUrl!);
+                                  setPreviewImageName(t.name);
+                                }}
+                                className="w-11 h-11 object-cover rounded-md border border-[#3a3a3a] cursor-pointer group-hover:border-[#789d2a] transition-all"
+                                title="Нажмите для просмотра в полном размере"
+                              />
+                              <div
+                                onClick={() => {
+                                  setPreviewImageUrl(t.blobUrl!);
+                                  setPreviewImageName(t.name);
+                                }}
+                                className="absolute inset-0 bg-black/50 rounded-md opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity text-white"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="p-2 rounded-md bg-[#222222] border border-[#3a3a3a] shrink-0">
+                              {getFileIcon(t.mimeType)}
+                            </div>
+                          )}
+
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-[#ededed] truncate max-w-[200px] sm:max-w-xs">
+                              {t.name}
+                            </p>
+                            <p className="text-xs text-[#aaaaaa] flex items-center gap-2">
+                              <span>{formatBytes(t.size)}</span>
+                              <span>•</span>
+                              <span className={t.type === 'upload' ? 'text-[#9ac43e]' : 'text-[#ededed]'}>
+                                {t.type === 'upload' ? 'Отправка' : 'Получение'}
+                              </span>
+                              {t.status === 'transferring' && t.speed > 0 && (
+                                <>
+                                  <span>•</span>
+                                  <span className="font-mono text-[#9ac43e]">{formatSpeed(t.speed)}</span>
+                                </>
+                              )}
+                            </p>
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-[#ededed] truncate max-w-[220px] sm:max-w-xs">
-                            {t.name}
-                          </p>
-                          <p className="text-xs text-[#aaaaaa] flex items-center gap-2">
-                            <span>{formatBytes(t.size)}</span>
-                            <span>•</span>
-                            <span className={t.type === 'upload' ? 'text-[#9ac43e]' : 'text-[#ededed]'}>
-                              {t.type === 'upload' ? 'Отправка' : 'Получение'}
-                            </span>
-                            {t.status === 'transferring' && t.speed > 0 && (
-                              <>
-                                <span>•</span>
-                                <span className="font-mono text-[#9ac43e]">{formatSpeed(t.speed)}</span>
-                              </>
-                            )}
-                          </p>
-                        </div>
-                      </div>
 
-                      {/* Right Action */}
-                      <div className="flex items-center gap-2 shrink-0">
-                        {t.status === 'completed' && t.savedToDisk && (
-                          <span className="px-2.5 py-1 rounded-md bg-[#789d2a]/15 border border-[#789d2a]/40 text-[#9ac43e] text-xs font-semibold flex items-center gap-1.5">
-                            <Check className="w-3.5 h-3.5" />
-                            <span>Сохранено на диск</span>
-                          </span>
-                        )}
-
-                        {t.status === 'completed' && !t.savedToDisk && t.blobUrl && (
-                          <a
-                            href={t.blobUrl}
-                            download={t.name}
-                            className="px-3 py-1.5 rounded-md bg-[#789d2a] hover:bg-[#8cb632] text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"
-                          >
-                            <Download className="w-3.5 h-3.5" />
-                            <span>Скачать</span>
-                          </a>
-                        )}
-
-                        {t.status === 'transferring' && (
-                          <button
-                            onClick={() => onCancelTransfer(t.id)}
-                            className="p-1.5 rounded-md hover:bg-[#2d2d2d] text-[#aaaaaa] hover:text-[#ef9282] transition-colors cursor-pointer"
-                            title="Отменить"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        )}
-
-                        {t.status === 'error' && (
-                          <span className="text-xs text-[#ef9282] flex items-center gap-1">
-                            <AlertCircle className="w-3.5 h-3.5" />
-                            <span>{t.error || 'Ошибка'}</span>
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Large file approval prompt (for receiver) */}
-                    {t.status === 'pending_approval' && (
-                      <div className="mt-1 p-3 rounded-md bg-[#222222] border border-[#3a3a3a] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="flex items-center gap-2 text-xs text-[#ededed]">
-                          <HardDrive className="w-4 h-4 text-[#9ac43e] shrink-0" />
-                          <span>Большой файл. Выберите папку на диске для потоковой записи без расхода RAM.</span>
-                        </div>
+                        {/* Right Action */}
                         <div className="flex items-center gap-2 shrink-0">
-                          <button
-                            onClick={() => onAcceptFile(t.id)}
-                            className="px-3 py-1.5 rounded-md bg-[#789d2a] hover:bg-[#8cb632] text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-                          >
-                            <FolderDown className="w-3.5 h-3.5" />
-                            <span>Выбрать папку</span>
-                          </button>
-                          <button
-                            onClick={() => onRejectFile(t.id)}
-                            className="px-2.5 py-1.5 rounded-md bg-[#2d2d2d] hover:bg-[#3a3a3a] text-[#ededed] text-xs font-semibold transition-colors cursor-pointer"
-                          >
-                            Отклонить
-                          </button>
+                          {t.status === 'completed' && t.savedToDisk && (
+                            <span className="px-2.5 py-1 rounded-md bg-[#789d2a]/15 border border-[#789d2a]/40 text-[#9ac43e] text-xs font-semibold flex items-center gap-1.5">
+                              <Check className="w-3.5 h-3.5" />
+                              <span>Сохранено на диск</span>
+                            </span>
+                          )}
+
+                          {t.status === 'completed' && !t.savedToDisk && t.blobUrl && (
+                            <a
+                              href={t.blobUrl}
+                              download={t.name}
+                              className="px-3 py-1.5 rounded-md bg-[#789d2a] hover:bg-[#8cb632] text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              <span>Скачать</span>
+                            </a>
+                          )}
+
+                          {t.status === 'transferring' && (
+                            <button
+                              onClick={() => onCancelTransfer(t.id)}
+                              className="p-1.5 rounded-md hover:bg-[#2d2d2d] text-[#aaaaaa] hover:text-[#ef9282] transition-colors cursor-pointer"
+                              title="Отменить"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
+
+                          {t.status === 'error' && (
+                            <span className="text-xs text-[#ef9282] flex items-center gap-1">
+                              <AlertCircle className="w-3.5 h-3.5" />
+                              <span>{t.error || 'Ошибка'}</span>
+                            </span>
+                          )}
                         </div>
                       </div>
-                    )}
 
-                    {/* Waiting for receiver approval (for sender) */}
-                    {t.status === 'waiting_receiver' && (
-                      <div className="mt-1 text-xs text-[#9ac43e] flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-[#789d2a] animate-pulse" />
-                        <span>Ожидание: получатель выбирает папку для сохранения...</span>
-                      </div>
-                    )}
+                      {/* Inline Audio Player for Audio files */}
+                      {isAudio && t.blobUrl && t.status === 'completed' && (
+                        <div className="mt-1 pt-2 border-t border-[#222222]">
+                          <audio
+                            controls
+                            src={t.blobUrl}
+                            className="w-full h-8 rounded bg-[#171717] opacity-90"
+                          />
+                        </div>
+                      )}
 
-                    {/* Progress Bar */}
-                    {t.status === 'transferring' && (
-                      <div className="w-full bg-[#222222] rounded-full h-1.5 overflow-hidden border border-[#3a3a3a]/40">
-                        <div
-                          className="bg-[#789d2a] h-1.5 rounded-full transition-all duration-300"
-                          style={{ width: `${t.progress}%` }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                ))}
+                      {/* Large file approval prompt (for receiver) */}
+                      {t.status === 'pending_approval' && (
+                        <div className="mt-1 p-3 rounded-md bg-[#222222] border border-[#3a3a3a] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="flex items-center gap-2 text-xs text-[#ededed]">
+                            <HardDrive className="w-4 h-4 text-[#9ac43e] shrink-0" />
+                            <span>Большой файл. Выберите папку на диске для потоковой записи без расхода RAM.</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              onClick={() => onAcceptFile(t.id)}
+                              className="px-3 py-1.5 rounded-md bg-[#789d2a] hover:bg-[#8cb632] text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                            >
+                              <FolderDown className="w-3.5 h-3.5" />
+                              <span>Выбрать папку</span>
+                            </button>
+                            <button
+                              onClick={() => onRejectFile(t.id)}
+                              className="px-2.5 py-1.5 rounded-md bg-[#2d2d2d] hover:bg-[#3a3a3a] text-[#ededed] text-xs font-semibold transition-colors cursor-pointer"
+                            >
+                              Отклонить
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Waiting for receiver approval (for sender) */}
+                      {t.status === 'waiting_receiver' && (
+                        <div className="mt-1 text-xs text-[#9ac43e] flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-[#789d2a] animate-pulse" />
+                          <span>Ожидание: получатель выбирает папку для сохранения...</span>
+                        </div>
+                      )}
+
+                      {/* Progress Bar */}
+                      {t.status === 'transferring' && (
+                        <div className="w-full bg-[#222222] rounded-full h-1.5 overflow-hidden border border-[#3a3a3a]/40">
+                          <div
+                            className="bg-[#789d2a] h-1.5 rounded-full transition-all duration-300"
+                            style={{ width: `${t.progress}%` }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -553,6 +701,52 @@ export const RoomView: React.FC<RoomViewProps> = ({
           </form>
         </div>
       </div>
+
+      {/* Image Lightbox Modal */}
+      {previewImageUrl && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setPreviewImageUrl(null)}
+        >
+          <div
+            className="relative max-w-4xl w-full flex flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-full flex items-center justify-between pb-3 text-sm text-[#ededed]">
+              <span className="font-semibold truncate max-w-md">{previewImageName}</span>
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewImageUrl}
+                  download={previewImageName || 'image'}
+                  className="px-3.5 py-1.5 rounded-md bg-[#789d2a] text-white text-xs font-bold hover:bg-[#8cb632] transition-colors flex items-center gap-1.5"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Скачать</span>
+                </a>
+                <button
+                  onClick={() => setPreviewImageUrl(null)}
+                  className="p-1.5 rounded-md bg-[#222222] border border-[#3a3a3a] text-[#aaaaaa] hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <img
+              src={previewImageUrl}
+              alt={previewImageName || 'Preview'}
+              className="max-h-[80vh] max-w-full object-contain rounded-lg border border-[#3a3a3a] shadow-2xl bg-[#171717]"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 px-4 py-2.5 rounded-lg bg-[#202020] border border-[#789d2a] text-[#ededed] text-xs font-semibold shadow-2xl flex items-center gap-2.5 animate-in slide-in-from-bottom-2">
+          <span className="w-2 h-2 rounded-full bg-[#789d2a] shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
     </div>
   );
 };

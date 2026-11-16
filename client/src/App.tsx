@@ -5,9 +5,10 @@ import { HomeView } from './components/HomeView.js';
 import { RoomView } from './components/RoomView.js';
 import { QRCodeModal } from './components/QRCodeModal.js';
 import { Footer } from './components/Footer.js';
-import { FileTransfer, Peer, TextMessage, ThemeMode } from './types/index.js';
+import { FileTransfer, Peer, TextMessage, ThemeMode, NearbyPeer, PairRequest } from './types/index.js';
 import { detectDeviceType, generateRandomName } from './utils/device.js';
 import { WebRTCManager } from './services/webrtc.js';
+import { sound } from './utils/sound.js';
 
 export function App() {
   const [userName, setUserName] = useState<string>(() => {
@@ -29,6 +30,14 @@ export function App() {
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
+
+  // Local Wi-Fi Discovery (Radar) & Auto-Download
+  const [nearbyPeers, setNearbyPeers] = useState<NearbyPeer[]>([]);
+  const [incomingPairRequest, setIncomingPairRequest] = useState<PairRequest | null>(null);
+  const [isPairing, setIsPairing] = useState(false);
+  const [autoDownload, setAutoDownload] = useState<boolean>(() => {
+    return localStorage.getItem('bridgit_auto_download') !== 'false';
+  });
 
   // Media
   const [isMicActive, setIsMicActive] = useState(false);
@@ -86,6 +95,7 @@ export function App() {
 
     const manager = new WebRTCManager(sock, myId, userName, {
       onTextMessage: (msg) => {
+        sound.playMessage();
         setMessages((prev) => [...prev, msg]);
       },
       onTransferProgress: (updated) => {
@@ -101,6 +111,25 @@ export function App() {
         });
       },
       onTransferComplete: (completed) => {
+        sound.playTransferComplete();
+
+        // Auto-download for completed in-memory downloads if enabled
+        if (completed.type === 'download' && completed.blobUrl && !completed.savedToDisk) {
+          const isAuto = localStorage.getItem('bridgit_auto_download') !== 'false';
+          if (isAuto) {
+            try {
+              const a = document.createElement('a');
+              a.href = completed.blobUrl;
+              a.download = completed.name;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+            } catch (err) {
+              console.warn('Auto download error', err);
+            }
+          }
+        }
+
         setTransfers((prev) => {
           const index = prev.findIndex((t) => t.id === completed.id);
           if (index >= 0) {
@@ -131,6 +160,7 @@ export function App() {
     if (!socket) return;
 
     socket.on('peer-joined', (newPeer: Peer) => {
+      sound.playConnect();
       setPeers((prev) => {
         if (prev.some((p) => p.id === newPeer.id)) return prev;
         return [...prev, newPeer];
@@ -161,6 +191,46 @@ export function App() {
       socket.off('signal');
     };
   }, [socket]);
+
+  // Local Wi-Fi Discovery (Radar on HomeView)
+  useEffect(() => {
+    if (!socket || !isConnected || roomId) return;
+
+    socket.emit('lobby-join', {
+      name: userName,
+      deviceType,
+    });
+
+    const handleNearby = (peers: NearbyPeer[]) => {
+      setNearbyPeers(peers);
+    };
+
+    const handleIncomingPair = (req: PairRequest) => {
+      sound.playMessage();
+      setIncomingPairRequest(req);
+    };
+
+    const handlePairResult = (res: { roomId: string; pin: string; accepted: boolean }) => {
+      setIsPairing(false);
+      if (res.accepted) {
+        sound.playConnect();
+        handleJoinRoom(res.roomId);
+      } else {
+        setErrorMessage('Устройство отклонило запрос на передачу файлов');
+      }
+    };
+
+    socket.on('nearby-peers', handleNearby);
+    socket.on('incoming-pair-request', handleIncomingPair);
+    socket.on('direct-pair-result', handlePairResult);
+
+    return () => {
+      socket.emit('lobby-leave');
+      socket.off('nearby-peers', handleNearby);
+      socket.off('incoming-pair-request', handleIncomingPair);
+      socket.off('direct-pair-result', handlePairResult);
+    };
+  }, [socket, isConnected, roomId, userName, deviceType]);
 
   // Check URL query parameters for auto-join
   useEffect(() => {
@@ -200,7 +270,50 @@ export function App() {
     );
   };
 
-  // Join Room by PIN or ID
+  // Pair via local radar in 1 click
+  const handlePairWithNearby = (targetSocketId: string) => {
+    if (!socket) return;
+    setIsPairing(true);
+    setErrorMessage(undefined);
+    socket.emit('direct-pair-request', {
+      toSocketId: targetSocketId,
+      myName: userName,
+      myDevice: deviceType,
+    });
+  };
+
+  const handleAcceptPair = () => {
+    if (!socket || !incomingPairRequest) return;
+    const req = incomingPairRequest;
+    socket.emit('direct-pair-response', {
+      toSocketId: req.fromSocketId,
+      roomId: req.roomId,
+      pin: req.pin,
+      accepted: true,
+    });
+    setIncomingPairRequest(null);
+    handleJoinRoom(req.roomId);
+  };
+
+  const handleRejectPair = () => {
+    if (!socket || !incomingPairRequest) return;
+    const req = incomingPairRequest;
+    socket.emit('direct-pair-response', {
+      toSocketId: req.fromSocketId,
+      roomId: req.roomId,
+      pin: req.pin,
+      accepted: false,
+    });
+    setIncomingPairRequest(null);
+  };
+
+  const handleToggleAutoDownload = () => {
+    setAutoDownload((prev) => {
+      const next = !prev;
+      localStorage.setItem('bridgit_auto_download', String(next));
+      return next;
+    });
+  };
   const handleJoinRoom = (pinOrId: string) => {
     if (!socket) return;
     setIsLoading(true);
@@ -334,6 +447,14 @@ export function App() {
             onJoinRoom={handleJoinRoom}
             isLoading={isLoading}
             errorMessage={errorMessage}
+            nearbyPeers={nearbyPeers}
+            onPairWithNearby={handlePairWithNearby}
+            isPairing={isPairing}
+            incomingPairRequest={incomingPairRequest}
+            onAcceptPair={handleAcceptPair}
+            onRejectPair={handleRejectPair}
+            myUserName={userName}
+            myDeviceType={deviceType}
           />
         ) : (
           <RoomView
@@ -357,6 +478,8 @@ export function App() {
             isMicActive={isMicActive}
             isScreenActive={isScreenActive}
             hasRemoteVideo={hasRemoteVideo}
+            autoDownload={autoDownload}
+            onToggleAutoDownload={handleToggleAutoDownload}
           />
         )}
       </main>

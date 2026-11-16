@@ -1,11 +1,20 @@
 import React, { useState } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Wifi, Monitor, Smartphone, Send, Radio, Check, X } from 'lucide-react';
+import { NearbyPeer, PairRequest } from '../types/index.js';
 
 interface HomeViewProps {
   onCreateRoom: () => void;
   onJoinRoom: (pinOrId: string) => void;
   isLoading: boolean;
   errorMessage?: string;
+  nearbyPeers: NearbyPeer[];
+  onPairWithNearby: (socketId: string) => void;
+  isPairing: boolean;
+  incomingPairRequest: PairRequest | null;
+  onAcceptPair: () => void;
+  onRejectPair: () => void;
+  myUserName: string;
+  myDeviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown';
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
@@ -13,6 +22,14 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onJoinRoom,
   isLoading,
   errorMessage,
+  nearbyPeers,
+  onPairWithNearby,
+  isPairing,
+  incomingPairRequest,
+  onAcceptPair,
+  onRejectPair,
+  myUserName: _myUserName,
+  myDeviceType: _myDeviceType,
 }) => {
   const [pin, setPin] = useState('');
 
@@ -35,7 +52,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </p>
       </div>
 
-      {/* Info Callout Banner (Styled exactly like Image 1) */}
+      {/* Info Callout Banner */}
       <div className="mb-8 p-4 rounded-xl bg-[#1c2214] border border-[#789d2a]/30 text-[#9ac43e] text-base flex items-start gap-3">
         <span className="font-bold text-lg leading-none shrink-0 mt-0.5">ⓘ</span>
         <div className="space-y-1 text-sm sm:text-base leading-snug">
@@ -45,11 +62,118 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </div>
       </div>
 
+      {/* Incoming Pair Request Modal / Card */}
+      {incomingPairRequest && (
+        <div className="mb-6 p-5 rounded-xl bg-[#1c2214] border-2 border-[#789d2a] shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-lg bg-[#789d2a]/20 border border-[#789d2a] flex items-center justify-center text-[#9ac43e] shrink-0">
+              {incomingPairRequest.fromDevice === 'mobile' ? (
+                <Smartphone className="w-5 h-5" />
+              ) : (
+                <Monitor className="w-5 h-5" />
+              )}
+            </div>
+            <div>
+              <p className="text-base font-bold text-[#ededed]">
+                Входящее подключение для передачи файлов
+              </p>
+              <p className="text-sm text-[#9ac43e]">
+                <strong>{incomingPairRequest.fromName}</strong> хочет передать вам файлы
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2.5 w-full sm:w-auto">
+            <button
+              onClick={onAcceptPair}
+              className="flex-1 sm:flex-none px-5 py-2.5 rounded-lg bg-[#789d2a] hover:bg-[#8cb632] text-white font-bold text-sm transition-colors cursor-pointer flex items-center justify-center gap-2"
+            >
+              <Check className="w-4 h-4" />
+              <span>Принять</span>
+            </button>
+            <button
+              onClick={onRejectPair}
+              className="flex-1 sm:flex-none px-4 py-2.5 rounded-lg bg-[#2d2d2d] hover:bg-[#3a3a3a] text-[#ededed] font-bold text-sm transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              <X className="w-4 h-4" />
+              <span>Отклонить</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {errorMessage && (
         <div className="mb-6 p-3.5 rounded-lg bg-[#ef9282]/10 border border-[#ed2b3b]/30 text-[#ef9282] text-sm">
           {errorMessage}
         </div>
       )}
+
+      {/* Local Wi-Fi Discovery (Radar) */}
+      <div className="bg-[#202020] border border-[#3a3a3a] rounded-xl p-5 sm:p-6 mb-8 shadow-md">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="relative flex items-center justify-center w-3 h-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#789d2a] opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#789d2a]"></span>
+            </div>
+            <h3 className="text-lg font-bold text-[#ededed]">
+              Устройства в вашей Wi-Fi сети
+            </h3>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-[#aaaaaa]">
+            <Wifi className="w-3.5 h-3.5 text-[#9ac43e]" />
+            <span>Локальный радар</span>
+          </div>
+        </div>
+
+        {nearbyPeers.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            {nearbyPeers.map((peer) => (
+              <div
+                key={peer.socketId}
+                className="p-3.5 rounded-lg bg-[#171717] border border-[#3a3a3a] flex items-center justify-between gap-3 hover:border-[#789d2a]/50 transition-colors"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-md bg-[#222222] border border-[#3a3a3a] flex items-center justify-center text-[#9ac43e] shrink-0">
+                    {peer.deviceType === 'mobile' ? (
+                      <Smartphone className="w-5 h-5" />
+                    ) : (
+                      <Monitor className="w-5 h-5" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-[#ededed] truncate">{peer.name}</p>
+                    <p className="text-xs text-[#9ac43e] flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#789d2a]" />
+                      <span>Готов к приему</span>
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => onPairWithNearby(peer.socketId)}
+                  disabled={isPairing}
+                  className="px-3 py-1.5 rounded-md bg-[#789d2a] hover:bg-[#8cb632] text-white text-xs font-bold shrink-0 transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{isPairing ? 'Запрос...' : 'Передать'}</span>
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="py-5 px-4 rounded-lg bg-[#171717]/60 border border-[#3a3a3a]/60 text-center">
+            <div className="w-10 h-10 rounded-full bg-[#222222] border border-[#3a3a3a] flex items-center justify-center text-[#9ac43e] mx-auto mb-2.5">
+              <Radio className="w-5 h-5 animate-pulse" />
+            </div>
+            <p className="text-sm font-semibold text-[#ededed] mb-1">
+              Поиск устройств в этой же сети Wi-Fi...
+            </p>
+            <p className="text-xs text-[#aaaaaa] max-w-md mx-auto">
+              Откройте <span className="text-[#9ac43e] font-semibold">bridgit</span> на телефоне или втором ПК в этой же сети — устройство появится здесь для мгновенной передачи в 1 клик без кодов.
+            </p>
+          </div>
+        )}
+      </div>
 
       {/* Main Action Card */}
       <div className="bg-[#202020] border border-[#3a3a3a] rounded-xl p-6 sm:p-8 mb-10 shadow-lg">
@@ -59,7 +183,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           disabled={isLoading}
           className="w-full py-3.5 px-6 rounded-lg bg-[#789d2a] hover:bg-[#8cb632] text-white font-bold text-xl tracking-wide transition-colors flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50"
         >
-          <span>{isLoading ? 'Создаем комнату...' : 'Создать комнату в 1 клик'}</span>
+          <span>{isLoading ? 'Создаем комнату...' : 'Создать комнату по ссылке и PIN'}</span>
           <ArrowRight className="w-5 h-5" />
         </button>
 
@@ -97,13 +221,19 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </form>
       </div>
 
-      {/* Feature list in eblo.id doc style (Image 2 style) */}
+      {/* Feature list in eblo.id doc style */}
       <div id="features" className="space-y-4 pt-4 border-t border-white/[0.08]">
         <h2 className="text-2xl font-bold text-[#ededed] mb-2">
           Как это устроено
         </h2>
 
         <ul className="space-y-3 text-[#ededed] text-base list-none">
+          <li className="flex items-start gap-2.5">
+            <span className="text-[#9ac43e] font-bold">•</span>
+            <span>
+              <strong className="text-white">Локальный радар сети (Wi-Fi).</strong> Устройства в одной локальной сети видят друг друга на стартовой странице и могут передать файл в 1 клик без ручного ввода кодов.
+            </span>
+          </li>
           <li className="flex items-start gap-2.5">
             <span className="text-[#9ac43e] font-bold">•</span>
             <span>
@@ -119,7 +249,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           <li className="flex items-start gap-2.5">
             <span className="text-[#9ac43e] font-bold">•</span>
             <span>
-              <strong className="text-white">Мгновенный буфер и ссылки.</strong> Скопируйте текст или ссылку на одном устройстве — у собеседника сразу появится кнопка для копирования в 1 клик.
+              <strong className="text-white">Мгновенный буфер и текст.</strong> Поддержка глобальной вставки Ctrl+V прямо в окно передачи файлов и заметок.
             </span>
           </li>
           <li className="flex items-start gap-2.5">
@@ -130,8 +260,11 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </li>
         </ul>
 
-        {/* Small Tag Chips (Like Image 1 bottom row) */}
+        {/* Small Tag Chips */}
         <div className="flex flex-wrap items-center gap-2 pt-4">
+          <span className="px-3 py-1 rounded-full bg-[#222222] border border-[#3a3a3a] text-xs font-semibold text-[#aaaaaa]">
+            Wi-Fi Радар
+          </span>
           <span className="px-3 py-1 rounded-full bg-[#222222] border border-[#3a3a3a] text-xs font-semibold text-[#aaaaaa]">
             P2P WebRTC
           </span>
@@ -139,10 +272,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
             Direct-to-Disk
           </span>
           <span className="px-3 py-1 rounded-full bg-[#222222] border border-[#3a3a3a] text-xs font-semibold text-[#aaaaaa]">
-            Zero-Storage
+            Ctrl + V
           </span>
           <span className="px-3 py-1 rounded-full bg-[#222222] border border-[#3a3a3a] text-xs font-semibold text-[#aaaaaa]">
-            Без VPN
+            Без серверов
           </span>
         </div>
       </div>
