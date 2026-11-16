@@ -6,6 +6,7 @@ import { HomeView } from './components/HomeView.js';
 import { RoomView } from './components/RoomView.js';
 import { MeetingRoomView } from './components/MeetingRoomView.js';
 import { AboutView } from './components/AboutView.js';
+import { BrandShowcaseView } from './components/BrandShowcaseView.js';
 import { QRCodeModal } from './components/QRCodeModal.js';
 import { Footer } from './components/Footer.js';
 import { FileTransfer, Peer, TextMessage, ThemeMode, NearbyPeer, PairRequest, AppTab, RoomMode } from './types/index.js';
@@ -803,7 +804,9 @@ export function App() {
       />
 
       <main className="flex-1">
-        {activeTab === 'about' ? (
+        {activeTab === 'brand' ? (
+          <BrandShowcaseView onBack={() => setActiveTab('bridge')} />
+        ) : activeTab === 'about' ? (
           <AboutView onBack={() => setActiveTab('bridge')} />
         ) : !roomId ? (
           <HomeView
@@ -825,6 +828,7 @@ export function App() {
             myDeviceType={deviceType}
             lanIp={lanIp}
             onOpenAbout={() => setActiveTab('about')}
+            onOpenBrand={() => setActiveTab('brand')}
           />
         ) : roomMode === 'meeting' ? (
           <MeetingRoomView
@@ -1089,7 +1093,10 @@ export function App() {
         </aside>
       )}
 
-      <Footer onOpenAbout={() => setActiveTab('about')} />
+      <Footer
+        onOpenAbout={() => setActiveTab('about')}
+        onOpenBrand={() => setActiveTab('brand')}
+      />
       {/* Hidden audio element to play remote peer microphone live */}
       <audio ref={remoteAudioRef} autoPlay playsInline />
     </div>

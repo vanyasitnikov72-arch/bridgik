@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Edit2, Check, Volume2, VolumeX } from 'lucide-react';
-import { ThemeMode } from '../types/index.js';
+import { ThemeMode, AppTab } from '../types/index.js';
 import { sound } from '../utils/sound.js';
+import { PixelMascot, getSavedMascot } from './mascots/PixelMascot.js';
 
 interface NavbarProps {
   userName: string;
@@ -11,8 +12,8 @@ interface NavbarProps {
   onToggleTheme: () => void;
   isConnected: boolean;
   onGoHome?: () => void;
-  activeTab?: 'bridge' | 'meeting' | 'about';
-  onSelectTab?: (tab: 'bridge' | 'meeting' | 'about') => void;
+  activeTab?: AppTab;
+  onSelectTab?: (tab: AppTab) => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -28,6 +29,15 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [tempName, setTempName] = useState(userName);
   const [soundEnabled, setSoundEnabled] = useState(() => sound.isEnabled());
+  const [mascotConfig, setMascotConfig] = useState(getSavedMascot);
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setMascotConfig(getSavedMascot());
+    };
+    window.addEventListener('bridgik_mascot_updated', handleUpdate);
+    return () => window.removeEventListener('bridgik_mascot_updated', handleUpdate);
+  }, []);
 
   const handleToggleSound = () => {
     const nextState = sound.toggle();
@@ -47,15 +57,23 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <header className="border-b border-white/[0.08] bg-[#171717] sticky top-0 z-40">
       <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-        {/* Brand in Handjet font */}
+        {/* Brand in Handjet font with dynamic pixel mascot */}
         <div
           onClick={() => {
             if (onSelectTab) onSelectTab('bridge');
             onGoHome?.();
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
-          className="flex items-center gap-2 cursor-pointer select-none group"
+          className="flex items-center gap-2.5 cursor-pointer select-none group"
         >
+          <div className="p-1 rounded-lg bg-[#222222] border border-[#3a3a3a] group-hover:border-[#789d2a] transition-colors shrink-0 shadow-xs">
+            <PixelMascot
+              id={mascotConfig.id}
+              palette={mascotConfig.palette}
+              size={26}
+              animated={true}
+            />
+          </div>
           <span className="font-extrabold text-3xl tracking-tight text-[#ededed] group-hover:text-[#9ac43e] transition-colors">
             bridgik
           </span>
@@ -64,8 +82,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           </span>
         </div>
 
-        {/* Center / Navigation: Главная · О сервисе */}
-        <nav className="flex items-center gap-4 sm:gap-6 text-lg font-bold">
+        {/* Center / Navigation: Главная · О сервисе · Маскот / Лого */}
+        <nav className="flex items-center gap-3 sm:gap-5 text-lg font-bold">
           <button
             onClick={() => {
               if (onSelectTab) onSelectTab('bridge');
@@ -73,7 +91,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
             className={`pb-1 cursor-pointer transition-colors ${
-              activeTab !== 'about'
+              activeTab === 'bridge' || activeTab === 'meeting'
                 ? 'text-[#ededed] border-b-2 border-[#789d2a]'
                 : 'text-[#aaaaaa] hover:text-[#ededed]'
             }`}
@@ -93,8 +111,23 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             О сервисе
           </button>
-          <span className="text-[#999999]/60 hidden sm:inline">·</span>
-          <span className="text-sm sm:text-base text-[#9ac43e] font-mono font-bold hidden sm:inline">
+          <button
+            onClick={() => {
+              if (onSelectTab) onSelectTab('brand');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className={`pb-1 cursor-pointer transition-colors flex items-center gap-1.5 ${
+              activeTab === 'brand'
+                ? 'text-[#ededed] border-b-2 border-[#789d2a]'
+                : 'text-[#aaaaaa] hover:text-[#ededed]'
+            }`}
+            title="Интерактивная студия маскота и логотипа"
+          >
+            <span>Маскот & Лого</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-[#9ac43e] animate-pulse" />
+          </button>
+          <span className="text-[#999999]/60 hidden md:inline">·</span>
+          <span className="text-sm sm:text-base text-[#9ac43e] font-mono font-bold hidden md:inline">
             {isConnected ? 'сеть активна' : 'подключение...'}
           </span>
         </nav>

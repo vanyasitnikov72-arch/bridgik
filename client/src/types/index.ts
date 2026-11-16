@@ -1,5 +1,5 @@
 export type ThemeMode = 'swiss' | 'cyberpunk' | 'lofi';
-export type AppTab = 'bridge' | 'meeting' | 'about';
+export type AppTab = 'bridge' | 'meeting' | 'about' | 'brand';
 export type RoomMode = 'bridge' | 'meeting';
 
 export interface Peer {
