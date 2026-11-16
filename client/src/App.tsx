@@ -21,6 +21,7 @@ export function App() {
   const [isConnected, setIsConnected] = useState(false);
   const [roomId, setRoomId] = useState<string | null>(null);
   const [pin, setPin] = useState<string>('');
+  const [myPeerId, setMyPeerId] = useState<string>('');
   const [peers, setPeers] = useState<Peer[]>([]);
   const [transfers, setTransfers] = useState<FileTransfer[]>([]);
   const [messages, setMessages] = useState<TextMessage[]>([]);
@@ -187,6 +188,7 @@ export function App() {
         if (res.success) {
           setRoomId(res.roomId);
           setPin(res.pin);
+          setMyPeerId(res.peerId);
           setPeers(res.peers || []);
           setupWebRTC(socket, res.peerId);
           window.history.pushState({}, '', `?room=${res.pin}`);
@@ -215,6 +217,7 @@ export function App() {
         if (res.success) {
           setRoomId(res.roomId);
           setPin(res.pin);
+          setMyPeerId(res.peerId);
           setPeers(res.peers || []);
           setupWebRTC(socket, res.peerId);
           window.history.pushState({}, '', `?room=${res.pin}`);
@@ -236,6 +239,7 @@ export function App() {
     }
     setRoomId(null);
     setPin('');
+    setMyPeerId('');
     setPeers([]);
     setTransfers([]);
     setMessages([]);
@@ -320,6 +324,7 @@ export function App() {
           <RoomView
             roomId={roomId}
             pin={pin}
+            myPeerId={myPeerId}
             roomUrl={roomUrl}
             peers={peers}
             transfers={transfers}

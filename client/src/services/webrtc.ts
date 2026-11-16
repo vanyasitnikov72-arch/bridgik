@@ -1,8 +1,10 @@
 import { Socket } from 'socket.io-client';
 import { FileTransfer, TextMessage, WebRTCMessage } from '../types/index.js';
 
-const CHUNK_SIZE = 64 * 1024; // 64 KB
-const BUFFER_THRESHOLD = 256 * 1024; // 256 KB threshold for backpressure
+const CHUNK_SIZE = 64 * 1024; // 64 KB (standard safe WebRTC SCTP packet size)
+const READ_BLOCK_SIZE = 1024 * 1024; // 1 MB disk read block (reduces File API overhead by 16x)
+const BUFFER_HIGH = 4 * 1024 * 1024; // 4 MB backpressure threshold (keeps SCTP pipeline saturated)
+const BUFFER_LOW = 1024 * 1024; // 1 MB resume threshold
 const HEADER_SIZE = 40; // 32 bytes fileId + 4 bytes chunkIndex + 4 bytes totalChunks
 
 const ICE_SERVERS: RTCConfiguration = {
@@ -49,7 +51,8 @@ export class WebRTCManager {
         senderName: string;
       };
       peerId: string;
-      receivedChunks: Map<number, Uint8Array>;
+      receivedChunks: (Uint8Array | undefined)[];
+      receivedCount: number;
       receivedBytes: number;
       lastProgressUpdate: number;
       lastBytesTransferred: number;
@@ -199,7 +202,8 @@ export class WebRTCManager {
           this.incomingFiles.set(msg.fileId, {
             meta: msg,
             peerId,
-            receivedChunks: new Map(),
+            receivedChunks: new Array(msg.totalChunks),
+            receivedCount: 0,
             receivedBytes: 0,
             lastProgressUpdate: Date.now(),
             lastBytesTransferred: 0,
@@ -257,12 +261,15 @@ export class WebRTCManager {
       const incoming = this.incomingFiles.get(fileId);
       if (!incoming) return;
 
-      incoming.receivedChunks.set(chunkIndex, chunkData);
-      incoming.receivedBytes += chunkData.byteLength;
+      if (!incoming.receivedChunks[chunkIndex]) {
+        incoming.receivedChunks[chunkIndex] = chunkData;
+        incoming.receivedCount++;
+        incoming.receivedBytes += chunkData.byteLength;
+      }
 
       const now = Date.now();
       const elapsed = (now - incoming.lastProgressUpdate) / 1000;
-      if (elapsed >= 0.5) {
+      if (elapsed >= 0.25) {
         const bytesDiff = incoming.receivedBytes - incoming.lastBytesTransferred;
         incoming.speed = elapsed > 0 ? bytesDiff / elapsed : 0;
         incoming.lastBytesTransferred = incoming.receivedBytes;
@@ -278,18 +285,14 @@ export class WebRTCManager {
       }
 
       // Check if file is completely received
-      if (incoming.receivedChunks.size === totalChunks) {
-        // Assemble final Blob
-        const parts: Uint8Array[] = [];
-        for (let i = 0; i < totalChunks; i++) {
-          const part = incoming.receivedChunks.get(i);
-          if (part) parts.push(part);
-        }
-
-        const blob = new Blob(parts as unknown as BlobPart[], {
+      if (incoming.receivedCount === totalChunks) {
+        const blob = new Blob(incoming.receivedChunks as BlobPart[], {
           type: incoming.meta.mimeType || 'application/octet-stream',
         });
         const blobUrl = URL.createObjectURL(blob);
+
+        // Clear chunks array immediately to free RAM
+        incoming.receivedChunks = [];
 
         const completedTransfer: FileTransfer = {
           id: fileId,
@@ -412,13 +415,13 @@ export class WebRTCManager {
       fileIdBytes[i] = fileId.charCodeAt(i);
     }
 
-    let offset = 0;
+    let fileOffset = 0;
     let chunkIndex = 0;
     let bytesSent = 0;
     let lastProgressUpdate = Date.now();
     let lastBytesSent = 0;
 
-    for (chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+    while (fileOffset < file.size) {
       if (this.cancelledTransfers.has(fileId)) {
         activeBundles.forEach((b) => {
           if (b.controlChannel?.readyState === 'open') {
@@ -430,58 +433,79 @@ export class WebRTCManager {
         return;
       }
 
-      // Check backpressure across channels
-      for (const b of activeBundles) {
-        if (b.fileChannel && b.fileChannel.bufferedAmount > BUFFER_THRESHOLD) {
-          await new Promise<void>((resolve) => {
-            if (!b.fileChannel) return resolve();
-            b.fileChannel.bufferedAmountLowThreshold = BUFFER_THRESHOLD / 2;
-            b.fileChannel.onbufferedamountlow = () => {
-              if (b.fileChannel) b.fileChannel.onbufferedamountlow = null;
-              resolve();
-            };
+      // Read a 1MB block from disk to avoid 20,000+ async slice calls
+      const blockEnd = Math.min(fileOffset + READ_BLOCK_SIZE, file.size);
+      const blockSlice = file.slice(fileOffset, blockEnd);
+      const blockBuffer = await blockSlice.arrayBuffer();
+      let blockOffset = 0;
+
+      while (blockOffset < blockBuffer.byteLength) {
+        if (this.cancelledTransfers.has(fileId)) {
+          activeBundles.forEach((b) => {
+            if (b.controlChannel?.readyState === 'open') {
+              b.controlChannel.send(JSON.stringify({ type: 'FILE_CANCEL', fileId }));
+            }
+          });
+          this.cancelledTransfers.delete(fileId);
+          this.callbacks.onTransferProgress({ id: fileId, status: 'cancelled' });
+          return;
+        }
+
+        // Check backpressure across channels: pause only when buffer exceeds 4MB
+        for (const b of activeBundles) {
+          if (b.fileChannel && b.fileChannel.bufferedAmount > BUFFER_HIGH) {
+            await new Promise<void>((resolve) => {
+              if (!b.fileChannel) return resolve();
+              b.fileChannel.bufferedAmountLowThreshold = BUFFER_LOW;
+              b.fileChannel.onbufferedamountlow = () => {
+                if (b.fileChannel) b.fileChannel.onbufferedamountlow = null;
+                resolve();
+              };
+            });
+          }
+        }
+
+        const currentChunkSize = Math.min(CHUNK_SIZE, blockBuffer.byteLength - blockOffset);
+
+        // Construct packet: Header (40 bytes) + Chunk Data
+        const packet = new Uint8Array(HEADER_SIZE + currentChunkSize);
+        packet.set(fileIdBytes, 0);
+
+        const view = new DataView(packet.buffer);
+        view.setUint32(32, chunkIndex);
+        view.setUint32(36, totalChunks);
+        packet.set(new Uint8Array(blockBuffer, blockOffset, currentChunkSize), HEADER_SIZE);
+
+        // Send to all targets
+        for (const b of activeBundles) {
+          if (b.fileChannel?.readyState === 'open') {
+            b.fileChannel.send(packet.buffer);
+          }
+        }
+
+        blockOffset += currentChunkSize;
+        chunkIndex++;
+        bytesSent += currentChunkSize;
+
+        // Update progress & speed periodically
+        const now = Date.now();
+        const elapsed = (now - lastProgressUpdate) / 1000;
+        if (elapsed >= 0.25 || bytesSent === file.size) {
+          const speed = elapsed > 0 ? (bytesSent - lastBytesSent) / elapsed : 0;
+          lastBytesSent = bytesSent;
+          lastProgressUpdate = now;
+
+          const progress = Math.min(100, Math.round((bytesSent / file.size) * 100));
+          this.callbacks.onTransferProgress({
+            id: fileId,
+            progress,
+            speed,
+            status: bytesSent === file.size ? 'completed' : 'transferring',
           });
         }
       }
 
-      const chunkSlice = file.slice(offset, offset + CHUNK_SIZE);
-      const chunkBuffer = await chunkSlice.arrayBuffer();
-
-      // Construct packet: Header (40 bytes) + Chunk Data
-      const packet = new Uint8Array(HEADER_SIZE + chunkBuffer.byteLength);
-      packet.set(fileIdBytes, 0);
-
-      const view = new DataView(packet.buffer);
-      view.setUint32(32, chunkIndex);
-      view.setUint32(36, totalChunks);
-      packet.set(new Uint8Array(chunkBuffer), HEADER_SIZE);
-
-      // Send to all targets
-      for (const b of activeBundles) {
-        if (b.fileChannel?.readyState === 'open') {
-          b.fileChannel.send(packet.buffer);
-        }
-      }
-
-      offset += CHUNK_SIZE;
-      bytesSent += chunkBuffer.byteLength;
-
-      // Update progress & speed every 300ms
-      const now = Date.now();
-      const elapsed = (now - lastProgressUpdate) / 1000;
-      if (elapsed >= 0.3 || chunkIndex === totalChunks - 1) {
-        const speed = elapsed > 0 ? (bytesSent - lastBytesSent) / elapsed : 0;
-        lastBytesSent = bytesSent;
-        lastProgressUpdate = now;
-
-        const progress = Math.min(100, Math.round((bytesSent / file.size) * 100));
-        this.callbacks.onTransferProgress({
-          id: fileId,
-          progress,
-          speed,
-          status: chunkIndex === totalChunks - 1 ? 'completed' : 'transferring',
-        });
-      }
+      fileOffset = blockEnd;
     }
 
     this.callbacks.onTransferProgress({

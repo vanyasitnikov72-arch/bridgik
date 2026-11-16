@@ -26,6 +26,7 @@ import { formatBytes, formatSpeed } from '../utils/device.js';
 interface RoomViewProps {
   roomId: string;
   pin: string;
+  myPeerId: string;
   roomUrl: string;
   peers: Peer[];
   transfers: FileTransfer[];
@@ -46,6 +47,7 @@ interface RoomViewProps {
 export const RoomView: React.FC<RoomViewProps> = ({
   roomId: _roomId,
   pin,
+  myPeerId,
   roomUrl,
   peers,
   transfers,
@@ -128,7 +130,7 @@ export const RoomView: React.FC<RoomViewProps> = ({
     }
   };
 
-  const otherPeers = peers.filter((p) => p.id !== 'me');
+  const otherPeers = peers.filter((p) => p.id !== myPeerId);
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
@@ -145,7 +147,7 @@ export const RoomView: React.FC<RoomViewProps> = ({
             <span>
               {otherPeers.length === 0
                 ? 'Ожидание участников...'
-                : `${otherPeers.length + 1} устройств(а) в сети`}
+                : `${peers.length} устройств(а) в сети`}
             </span>
           </div>
         </div>
@@ -215,6 +217,30 @@ export const RoomView: React.FC<RoomViewProps> = ({
             <span className="hidden sm:inline">Выйти</span>
           </button>
         </div>
+
+        {/* Connected devices list */}
+        {peers.length > 0 && (
+          <div className="flex items-center gap-2 pt-3 border-t border-neutral-800/60 w-full flex-wrap text-xs">
+            <span className="text-neutral-400 text-[11px] font-medium mr-1">Устройства в комнате:</span>
+            {peers.map((p) => {
+              const isMe = p.id === myPeerId;
+              return (
+                <span
+                  key={p.id}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border ${
+                    isMe
+                      ? 'bg-neutral-800/80 text-neutral-200 border-neutral-700'
+                      : 'bg-cyan-950/60 text-cyan-300 border-cyan-800/60'
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  <span className="font-medium">{p.name}</span>
+                  {isMe && <span className="text-[10px] text-neutral-400">(Вы)</span>}
+                </span>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Remote Video Stream if Screen Share is Active */}
