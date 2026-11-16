@@ -10,7 +10,9 @@ import {
   FolderUp,
   Zap,
   Mic,
+  Users,
 } from 'lucide-react';
+import { BridgeIcon } from './icons/BridgeIcon.js';
 
 interface AboutViewProps {
   onBack: () => void;
@@ -83,8 +85,8 @@ export const AboutView: React.FC<AboutViewProps> = ({ onBack }) => {
           <div className="bg-[#202020] border-2 border-[#789d2a]/50 rounded-xl p-6 sm:p-7 flex flex-col justify-between shadow-md">
             <div>
               <div className="flex items-center gap-3.5 mb-3.5">
-                <div className="w-11 h-11 rounded-xl bg-[#1c2214] border border-[#789d2a] flex items-center justify-center text-[#9ac43e] font-bold text-xl shrink-0">
-                  🌉
+                <div className="w-11 h-11 rounded-xl bg-[#1c2214] border border-[#789d2a] flex items-center justify-center text-[#9ac43e] shrink-0">
+                  <BridgeIcon className="w-6 h-6 text-[#9ac43e]" />
                 </div>
                 <div>
                   <h3 className="text-2xl font-extrabold text-white">Режим «Мост»</h3>
@@ -126,8 +128,8 @@ export const AboutView: React.FC<AboutViewProps> = ({ onBack }) => {
           <div className="bg-[#202020] border-2 border-[#3a3a3a] hover:border-[#789d2a]/50 rounded-xl p-6 sm:p-7 flex flex-col justify-between shadow-md transition-colors">
             <div>
               <div className="flex items-center gap-3.5 mb-3.5">
-                <div className="w-11 h-11 rounded-xl bg-[#282828] border border-[#3a3a3a] flex items-center justify-center text-[#9ac43e] font-bold text-xl shrink-0">
-                  🪐
+                <div className="w-11 h-11 rounded-xl bg-[#1c2214] border border-[#789d2a] flex items-center justify-center text-[#9ac43e] shrink-0">
+                  <Users className="w-6 h-6 text-[#9ac43e]" />
                 </div>
                 <div>
                   <h3 className="text-2xl font-extrabold text-white">Режим «Комната»</h3>

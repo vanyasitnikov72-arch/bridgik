@@ -52,6 +52,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           onClick={() => {
             if (onSelectTab) onSelectTab('bridge');
             onGoHome?.();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
           className="flex items-center gap-2 cursor-pointer select-none group"
         >
@@ -66,7 +67,12 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Center / Navigation Tabs like on eblo.id: Мост · Комната · О сервисе */}
         <nav className="flex items-center gap-4 sm:gap-7 text-lg font-bold">
           <button
-            onClick={() => onSelectTab ? onSelectTab('bridge') : onGoHome?.()}
+            onClick={() => {
+              if (onSelectTab) onSelectTab('bridge');
+              onGoHome?.();
+              const el = document.getElementById('mode-actions');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }}
             className={`pb-1 cursor-pointer transition-colors ${
               activeTab === 'bridge'
                 ? 'text-[#ededed] border-b-2 border-[#789d2a]'
@@ -76,7 +82,12 @@ export const Navbar: React.FC<NavbarProps> = ({
             Мост
           </button>
           <button
-            onClick={() => onSelectTab?.('meeting')}
+            onClick={() => {
+              onSelectTab?.('meeting');
+              onGoHome?.();
+              const el = document.getElementById('mode-actions');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }}
             className={`pb-1 cursor-pointer transition-colors ${
               activeTab === 'meeting'
                 ? 'text-[#ededed] border-b-2 border-[#789d2a]'
@@ -86,7 +97,13 @@ export const Navbar: React.FC<NavbarProps> = ({
             Комната
           </button>
           <button
-            onClick={() => onSelectTab?.('about')}
+            onClick={() => {
+              onSelectTab?.('about');
+              const el = document.getElementById('about-section');
+              if (el) {
+                el.scrollIntoView({ behavior: 'smooth' });
+              }
+            }}
             className={`pb-1 cursor-pointer transition-colors ${
               activeTab === 'about'
                 ? 'text-[#ededed] border-b-2 border-[#789d2a]'

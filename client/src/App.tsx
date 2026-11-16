@@ -3,9 +3,7 @@ import { io, Socket } from 'socket.io-client';
 import { Navbar } from './components/Navbar.js';
 import { HomeView } from './components/HomeView.js';
 import { RoomView } from './components/RoomView.js';
-import { MeetingHomeView } from './components/MeetingHomeView.js';
 import { MeetingRoomView } from './components/MeetingRoomView.js';
-import { AboutView } from './components/AboutView.js';
 import { QRCodeModal } from './components/QRCodeModal.js';
 import { Footer } from './components/Footer.js';
 import { FileTransfer, Peer, TextMessage, ThemeMode, NearbyPeer, PairRequest, AppTab, RoomMode } from './types/index.js';
@@ -539,36 +537,26 @@ export function App() {
       />
 
       <main className="flex-1">
-        {activeTab === 'about' ? (
-          <AboutView onBack={() => setActiveTab(roomMode)} />
-        ) : !roomId ? (
-          activeTab === 'meeting' ? (
-            <MeetingHomeView
-              onCreateMeeting={handleCreateMeeting}
-              onJoinMeeting={(pinOrId) => handleJoinRoom(pinOrId, 'meeting')}
-              isLoading={isLoading}
-              errorMessage={errorMessage}
-              myUserName={userName}
-              onOpenAbout={() => setActiveTab('about')}
-            />
-          ) : (
-            <HomeView
-              onCreateRoom={() => handleCreateRoom('bridge')}
-              onJoinRoom={(pinOrId) => handleJoinRoom(pinOrId, 'bridge')}
-              isLoading={isLoading}
-              errorMessage={errorMessage}
-              nearbyPeers={nearbyPeers}
-              onPairWithNearby={handlePairWithNearby}
-              isPairing={isPairing}
-              incomingPairRequest={incomingPairRequest}
-              onAcceptPair={handleAcceptPair}
-              onRejectPair={handleRejectPair}
-              myUserName={userName}
-              myDeviceType={deviceType}
-              lanIp={lanIp}
-              onOpenAbout={() => setActiveTab('about')}
-            />
-          )
+        {!roomId ? (
+          <HomeView
+            onCreateBridge={() => handleCreateRoom('bridge')}
+            onJoinBridge={(pinOrId) => handleJoinRoom(pinOrId, 'bridge')}
+            onCreateMeeting={handleCreateMeeting}
+            onJoinMeeting={(pinOrId) => handleJoinRoom(pinOrId, 'meeting')}
+            activeMode={activeTab === 'meeting' ? 'meeting' : 'bridge'}
+            onSelectMode={(mode) => setActiveTab(mode)}
+            isLoading={isLoading}
+            errorMessage={errorMessage}
+            nearbyPeers={nearbyPeers}
+            onPairWithNearby={handlePairWithNearby}
+            isPairing={isPairing}
+            incomingPairRequest={incomingPairRequest}
+            onAcceptPair={handleAcceptPair}
+            onRejectPair={handleRejectPair}
+            myUserName={userName}
+            myDeviceType={deviceType}
+            lanIp={lanIp}
+          />
         ) : roomMode === 'meeting' ? (
           <MeetingRoomView
             roomId={roomId}
