@@ -3,11 +3,18 @@
 class RetroAudio {
   private ctx: AudioContext | null = null;
   private soundEnabled = true;
+  private notificationAudio: HTMLAudioElement | null = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('bridgik_sound_enabled') || localStorage.getItem('bridgit_sound_enabled');
       this.soundEnabled = stored === null ? true : stored === 'true';
+      try {
+        this.notificationAudio = new Audio('/sounds/sound-messages-odnoklassniki.mp3');
+        this.notificationAudio.preload = 'auto';
+      } catch {
+        // ignore
+      }
     }
   }
 
@@ -97,10 +104,40 @@ class RetroAudio {
   }
 
   /**
-   * Soft retro notification blip for text/clipboard message
+   * Iconic Odnoklassniki notification chime for incoming messages, connection requests and alerts
    */
   public playMessage() {
     if (!this.soundEnabled) return;
+
+    if (typeof window !== 'undefined') {
+      try {
+        const audio = this.notificationAudio
+          ? (this.notificationAudio.cloneNode(true) as HTMLAudioElement)
+          : new Audio('/sounds/sound-messages-odnoklassniki.mp3');
+        audio.volume = 0.85;
+        const promise = audio.play();
+        if (promise !== undefined) {
+          promise.catch(() => {
+            this.playSynthFallback();
+          });
+        }
+        return;
+      } catch {
+        // fallback
+      }
+    }
+
+    this.playSynthFallback();
+  }
+
+  /**
+   * Alias for playMessage() specifically for notifications
+   */
+  public playNotification() {
+    this.playMessage();
+  }
+
+  private playSynthFallback() {
     const ctx = this.getContext();
     if (!ctx) return;
 
