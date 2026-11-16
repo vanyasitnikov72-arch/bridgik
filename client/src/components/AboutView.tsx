@@ -7,9 +7,9 @@ import {
   Copy,
   Check,
   ExternalLink,
-  Monitor,
   FolderUp,
   Zap,
+  Mic,
 } from 'lucide-react';
 
 interface AboutViewProps {
@@ -64,6 +64,106 @@ export const AboutView: React.FC<AboutViewProps> = ({ onBack }) => {
           <p className="text-[#bbbbbb]">
             Ваши файлы и сообщения никогда не загружаются на сервер и не сохраняются ни в каких базах данных. Сервер используется исключительно как маяк сигналов (WebRTC Handshake). Все данные шифруются и передаются напрямую от браузера к браузеру.
           </p>
+        </div>
+      </div>
+
+      {/* Two Modes Section: Мост & Комната */}
+      <div className="mb-12 space-y-4">
+        <div>
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-[#ededed] mb-1">
+            Два специализированных режима: <span className="text-[#9ac43e]">«Мост»</span> и <span className="text-[#9ac43e]">«Комната»</span>
+          </h2>
+          <p className="text-lg sm:text-xl text-[#bbbbbb] leading-relaxed">
+            В bridgik мы сознательно разделили два принципиально разных сценария использования, чтобы не перегружать интерфейс лишними элементами:
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
+          {/* Mode 1: Мост */}
+          <div className="bg-[#202020] border-2 border-[#789d2a]/50 rounded-xl p-6 sm:p-7 flex flex-col justify-between shadow-md">
+            <div>
+              <div className="flex items-center gap-3.5 mb-3.5">
+                <div className="w-11 h-11 rounded-xl bg-[#1c2214] border border-[#789d2a] flex items-center justify-center text-[#9ac43e] font-bold text-xl shrink-0">
+                  🌉
+                </div>
+                <div>
+                  <h3 className="text-2xl font-extrabold text-white">Режим «Мост»</h3>
+                  <p className="text-sm font-semibold text-[#9ac43e]">Экспресс-передача телефон ↔ компьютер</p>
+                </div>
+              </div>
+
+              <p className="text-base sm:text-lg text-[#cccccc] leading-relaxed mb-4">
+                Специально для ситуаций, когда нужно быстро скинуть скриншот, архив, видео или папку со смартфона на ПК (или между двумя своими компьютерами). Ноль лишних кнопок — только чистые файлы и максимальная скорость сети.
+              </p>
+
+              <ul className="space-y-2.5 text-base sm:text-lg text-[#bbbbbb]">
+                <li className="flex items-start gap-2.5">
+                  <span className="text-[#9ac43e] font-bold">•</span>
+                  <span><strong>Локальный Wi-Fi Радар:</strong> устройства в одной сети видны на стартовом экране и передают данные в 1 клик.</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="text-[#9ac43e] font-bold">•</span>
+                  <span><strong>Direct-to-Disk (10–50+ ГБ):</strong> потоковая запись прямо в выбранную папку на диске без зависания браузера.</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="text-[#9ac43e] font-bold">•</span>
+                  <span><strong>Глобальный Ctrl + V:</strong> моментальная отправка скриншота или файла из буфера в любом месте страницы.</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="text-[#9ac43e] font-bold">•</span>
+                  <span><strong>Папки и медиа-превью:</strong> отправка целых папок и встроенный просмотр картинок/аудио.</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="mt-6 pt-3.5 border-t border-[#333333] flex items-center justify-between text-xs sm:text-sm font-mono text-[#999999]">
+              <span className="text-[#9ac43e]">Фокус: файлы и буфер</span>
+              <span>Без звонков и отвлечений</span>
+            </div>
+          </div>
+
+          {/* Mode 2: Комната */}
+          <div className="bg-[#202020] border-2 border-[#3a3a3a] hover:border-[#789d2a]/50 rounded-xl p-6 sm:p-7 flex flex-col justify-between shadow-md transition-colors">
+            <div>
+              <div className="flex items-center gap-3.5 mb-3.5">
+                <div className="w-11 h-11 rounded-xl bg-[#282828] border border-[#3a3a3a] flex items-center justify-center text-[#9ac43e] font-bold text-xl shrink-0">
+                  🪐
+                </div>
+                <div>
+                  <h3 className="text-2xl font-extrabold text-white">Режим «Комната»</h3>
+                  <p className="text-sm font-semibold text-[#9ac43e]">P2P GhostRoom / Конфиденциальная переговорная</p>
+                </div>
+              </div>
+
+              <p className="text-base sm:text-lg text-[#cccccc] leading-relaxed mb-4">
+                Изолированное эфемерное пространство для приватного созвона с клиентом, коллегой или другом. Никаких аккаунтов, установки приложений, серверных записей или логов.
+              </p>
+
+              <ul className="space-y-2.5 text-base sm:text-lg text-[#bbbbbb]">
+                <li className="flex items-start gap-2.5">
+                  <span className="text-[#9ac43e] font-bold">•</span>
+                  <span><strong>Голосовая P2P-связь (Opus):</strong> чистый голос без задержек и без серверного сжатия.</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="text-[#9ac43e] font-bold">•</span>
+                  <span><strong>Демонстрация экрана 60 FPS:</strong> показ рабочего стола, Figma-макетов, презентаций или кода.</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="text-[#9ac43e] font-bold">•</span>
+                  <span><strong>Общий блокнот (Scratchpad):</strong> совместный черновик заметок с моментальной синхронизацией по DataChannel и скачиванием в .md.</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="text-[#9ac43e] font-bold">•</span>
+                  <span><strong>Чат и вложения:</strong> обмен сообщениями и отправка рабочих документов прямо во время разговора.</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="mt-6 pt-3.5 border-t border-[#333333] flex items-center justify-between text-xs sm:text-sm font-mono text-[#999999]">
+              <span className="text-[#9ac43e]">Фокус: живой созвон и экран</span>
+              <span>Кнопка экстренного завершения</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -205,23 +305,26 @@ export const AboutView: React.FC<AboutViewProps> = ({ onBack }) => {
           </ul>
         </div>
 
-        {/* Card 5: Voice & Screen Share */}
+        {/* Card 5: Voice, Screen Share & Scratchpad in Room mode */}
         <div className="bg-[#202020] border border-[#3a3a3a] rounded-xl p-6 sm:p-8 hover:border-[#789d2a]/40 transition-colors">
           <div className="flex items-center gap-3.5 mb-4">
             <div className="w-11 h-11 rounded-lg bg-[#292929] border border-[#3a3a3a] flex items-center justify-center text-[#9ac43e]">
-              <Monitor className="w-6 h-6" />
+              <Mic className="w-6 h-6" />
             </div>
             <div>
               <h2 className="text-2xl sm:text-3xl font-extrabold text-[#ededed]">
-                Микрофон и демонстрация экрана
+                Голос, трансляция экрана и блокнот (в режиме «Комната»)
               </h2>
               <p className="text-sm sm:text-base text-[#9ac43e] font-semibold">
-                Живая связь во время совместной работы
+                Полноценная переговорная без сторонних сервисов
               </p>
             </div>
           </div>
+          <p className="text-lg sm:text-xl text-[#cccccc] leading-relaxed mb-3">
+            В режиме <strong className="text-white">«Комната»</strong> участникам доступны прямой P2P-стриминг медиа (чистый Opus для голоса, 60 FPS захват экрана) и общий синхронный блокнот (Scratchpad).
+          </p>
           <p className="text-lg sm:text-xl text-[#cccccc] leading-relaxed">
-            В верхней панели комнаты доступны кнопки <strong className="text-white">«Микрофон»</strong> и <strong className="text-white">«Экран»</strong>. Они используют тот же P2P WebRTC-канал медиа-стриминга (Opus для голоса, VP8/H.264 для видео экрана). Вы можете оперативно созвониться или показать рабочий стол коллеге без необходимости открывать сторонние видеоконференции.
+            При этом режим <strong className="text-white">«Мост»</strong> остаётся строго сфокусированным на быстрой передаче файлов между устройствами — в нём нет лишних кнопок звонка, чтобы ничто не отвлекало от мгновенного переброса данных.
           </p>
         </div>
 

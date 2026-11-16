@@ -8,9 +8,6 @@ import {
   Check,
   Copy,
   ExternalLink,
-  Mic,
-  MicOff,
-  ScreenShare,
   Users,
   X,
   AlertCircle,
@@ -73,12 +70,12 @@ export const RoomView: React.FC<RoomViewProps> = ({
   onRejectFile,
   onLeaveRoom,
   onOpenQR,
-  onToggleMic,
-  onToggleScreen,
-  remoteVideoRef,
-  isMicActive,
-  isScreenActive,
-  hasRemoteVideo,
+  onToggleMic: _onToggleMic,
+  onToggleScreen: _onToggleScreen,
+  remoteVideoRef: _remoteVideoRef,
+  isMicActive: _isMicActive,
+  isScreenActive: _isScreenActive,
+  hasRemoteVideo: _hasRemoteVideo,
   autoDownload,
   onToggleAutoDownload,
   destinationDirName,
@@ -318,34 +315,6 @@ export const RoomView: React.FC<RoomViewProps> = ({
               )}
             </button>
 
-            {/* Voice Mic Toggle */}
-            <button
-              onClick={onToggleMic}
-              className={`px-3.5 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
-                isMicActive
-                  ? 'bg-[#ed2b3b] text-white'
-                  : 'bg-[#2d2d2d] hover:bg-[#3a3a3a] text-[#ededed]'
-              }`}
-              title={isMicActive ? 'Выключить микрофон' : 'Включить голос'}
-            >
-              {isMicActive ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
-              <span className="hidden sm:inline">{isMicActive ? 'Голос вкл' : 'Микрофон'}</span>
-            </button>
-
-            {/* Screen Share Toggle */}
-            <button
-              onClick={onToggleScreen}
-              className={`px-3.5 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
-                isScreenActive
-                  ? 'bg-[#789d2a] text-white'
-                  : 'bg-[#2d2d2d] hover:bg-[#3a3a3a] text-[#ededed]'
-              }`}
-              title="Демонстрация экрана"
-            >
-              <ScreenShare className="w-4 h-4" />
-              <span className="hidden sm:inline">{isScreenActive ? 'Трансляция...' : 'Экран'}</span>
-            </button>
-
             {/* Exit Button */}
             <button
               onClick={onLeaveRoom}
@@ -382,22 +351,6 @@ export const RoomView: React.FC<RoomViewProps> = ({
           </div>
         )}
       </div>
-
-      {/* Remote Video Stream if Screen Share is Active */}
-      {hasRemoteVideo && (
-        <div className="mb-6 rounded-xl overflow-hidden border border-[#3a3a3a] bg-black aspect-video max-h-[480px] w-full flex items-center justify-center relative shadow-xl">
-          <video
-            ref={remoteVideoRef as any}
-            autoPlay
-            playsInline
-            className="w-full h-full object-contain"
-          />
-          <div className="absolute top-3 left-3 bg-[#171717]/90 px-3 py-1.5 rounded-lg text-sm font-semibold text-[#ededed] border border-[#3a3a3a] flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#ed2b3b] animate-pulse" />
-            <span>Демонстрация экрана собеседника</span>
-          </div>
-        </div>
-      )}
 
       {/* Waiting for peer banner */}
       {otherPeers.length === 0 && (
