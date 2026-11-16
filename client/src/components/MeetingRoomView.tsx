@@ -449,6 +449,38 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   const dragCounter = useRef(0);
   const [fileToast, setFileToast] = useState<string | null>(null);
 
+  // Unread chat badge (+1, +2, etc.) & toast notification
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const prevMessagesLength = useRef(messages.length);
+  const [newChatToast, setNewChatToast] = useState<{ sender: string; text: string; count: number } | null>(null);
+
+  useEffect(() => {
+    if (messages.length > prevMessagesLength.current) {
+      const addedMessages = messages.slice(prevMessagesLength.current);
+      const incomingFromOthers = addedMessages.filter((m) => m.senderId !== myPeerId);
+
+      if (incomingFromOthers.length > 0) {
+        if (activeSideTab !== 'chat') {
+          setUnreadChatCount((prev) => prev + incomingFromOthers.length);
+          const latest = incomingFromOthers[incomingFromOthers.length - 1];
+          setNewChatToast({
+            sender: latest.senderName,
+            text: latest.text,
+            count: incomingFromOthers.length,
+          });
+          setTimeout(() => setNewChatToast(null), 4500);
+        }
+      }
+    }
+    prevMessagesLength.current = messages.length;
+  }, [messages, activeSideTab, myPeerId]);
+
+  const handleOpenChatTab = () => {
+    setActiveSideTab('chat');
+    setUnreadChatCount(0);
+    setNewChatToast(null);
+  };
+
   // Global Drag & Drop + Clipboard Paste for meeting files anywhere
   useEffect(() => {
     const handleDragEnter = (e: DragEvent) => {
@@ -1164,15 +1196,28 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
               <span>Канвас</span>
             </button>
             <button
-              onClick={() => setActiveSideTab('chat')}
-              className={`flex-1 py-3 text-base font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer border-b-2 ${
+              onClick={handleOpenChatTab}
+              className={`flex-1 py-3 text-base font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer border-b-2 relative ${
                 activeSideTab === 'chat'
                   ? 'border-[#789d2a] text-[#ededed] bg-[#1e1e1e]'
                   : 'border-transparent text-[#888888] hover:text-[#ededed]'
               }`}
             >
-              <Send className="w-4 h-4 text-[#9ac43e]" />
-              <span>Чат ({messages.length})</span>
+              <div className="relative flex items-center">
+                <Send className="w-4 h-4 text-[#9ac43e]" />
+                {unreadChatCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 w-2 h-2 rounded-full bg-[#bbf348] animate-ping" />
+                )}
+              </div>
+              <span>Чат</span>
+
+              {unreadChatCount > 0 ? (
+                <span className="px-2 py-0.5 rounded-full bg-[#789d2a] text-white text-xs font-black font-mono shadow-[0_0_12px_rgba(120,157,42,0.9)] animate-bounce flex items-center gap-1 border border-[#bbf348]">
+                  +{unreadChatCount}
+                </span>
+              ) : (
+                <span className="text-xs font-mono text-[#777777]">({messages.length})</span>
+              )}
             </button>
           </div>
 
@@ -1572,6 +1617,30 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
             <CheckCircle2 className="w-4 h-4" />
           </div>
           <span>{fileToast}</span>
+        </div>
+      )}
+
+      {/* Floating New Chat Message Toast */}
+      {newChatToast && activeSideTab !== 'chat' && (
+        <div
+          onClick={handleOpenChatTab}
+          className="fixed top-20 right-4 sm:right-6 z-[110] max-w-xs sm:max-w-sm rounded-2xl bg-[#18181c]/95 border-2 border-[#789d2a] shadow-[0_16px_40px_rgba(0,0,0,0.9)] p-3 backdrop-blur-xl cursor-pointer hover:scale-102 transition-all animate-in slide-in-from-right-4 duration-200"
+          title="Нажмите чтобы открыть чат"
+        >
+          <div className="flex items-center justify-between gap-3 mb-1">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="px-1.5 py-0.5 rounded-md bg-[#789d2a] text-white font-mono text-[11px] font-black shadow-sm shrink-0">
+                +{unreadChatCount}
+              </span>
+              <span className="text-xs font-bold text-[#ededed] truncate">
+                {newChatToast.sender}
+              </span>
+            </div>
+            <span className="text-[10px] font-mono text-[#9ac43e] shrink-0">в чате</span>
+          </div>
+          <p className="text-xs text-[#bbbbbb] line-clamp-2 pl-1 leading-snug break-words">
+            {newChatToast.text}
+          </p>
         </div>
       )}
 
