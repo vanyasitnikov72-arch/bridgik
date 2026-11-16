@@ -54,6 +54,10 @@ export function App() {
   const [roomTheme, setRoomTheme] = useState<string>(() => {
     return localStorage.getItem('bridgik_pixel_room') || 'cyber-lounge';
   });
+  const [maxSeats, setMaxSeats] = useState<number>(8);
+  const [isLocked, setIsLocked] = useState<boolean>(false);
+  const [peerSeats, setPeerSeats] = useState<Record<string, number>>({});
+  const [mySeatIndex, setMySeatIndex] = useState<number>(0);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -246,6 +250,22 @@ export function App() {
       }
     });
 
+    socket.on('room-config-updated', (data: { maxSeats?: number; isLocked?: boolean }) => {
+      if (data.maxSeats !== undefined) setMaxSeats(data.maxSeats);
+      if (data.isLocked !== undefined) setIsLocked(data.isLocked);
+    });
+
+    socket.on('peer-seat-changed', (data: { peerId: string; seatIndex: number }) => {
+      setPeerSeats((prev) => {
+        if (data.seatIndex === -1) {
+          const next = { ...prev };
+          delete next[data.peerId];
+          return next;
+        }
+        return { ...prev, [data.peerId]: data.seatIndex };
+      });
+    });
+
     socket.on('kicked', (data: { reason?: string }) => {
       alert(data?.reason || 'Организатор исключил вас из комнаты.');
       handleLeaveRoom();
@@ -269,6 +289,8 @@ export function App() {
       socket.off('peer-updated');
       socket.off('peer-mic-changed');
       socket.off('room-theme-changed');
+      socket.off('room-config-updated');
+      socket.off('peer-seat-changed');
       socket.off('kicked');
       socket.off('remote-mute');
       socket.off('signal');
@@ -350,9 +372,13 @@ export function App() {
           setPin(res.pin);
           setMyPeerId(res.peerId);
           setPeers(res.peers || []);
+          if (res.maxSeats !== undefined) setMaxSeats(res.maxSeats);
+          if (res.isLocked !== undefined) setIsLocked(res.isLocked);
           if (res.currentRoomTheme) {
             setRoomTheme(res.currentRoomTheme);
           }
+          if (res.peerSeats) setPeerSeats(res.peerSeats);
+          if (res.mySeat !== undefined) setMySeatIndex(res.mySeat);
           setupWebRTC(socket, res.peerId);
           const modeQuery = mode === 'meeting' ? '&mode=meeting' : '';
           window.history.pushState({}, '', `?room=${res.pin}${modeQuery}`);
@@ -433,6 +459,8 @@ export function App() {
           setPin(res.pin);
           setMyPeerId(res.peerId);
           setPeers(res.peers || []);
+          if (res.maxSeats !== undefined) setMaxSeats(res.maxSeats);
+          if (res.isLocked !== undefined) setIsLocked(res.isLocked);
           const resolvedMode = (res.mode as RoomMode) || targetMode;
           setRoomMode(resolvedMode);
           setActiveTab(resolvedMode);
@@ -440,6 +468,8 @@ export function App() {
             setRoomTheme(res.currentRoomTheme);
             localStorage.setItem('bridgik_pixel_room', res.currentRoomTheme);
           }
+          if (res.peerSeats) setPeerSeats(res.peerSeats);
+          if (res.mySeat !== undefined) setMySeatIndex(res.mySeat);
           setupWebRTC(socket, res.peerId);
           const modeQuery = resolvedMode === 'meeting' ? '&mode=meeting' : '';
           window.history.pushState({}, '', `?room=${res.pin}${modeQuery}`);
@@ -499,7 +529,42 @@ export function App() {
     setIsMicActive(false);
     setIsScreenActive(false);
     setHasRemoteVideo(false);
+    setMaxSeats(8);
+    setIsLocked(false);
+    setPeerSeats({});
+    setMySeatIndex(0);
     window.history.pushState({}, '', window.location.pathname);
+  };
+
+  const handleUpdateMaxSeats = (newMax: number) => {
+    setMaxSeats(newMax);
+    if (socket && (pin || roomId)) {
+      socket.emit('update-room-config', {
+        roomId: pin || roomId,
+        maxSeats: newMax,
+      });
+    }
+  };
+
+  const handleToggleLockRoom = () => {
+    const nextLocked = !isLocked;
+    setIsLocked(nextLocked);
+    if (socket && (pin || roomId)) {
+      socket.emit('update-room-config', {
+        roomId: pin || roomId,
+        isLocked: nextLocked,
+      });
+    }
+  };
+
+  const handleSwitchSeat = (seatIdx: number) => {
+    setMySeatIndex(seatIdx);
+    if (socket && (pin || roomId)) {
+      socket.emit('change-seat', {
+        roomId: pin || roomId,
+        seatIndex: seatIdx,
+      });
+    }
   };
 
   // Send Files
@@ -636,6 +701,13 @@ export function App() {
             onUpdateUserName={handleUpdateUserName}
             roomTheme={roomTheme}
             onRoomThemeChange={(theme) => setRoomTheme(theme)}
+            maxSeats={maxSeats}
+            onUpdateMaxSeats={handleUpdateMaxSeats}
+            isLocked={isLocked}
+            onToggleLockRoom={handleToggleLockRoom}
+            peerSeats={peerSeats}
+            mySeatIndex={mySeatIndex}
+            onSwitchSeat={handleSwitchSeat}
             roomUrl={roomUrl}
             peers={peers}
             transfers={transfers}

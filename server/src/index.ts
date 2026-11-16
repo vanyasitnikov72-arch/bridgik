@@ -196,6 +196,7 @@ io.on('connection', (socket) => {
 
         roomManager.addPeer(room.id, peer);
         socket.join(room.id);
+        socket.join(room.pin);
 
         if (typeof callback === 'function') {
           callback({
@@ -291,6 +292,7 @@ io.on('connection', (socket) => {
 
         roomManager.addPeer(room.id, peer);
         socket.join(room.id);
+        socket.join(room.pin);
 
         if (typeof callback === 'function') {
           callback({
@@ -322,7 +324,7 @@ io.on('connection', (socket) => {
     const peer = room.peers.get(socket.id);
     if (peer) {
       peer.name = data.name;
-      socket.to(room.id).emit('peer-updated', peer);
+      socket.to(room.id).to(room.pin).emit('peer-updated', peer);
     }
   });
 
@@ -332,7 +334,7 @@ io.on('connection', (socket) => {
     if (!room) return;
     if (!room.peerSeats) room.peerSeats = {};
     room.peerSeats[socket.id] = data.seatIndex;
-    io.to(room.id).emit('peer-seat-changed', {
+    io.to(room.id).to(room.pin).emit('peer-seat-changed', {
       peerId: socket.id,
       seatIndex: data.seatIndex,
     });
@@ -350,7 +352,7 @@ io.on('connection', (socket) => {
       if (data.maxSeats !== undefined) room.maxSeats = data.maxSeats;
       if (data.isLocked !== undefined) room.isLocked = data.isLocked;
 
-      io.to(room.id).emit('room-config-updated', {
+      io.to(room.id).to(room.pin).emit('room-config-updated', {
         maxSeats: room.maxSeats,
         isLocked: room.isLocked,
       });
@@ -376,8 +378,9 @@ io.on('connection', (socket) => {
       const { peer } = roomManager.removePeerBySocket(targetPeer.socketId);
       if (peer) {
         io.sockets.sockets.get(targetPeer.socketId)?.leave(room.id);
+        io.sockets.sockets.get(targetPeer.socketId)?.leave(room.pin);
         if (room.peerSeats) delete room.peerSeats[targetPeer.id];
-        io.to(room.id).emit('peer-left', { peerId: peer.id, kicked: true });
+        io.to(room.id).to(room.pin).emit('peer-left', { peerId: peer.id, kicked: true });
       }
     }
   );
@@ -389,7 +392,7 @@ io.on('connection', (socket) => {
     const sender = room.peers.get(socket.id);
     if (!sender?.isHost && room.peers.size > 1) return;
 
-    socket.to(room.id).emit('remote-mute', {
+    socket.to(room.id).to(room.pin).emit('remote-mute', {
       from: sender?.name || 'Организатор',
     });
   });
@@ -402,7 +405,7 @@ io.on('connection', (socket) => {
     if (!sender?.isHost && room.peers.size > 1) return;
 
     room.currentRoomTheme = data.theme;
-    io.to(room.id).emit('room-theme-changed', {
+    io.to(room.id).to(room.pin).emit('room-theme-changed', {
       theme: data.theme,
     });
   });
@@ -414,7 +417,7 @@ io.on('connection', (socket) => {
     const peer = room.peers.get(socket.id);
     if (peer) {
       peer.isMicActive = Boolean(data.isMicActive);
-      socket.to(room.id).emit('peer-mic-changed', {
+      socket.to(room.id).to(room.pin).emit('peer-mic-changed', {
         peerId: socket.id,
         isMicActive: peer.isMicActive,
       });
@@ -454,8 +457,9 @@ io.on('connection', (socket) => {
     if (room && peer) {
       if (room.peerSeats) delete room.peerSeats[peer.id];
       socket.leave(room.id);
-      socket.to(room.id).emit('peer-seat-changed', { peerId: peer.id, seatIndex: -1 });
-      socket.to(room.id).emit('peer-left', { peerId: peer.id });
+      socket.leave(room.pin);
+      io.to(room.id).to(room.pin).emit('peer-seat-changed', { peerId: peer.id, seatIndex: -1 });
+      io.to(room.id).to(room.pin).emit('peer-left', { peerId: peer.id });
     }
   });
 
@@ -465,8 +469,8 @@ io.on('connection', (socket) => {
     const { room, peer } = roomManager.removePeerBySocket(socket.id);
     if (room && peer) {
       if (room.peerSeats) delete room.peerSeats[peer.id];
-      socket.to(room.id).emit('peer-seat-changed', { peerId: peer.id, seatIndex: -1 });
-      socket.to(room.id).emit('peer-left', { peerId: peer.id });
+      io.to(room.id).to(room.pin).emit('peer-seat-changed', { peerId: peer.id, seatIndex: -1 });
+      io.to(room.id).to(room.pin).emit('peer-left', { peerId: peer.id });
     }
   });
 });

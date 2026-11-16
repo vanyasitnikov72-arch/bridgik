@@ -346,6 +346,13 @@ interface MeetingRoomViewProps {
   onUpdateUserName?: (name: string) => void;
   roomTheme?: string;
   onRoomThemeChange?: (theme: string) => void;
+  maxSeats: number;
+  onUpdateMaxSeats: (max: number) => void;
+  isLocked: boolean;
+  onToggleLockRoom: () => void;
+  peerSeats: Record<string, number>;
+  mySeatIndex: number;
+  onSwitchSeat: (seatIdx: number) => void;
   roomUrl: string;
   peers: Peer[];
   transfers: FileTransfer[];
@@ -374,6 +381,13 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   onUpdateUserName,
   roomTheme,
   onRoomThemeChange,
+  maxSeats,
+  onUpdateMaxSeats,
+  isLocked,
+  onToggleLockRoom,
+  peerSeats,
+  mySeatIndex,
+  onSwitchSeat,
   roomUrl,
   peers,
   transfers,
@@ -397,12 +411,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   const [chatInput, setChatInput] = useState('');
   const [activeSideTab, setActiveSideTab] = useState<'notes' | 'chat'>('notes');
   const [meetingSeconds, setMeetingSeconds] = useState(0);
-
-  // Dynamic Seat & Host State
-  const [mySeatIndex, setMySeatIndex] = useState<number>(0);
-  const [peerSeats, setPeerSeats] = useState<Record<string, number>>({});
-  const [maxSeats, setMaxSeats] = useState<number>(8);
-  const [isLocked, setIsLocked] = useState<boolean>(false);
 
   // Active Room Concept State - synced from server / host
   const [currentRoomId, setCurrentRoomId] = useState<RoomId>(() => {
@@ -432,78 +440,22 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
-  // Real-time socket listeners for seat changes, host config updates, and theme sync
-  useEffect(() => {
-    if (!socket) return;
-
-    const handlePeerSeatChanged = (data: { peerId: string; seatIndex: number }) => {
-      setPeerSeats((prev) => {
-        if (data.seatIndex === -1) {
-          const next = { ...prev };
-          delete next[data.peerId];
-          return next;
-        }
-        return { ...prev, [data.peerId]: data.seatIndex };
-      });
-    };
-
-    const handleRoomConfigUpdated = (data: { maxSeats?: number; isLocked?: boolean }) => {
-      if (data.maxSeats !== undefined) setMaxSeats(data.maxSeats);
-      if (data.isLocked !== undefined) setIsLocked(data.isLocked);
-    };
-
-    const handleRoomThemeChanged = (data: { theme: string }) => {
-      if (data.theme && data.theme in ROOM_PRESETS) {
-        setCurrentRoomId(data.theme as RoomId);
-      }
-    };
-
-    socket.on('peer-seat-changed', handlePeerSeatChanged);
-    socket.on('room-config-updated', handleRoomConfigUpdated);
-    socket.on('room-theme-changed', handleRoomThemeChanged);
-
-    return () => {
-      socket.off('peer-seat-changed', handlePeerSeatChanged);
-      socket.off('room-config-updated', handleRoomConfigUpdated);
-      socket.off('room-theme-changed', handleRoomThemeChanged);
-    };
-  }, [socket]);
-
   // Seat switching action
   const handleSwitchSeat = (seatIdx: number) => {
     if (seatIdx === mySeatIndex) return;
-    setMySeatIndex(seatIdx);
     sound.playClick();
-    if (socket) {
-      socket.emit('change-seat', {
-        roomId: pin || _roomId,
-        seatIndex: seatIdx,
-      });
-    }
+    onSwitchSeat(seatIdx);
   };
 
   // Host Actions
   const handleUpdateMaxSeats = (newMax: number) => {
-    setMaxSeats(newMax);
     sound.playClick();
-    if (socket) {
-      socket.emit('update-room-config', {
-        roomId: pin || _roomId,
-        maxSeats: newMax,
-      });
-    }
+    onUpdateMaxSeats(newMax);
   };
 
   const handleToggleLockRoom = () => {
-    const nextLocked = !isLocked;
-    setIsLocked(nextLocked);
     sound.playClick();
-    if (socket) {
-      socket.emit('update-room-config', {
-        roomId: pin || _roomId,
-        isLocked: nextLocked,
-      });
-    }
+    onToggleLockRoom();
   };
 
   const handleKickPeer = (targetPeerId: string) => {
