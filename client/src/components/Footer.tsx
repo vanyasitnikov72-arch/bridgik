@@ -126,11 +126,6 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAbout: _onOpenAbout }) => 
             )}
           </button>
         </div>
-
-        {/* Sub-tagline */}
-        <p className="text-sm sm:text-base text-[#666666] font-mono">
-          bridgik — мост между вашими экранами · 0 байт на сервере
-        </p>
       </div>
 
       {/* Left Machine: Big Detailed Retro Workstation PC (Экран 1) */}

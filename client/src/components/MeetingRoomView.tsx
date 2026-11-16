@@ -277,23 +277,17 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
   );
 };
 
-// Interactive Empty Seat on furniture (reveals tooltip on hover with switch & invite actions)
+// Interactive Empty Seat on furniture (reveals clean spot name on hover)
 interface EmptyPixelSeatProps {
   spotName: string;
-  pin: string;
-  copied: boolean;
   accentColor: string;
   onTakeSeat: () => void;
-  onInvite: () => void;
 }
 
 const EmptyPixelSeat: React.FC<EmptyPixelSeatProps> = ({
   spotName,
-  pin,
-  copied,
   accentColor,
   onTakeSeat,
-  onInvite,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
 
@@ -304,51 +298,18 @@ const EmptyPixelSeat: React.FC<EmptyPixelSeatProps> = ({
       onMouseLeave={() => setIsHovered(false)}
       onClick={onTakeSeat}
     >
-      {/* Tooltip on hover */}
+      {/* Tooltip on hover: just displays the spot name */}
       <div
-        className={`absolute -top-11 z-30 transition-all duration-200 flex flex-col items-center ${
-          isHovered || copied
-            ? 'opacity-100 -translate-y-1 scale-100 pointer-events-auto'
-            : 'opacity-0 translate-y-1 scale-95 pointer-events-none'
+        className={`absolute -top-9 z-30 transition-all duration-200 flex flex-col items-center pointer-events-none ${
+          isHovered
+            ? 'opacity-100 -translate-y-1 scale-100'
+            : 'opacity-0 translate-y-1 scale-95'
         }`}
       >
-        <div className="px-3 py-1.5 rounded-xl bg-[#0e0e14]/95 border border-white/20 shadow-2xl backdrop-blur-md flex items-center gap-2 whitespace-nowrap">
-          {copied ? (
-            <>
-              <Check className="w-3.5 h-3.5 text-[#9ac43e]" />
-              <span className="text-xs font-bold text-[#9ac43e] font-mono">
-                Инвайт скопирован!
-              </span>
-            </>
-          ) : (
-            <>
-              <span className="text-xs font-semibold text-[#ededed] font-mono">
-                {spotName}
-              </span>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onTakeSeat();
-                }}
-                className="px-2.5 py-1 rounded-md bg-[#9ac43e] text-black text-xs font-bold font-mono hover:bg-[#bbf348] transition-colors flex items-center gap-1 cursor-pointer shadow-xs"
-              >
-                🛋️ Сесть сюда
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onInvite();
-                }}
-                className="px-2 py-1 rounded-md bg-white/10 text-white/80 text-xs font-mono hover:bg-white/20 hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
-                title="Скопировать ссылку с PIN"
-              >
-                <Share2 className="w-3 h-3" />
-                PIN: {pin}
-              </button>
-            </>
-          )}
+        <div className="px-2.5 py-1 rounded-xl bg-[#0e0e14]/95 border border-white/20 shadow-2xl backdrop-blur-md flex items-center whitespace-nowrap">
+          <span className="text-xs font-semibold text-[#ededed] font-mono">
+            {spotName}
+          </span>
         </div>
         <div className="w-2 h-1 bg-[#0e0e14] border-r border-b border-white/20 rotate-45 -mt-0.5" />
       </div>
@@ -361,7 +322,7 @@ const EmptyPixelSeat: React.FC<EmptyPixelSeatProps> = ({
             : 'border-white/30 bg-[#121218]/50 hover:border-white/60'
         }`}
         style={{
-          borderColor: copied ? accentColor : isHovered ? accentColor : undefined,
+          borderColor: isHovered ? accentColor : undefined,
         }}
         title="Кликните, чтобы пересесть на это место"
       >
@@ -369,7 +330,7 @@ const EmptyPixelSeat: React.FC<EmptyPixelSeatProps> = ({
           className={`w-3.5 h-3.5 transition-colors ${
             isHovered ? 'text-white' : 'text-white/50'
           }`}
-          style={{ color: copied ? accentColor : isHovered ? accentColor : undefined }}
+          style={{ color: isHovered ? accentColor : undefined }}
         />
       </div>
     </div>
@@ -860,15 +821,12 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                       />
                     );
                   } else {
-                    // Empty seat - clickable to switch seats or invite
+                    // Empty seat - clickable to switch seats
                     seatContent = (
                       <EmptyPixelSeat
                         spotName={seat.spotName}
-                        pin={pin}
-                        copied={copiedLink}
                         accentColor={currentRoom.accent}
                         onTakeSeat={() => handleSwitchSeat(index)}
-                        onInvite={handleCopyLink}
                       />
                     );
                   }
@@ -977,23 +935,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                       <span className="hidden sm:inline">Ссылка</span>
                     </>
                   )}
-                </button>
-
-                {/* Host / Settings Button */}
-                <button
-                  onClick={() => {
-                    setIsSettingsOpen(true);
-                    sound.playClick();
-                  }}
-                  className={`px-2.5 py-1.5 rounded-xl border text-xs sm:text-sm font-bold flex items-center gap-1 transition-colors cursor-pointer ${
-                    isHost
-                      ? 'bg-[#f59e0b]/15 hover:bg-[#f59e0b]/25 text-[#f59e0b] border-[#f59e0b]/30'
-                      : 'bg-[#25252c] hover:bg-[#303038] text-[#ededed] border-white/10'
-                  }`}
-                  title={isHost ? 'Управление комнатой (Организатор)' : 'Настройки комнаты'}
-                >
-                  {isHost ? <Crown className="w-4 h-4" /> : <Settings className="w-4 h-4 text-[#9ac43e]" />}
-                  <span className="hidden sm:inline">{isHost ? 'Хост' : 'Опции'}</span>
                 </button>
 
                 {/* Panic Leave Button */}
