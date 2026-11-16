@@ -6,7 +6,7 @@ import { HomeView } from './components/HomeView.js';
 import { RoomView } from './components/RoomView.js';
 import { MeetingRoomView } from './components/MeetingRoomView.js';
 import { AboutView } from './components/AboutView.js';
-import { BrandShowcaseView } from './components/BrandShowcaseView.js';
+import { LegalView, LegalDocType } from './components/LegalView.js';
 import { QRCodeModal } from './components/QRCodeModal.js';
 import { Footer } from './components/Footer.js';
 import { FileTransfer, Peer, TextMessage, ThemeMode, NearbyPeer, PairRequest, AppTab, RoomMode } from './types/index.js';
@@ -34,6 +34,7 @@ export function App() {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [pin, setPin] = useState<string>('');
   const [activeTab, setActiveTab] = useState<AppTab>('bridge');
+  const [legalDoc, setLegalDoc] = useState<LegalDocType>('rules');
   const [roomMode, setRoomMode] = useState<RoomMode>('bridge');
   const [scratchpadText, setScratchpadText] = useState<string>('');
   const [myPeerId, setMyPeerId] = useState<string>('');
@@ -804,8 +805,8 @@ export function App() {
       />
 
       <main className="flex-1">
-        {activeTab === 'brand' ? (
-          <BrandShowcaseView onBack={() => setActiveTab('bridge')} />
+        {activeTab === 'legal' ? (
+          <LegalView onBack={() => setActiveTab('bridge')} defaultDoc={legalDoc} />
         ) : activeTab === 'about' ? (
           <AboutView onBack={() => setActiveTab('bridge')} />
         ) : !roomId ? (
@@ -1092,7 +1093,13 @@ export function App() {
         </aside>
       )}
 
-      <Footer onOpenAbout={() => setActiveTab('about')} />
+      <Footer
+        onOpenAbout={() => setActiveTab('about')}
+        onOpenLegal={(doc) => {
+          setLegalDoc(doc);
+          setActiveTab('legal');
+        }}
+      />
       {/* Hidden audio element to play remote peer microphone live */}
       <audio ref={remoteAudioRef} autoPlay playsInline />
     </div>

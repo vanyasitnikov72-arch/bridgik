@@ -4,11 +4,12 @@ import { sound } from '../utils/sound.js';
 
 interface FooterProps {
   onOpenAbout?: () => void;
+  onOpenLegal?: (doc: 'rules' | 'privacy' | 'terms') => void;
 }
 
 type ModalType = 'rules' | 'privacy' | 'terms' | null;
 
-export const Footer: React.FC<FooterProps> = ({ onOpenAbout: _onOpenAbout }) => {
+export const Footer: React.FC<FooterProps> = ({ onOpenAbout: _onOpenAbout, onOpenLegal }) => {
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [pcClicked, setPcClicked] = useState(false);
@@ -86,7 +87,12 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAbout: _onOpenAbout }) => 
         <div className="flex flex-wrap items-center justify-center gap-5 sm:gap-9 md:gap-11 text-base sm:text-xl text-[#999999] mb-3 font-semibold">
           <button
             onClick={() => {
-              setActiveModal('rules');
+              if (onOpenLegal) {
+                onOpenLegal('rules');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              } else {
+                setActiveModal('rules');
+              }
               sound.playClick();
             }}
             className="hover:text-[#ededed] cursor-pointer transition-colors"
@@ -95,7 +101,12 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAbout: _onOpenAbout }) => 
           </button>
           <button
             onClick={() => {
-              setActiveModal('privacy');
+              if (onOpenLegal) {
+                onOpenLegal('privacy');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              } else {
+                setActiveModal('privacy');
+              }
               sound.playClick();
             }}
             className="hover:text-[#ededed] cursor-pointer transition-colors"
@@ -104,7 +115,12 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAbout: _onOpenAbout }) => 
           </button>
           <button
             onClick={() => {
-              setActiveModal('terms');
+              if (onOpenLegal) {
+                onOpenLegal('terms');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              } else {
+                setActiveModal('terms');
+              }
               sound.playClick();
             }}
             className="hover:text-[#ededed] cursor-pointer transition-colors"

@@ -65,7 +65,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           />
         </div>
 
-        {/* Center / Navigation: Главная · О сервисе */}
+        {/* Center / Navigation: Главная · О сервисе · Условия */}
         <nav className="flex items-center gap-4 sm:gap-6 text-lg font-bold">
           <button
             onClick={() => {
@@ -93,6 +93,19 @@ export const Navbar: React.FC<NavbarProps> = ({
             }`}
           >
             О сервисе
+          </button>
+          <button
+            onClick={() => {
+              if (onSelectTab) onSelectTab('legal');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className={`pb-1 cursor-pointer transition-colors ${
+              activeTab === 'legal'
+                ? 'text-[#ededed] border-b-2 border-[#789d2a]'
+                : 'text-[#aaaaaa] hover:text-[#ededed]'
+            }`}
+          >
+            Условия
           </button>
           <span className="text-[#999999]/60 hidden md:inline">·</span>
           <span className="text-sm sm:text-base text-[#9ac43e] font-mono font-bold hidden md:inline">
