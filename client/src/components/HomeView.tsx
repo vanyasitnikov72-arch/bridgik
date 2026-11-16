@@ -28,10 +28,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
       {/* Title section in Handjet font */}
       <div className="mb-8">
         <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-[#ededed] mb-2 leading-none">
-          Обмен файлами и текстом
+          bridgit <span className="text-[#9ac43e]">·</span> мост между экранами
         </h1>
         <p className="text-lg text-[#aaaaaa] leading-relaxed">
-          Прямой P2P-мост между устройствами. Без регистрации, без мессенджеров и без ограничений по объему.
+          Мгновенный P2P-обмен файлами любого размера и текстом. Без регистрации и без серверов.
         </p>
       </div>
 

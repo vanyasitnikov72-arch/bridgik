@@ -11,7 +11,7 @@ import { WebRTCManager } from './services/webrtc.js';
 
 export function App() {
   const [userName, setUserName] = useState<string>(() => {
-    return localStorage.getItem('airbridge_username') || generateRandomName();
+    return localStorage.getItem('bridgit_username') || localStorage.getItem('airbridge_username') || generateRandomName();
   });
   const [deviceType] = useState(detectDeviceType());
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -64,7 +64,7 @@ export function App() {
   // Sync user name changes
   const handleUpdateUserName = (name: string) => {
     setUserName(name);
-    localStorage.setItem('airbridge_username', name);
+    localStorage.setItem('bridgit_username', name);
     if (webrtcRef.current) {
       webrtcRef.current.updateMyName(name);
     }
