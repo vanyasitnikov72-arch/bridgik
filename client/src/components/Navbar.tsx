@@ -64,41 +64,25 @@ export const Navbar: React.FC<NavbarProps> = ({
           </span>
         </div>
 
-        {/* Center / Navigation Tabs like on eblo.id: Мост · Комната · О сервисе */}
-        <nav className="flex items-center gap-4 sm:gap-7 text-lg font-bold">
+        {/* Center / Navigation: Главная · О сервисе */}
+        <nav className="flex items-center gap-4 sm:gap-6 text-lg font-bold">
           <button
             onClick={() => {
               if (onSelectTab) onSelectTab('bridge');
               onGoHome?.();
-              const el = document.getElementById('mode-actions');
-              if (el) el.scrollIntoView({ behavior: 'smooth' });
+              window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
             className={`pb-1 cursor-pointer transition-colors ${
-              activeTab === 'bridge'
+              activeTab !== 'about'
                 ? 'text-[#ededed] border-b-2 border-[#789d2a]'
                 : 'text-[#aaaaaa] hover:text-[#ededed]'
             }`}
           >
-            Мост
+            Главная
           </button>
           <button
             onClick={() => {
-              onSelectTab?.('meeting');
-              onGoHome?.();
-              const el = document.getElementById('mode-actions');
-              if (el) el.scrollIntoView({ behavior: 'smooth' });
-            }}
-            className={`pb-1 cursor-pointer transition-colors ${
-              activeTab === 'meeting'
-                ? 'text-[#ededed] border-b-2 border-[#789d2a]'
-                : 'text-[#aaaaaa] hover:text-[#ededed]'
-            }`}
-          >
-            Комната
-          </button>
-          <button
-            onClick={() => {
-              onSelectTab?.('about');
+              if (onSelectTab) onSelectTab('about');
               const el = document.getElementById('about-section');
               if (el) {
                 el.scrollIntoView({ behavior: 'smooth' });
