@@ -173,6 +173,12 @@ export function App() {
     setPeers((prev) =>
       prev.map((p) => (p.id === myPeerId ? { ...p, avatar } : p))
     );
+    setMessages((prev) =>
+      prev.map((m) => (m.senderId === myPeerId ? { ...m, senderAvatar: avatar } : m))
+    );
+    if (socket && roomId) {
+      socket.emit('update-peer-avatar', { roomId, avatar });
+    }
   };
 
   // Toggle Theme
@@ -330,6 +336,11 @@ export function App() {
       setPeers((prev) =>
         prev.map((p) => (p.id === updatedPeer.id ? { ...p, ...updatedPeer } : p))
       );
+      if (updatedPeer.avatar) {
+        setMessages((prev) =>
+          prev.map((m) => (m.senderId === updatedPeer.id ? { ...m, senderAvatar: updatedPeer.avatar } : m))
+        );
+      }
     });
 
     socket.on('peer-mic-changed', (data: { peerId: string; isMicActive: boolean }) => {

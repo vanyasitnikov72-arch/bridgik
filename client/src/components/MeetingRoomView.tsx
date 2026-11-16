@@ -41,7 +41,6 @@ import { EmotePicker } from './EmotePicker.js';
 import { ChatMessageBubble } from './ChatMessageBubble.js';
 import { CustomAudioPlayer } from './CustomAudioPlayer.js';
 import { CustomVideoPlayer } from './CustomVideoPlayer.js';
-import { AvatarPicker } from './AvatarPicker.js';
 import { getAvatarForName, MASCOT_AVATARS } from '../utils/device.js';
 
 export type RoomId = 'cyber-lounge' | 'cozy-loft' | 'skyline-penthouse' | 'retro-lounge';
@@ -446,7 +445,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isRoomPickerOpen, setIsRoomPickerOpen] = useState(false);
   const [isEmotePickerOpen, setIsEmotePickerOpen] = useState(false);
-  const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
   const [customNameInput, setCustomNameInput] = useState(myUserName || '');
   const [nameSavedSuccess, setNameSavedSuccess] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
@@ -1386,6 +1384,10 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 ) : (
                   messages.map((m) => {
                     const isMe = m.senderId === myPeerId;
+                    const peer = peers.find((p) => p.id === m.senderId);
+                    const currentAvatar = isMe
+                      ? (userAvatar || getAvatarForName(activeMyName))
+                      : (peer?.avatar || m.senderAvatar || getAvatarForName(m.senderName));
                     return (
                       <ChatMessageBubble
                         key={m.id}
@@ -1393,7 +1395,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                         text={m.text}
                         isMe={isMe}
                         isSystem={m.isSystem || m.senderId === 'system'}
-                        avatar={m.senderAvatar || getAvatarForName(m.senderName)}
+                        avatar={currentAvatar}
                         time={new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       />
                     );
@@ -1402,7 +1404,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 <div ref={chatBottomRef} />
               </div>
 
-              {/* Chat Input Bar with 7TV Emote Picker and Avatar Picker */}
+              {/* Chat Input Bar with 7TV Emote Picker */}
               <div className="relative border-t border-[#353535] bg-[#171717]">
                 <EmotePicker
                   isOpen={isEmotePickerOpen}
@@ -1413,41 +1415,16 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                   }}
                 />
 
-                {isAvatarPickerOpen && (
-                  <div className="absolute bottom-16 left-3 z-30 shadow-2xl">
-                    <AvatarPicker
-                      currentAvatar={userAvatar || getAvatarForName(activeMyName)}
-                      onSelectAvatar={(src) => {
-                        onUpdateUserAvatar?.(src);
-                        setIsAvatarPickerOpen(false);
-                      }}
-                      onClose={() => setIsAvatarPickerOpen(false)}
-                    />
-                  </div>
-                )}
-
                 <form onSubmit={handleSendChat} className="p-3 flex items-center gap-2">
-                  {/* Current User's Round Mascot Avatar */}
-                  <div className="relative shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsAvatarPickerOpen(!isAvatarPickerOpen);
-                        if (isEmotePickerOpen) setIsEmotePickerOpen(false);
-                      }}
-                      className={`block relative rounded-full transition-transform hover:scale-105 active:scale-95 cursor-pointer ${
-                        isAvatarPickerOpen ? 'ring-2 ring-[#789d2a] scale-105' : ''
-                      }`}
-                      title={`Ваш аватар (${activeMyName}). Кликните, чтобы выбрать маскота`}
-                    >
-                      <img
-                        src={userAvatar || getAvatarForName(activeMyName)}
-                        alt={activeMyName}
-                        className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border-2 border-[#789d2a] shadow-[0_0_8px_rgba(120,157,42,0.35)] bg-[#171717]"
-                        style={{ imageRendering: 'pixelated' }}
-                      />
-                      <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-[#789d2a] rounded-full border-2 border-[#171717]" />
-                    </button>
+                  {/* Current User's Round Mascot Avatar (visual indicator) */}
+                  <div className="relative shrink-0 select-none" title={`Ваш аватар: ${activeMyName}`}>
+                    <img
+                      src={userAvatar || getAvatarForName(activeMyName)}
+                      alt={activeMyName}
+                      className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border-2 border-[#789d2a] shadow-[0_0_8px_rgba(120,157,42,0.35)] bg-[#171717]"
+                      style={{ imageRendering: 'pixelated' }}
+                    />
+                    <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-[#789d2a] rounded-full border-2 border-[#171717]" />
                   </div>
 
                   <input

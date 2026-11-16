@@ -491,6 +491,17 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Update peer avatar
+  socket.on('update-peer-avatar', (data: { roomId: string; avatar: string }) => {
+    const room = roomManager.getRoom(data.roomId);
+    if (!room) return;
+    const peer = room.peers.get(socket.id);
+    if (peer) {
+      peer.avatar = data.avatar;
+      io.to(room.id).to(room.pin).emit('peer-updated', peer);
+    }
+  });
+
   // Seat switching
   socket.on('change-seat', (data: { roomId: string; seatIndex: number }) => {
     const room = roomManager.getRoom(data.roomId);

@@ -716,23 +716,29 @@ export const RoomView: React.FC<RoomViewProps> = ({
                 </p>
               </div>
             ) : (
-              messages.map((m) => (
-                <div
-                  key={m.id}
-                  className="p-3.5 rounded-lg bg-[#171717] border border-[#3a3a3a] group"
-                >
-                  <div className="flex items-center justify-between text-xs text-[#aaaaaa] mb-2 font-semibold">
-                    <div className="flex items-center gap-2">
-                      <img
-                        src={m.senderAvatar || getAvatarForName(m.senderName)}
-                        alt={m.senderName}
-                        className="w-5 h-5 rounded-full object-cover border border-[#789d2a]/50 bg-[#222]"
-                        style={{ imageRendering: 'pixelated' }}
-                      />
-                      <span className="font-bold text-[#ededed]">{m.senderName}</span>
+              messages.map((m) => {
+                const isMe = m.senderId === myPeerId;
+                const peer = peers.find((p) => p.id === m.senderId);
+                const currentAvatar = isMe
+                  ? (userAvatar || getAvatarForName(m.senderName))
+                  : (peer?.avatar || m.senderAvatar || getAvatarForName(m.senderName));
+                return (
+                  <div
+                    key={m.id}
+                    className="p-3.5 rounded-lg bg-[#171717] border border-[#3a3a3a] group"
+                  >
+                    <div className="flex items-center justify-between text-xs text-[#aaaaaa] mb-2 font-semibold">
+                      <div className="flex items-center gap-2">
+                        <img
+                          src={currentAvatar}
+                          alt={m.senderName}
+                          className="w-5 h-5 rounded-full object-cover border border-[#789d2a]/50 bg-[#222]"
+                          style={{ imageRendering: 'pixelated' }}
+                        />
+                        <span className="font-bold text-[#ededed]">{m.senderName}</span>
+                      </div>
+                      <span>{new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
-                    <span>{new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                  </div>
 
                   <p className="text-base sm:text-lg text-[#ededed] break-words whitespace-pre-wrap select-all font-sans leading-relaxed">
                     {m.text}
@@ -768,7 +774,8 @@ export const RoomView: React.FC<RoomViewProps> = ({
                     </button>
                   </div>
                 </div>
-              ))
+              );
+            })
             )}
             <div ref={chatBottomRef} />
           </div>
