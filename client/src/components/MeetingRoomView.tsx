@@ -17,6 +17,7 @@ import {
   Monitor,
   Smartphone,
   File,
+  Radio,
 } from 'lucide-react';
 import { FileTransfer, Peer, TextMessage } from '../types/index.js';
 import { sound } from '../utils/sound.js';
@@ -238,18 +239,24 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
               </div>
             </div>
           ) : (
-            <div className="rounded-xl border border-[#3a3a3a] bg-[#1a1a1a] p-6 sm:p-8 min-h-[340px] flex flex-col justify-between shadow-md">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-2 text-sm text-[#aaaaaa] font-bold">
-                  <span className="w-2 h-2 rounded-full bg-[#789d2a]" />
-                  <span>P2P ГОЛОСОВОЙ КАНАЛ (OPUS)</span>
+            <div className="rounded-xl border border-[#3a3a3a] bg-[#1a1a1a] p-5 sm:p-7 min-h-[360px] flex flex-col justify-between shadow-lg">
+              {/* Studio Stage Top Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-5 pb-3 border-b border-[#333333]">
+                <div className="flex items-center gap-2.5 text-sm sm:text-base font-bold text-[#ededed]">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#789d2a] animate-pulse" />
+                  <span className="font-mono">P2P ГОЛОСОВОЙ КАНАЛ (OPUS 48 kHz)</span>
                 </div>
-                <span className="text-xs font-mono text-[#999999]">
-                  {isMicActive ? 'Ваш микрофон: ВКЛ' : 'Ваш микрофон: ВЫКЛ'}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded bg-[#171717] border border-[#3a3a3a] text-xs font-mono text-[#9ac43e]">
+                    E2E DTLS-SRTP
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded bg-[#171717] border border-[#3a3a3a] text-xs font-mono text-[#ededed]">
+                    {isMicActive ? '● Микрофон: ВКЛ' : '○ Микрофон: ВЫКЛ'}
+                  </span>
+                </div>
               </div>
 
-              {/* Participant Avatars in Cyberpunk Stage */}
+              {/* Participant Cards in Cyberpunk Stage */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 my-auto">
                 {peers.map((peer) => {
                   const isMe = peer.id === myPeerId;
@@ -257,42 +264,168 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                   return (
                     <div
                       key={peer.id}
-                      className={`p-5 rounded-xl border flex items-center gap-4 transition-all ${
+                      className={`p-4 sm:p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all relative overflow-hidden ${
                         activeMic
-                          ? 'bg-[#222222] border-[#789d2a] shadow-[0_0_15px_rgba(120,157,42,0.2)]'
-                          : 'bg-[#202020] border-[#333333]'
+                          ? 'bg-[#222222] border-[#789d2a] shadow-[0_0_20px_rgba(120,157,42,0.18)]'
+                          : 'bg-[#202020] border-[#333333] hover:border-[#444444]'
                       }`}
                     >
-                      <div className="relative">
-                        <div className="w-14 h-14 rounded-xl bg-[#2a2a2a] border border-[#3a3a3a] flex items-center justify-center text-[#9ac43e]">
-                          {peer.deviceType === 'mobile' ? (
-                            <Smartphone className="w-7 h-7" />
-                          ) : (
-                            <Monitor className="w-7 h-7" />
-                          )}
+                      {/* Top Row: Avatar + Name + Equalizer */}
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          {/* Retro Avatar with CRT Phosphor Glow */}
+                          <div className="relative shrink-0">
+                            <div
+                              className={`w-14 h-14 rounded-xl border-2 flex items-center justify-center transition-all ${
+                                activeMic
+                                  ? 'bg-[#151d10] border-[#789d2a] text-[#bbf348]'
+                                  : 'bg-[#262626] border-[#3a3a3a] text-[#888888]'
+                              }`}
+                            >
+                              {peer.deviceType === 'mobile' ? (
+                                <Smartphone className="w-7 h-7" />
+                              ) : (
+                                <Monitor className="w-7 h-7" />
+                              )}
+                            </div>
+
+                            {/* Mic Status Badge */}
+                            <div
+                              className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-[#1e1e1e] flex items-center justify-center ${
+                                activeMic ? 'bg-[#789d2a] text-white' : 'bg-[#333333] text-[#777777]'
+                              }`}
+                            >
+                              {activeMic ? (
+                                <Mic className="w-3 h-3 animate-pulse" />
+                              ) : (
+                                <MicOff className="w-2.5 h-2.5" />
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Name & Badges */}
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-xl font-extrabold text-[#ededed] truncate">
+                                {peer.name}
+                              </p>
+                              {isMe && (
+                                <span className="px-2 py-0.5 rounded text-xs font-bold bg-[#1c2214] text-[#9ac43e] border border-[#789d2a]/50">
+                                  Вы
+                                </span>
+                              )}
+                              {peer.isHost && (
+                                <span className="px-2 py-0.5 rounded text-xs font-bold bg-[#282828] text-[#aaaaaa] border border-[#3a3a3a]">
+                                  Хост
+                                </span>
+                              )}
+                            </div>
+
+                            <p className="text-xs sm:text-sm text-[#888888] font-mono mt-0.5">
+                              {peer.deviceType === 'mobile' ? 'Смартфон' : 'Компьютер'} · P2P Direct
+                            </p>
+                          </div>
                         </div>
-                        {activeMic && (
-                          <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#789d2a] border-2 border-[#1a1a1a] animate-ping" />
+
+                        {/* Animated Equalizer when speaking */}
+                        {activeMic ? (
+                          <div
+                            className="flex items-end gap-1 h-5 px-2.5 py-1 rounded bg-[#171717] border border-[#789d2a]/40 shrink-0"
+                            title="Звук передается"
+                          >
+                            <span className="w-1 bg-[#bbf348] rounded-xs animate-eq-1" />
+                            <span className="w-1 bg-[#9ac43e] rounded-xs animate-eq-2" />
+                            <span className="w-1 bg-[#bbf348] rounded-xs animate-eq-3" />
+                            <span className="w-1 bg-[#9ac43e] rounded-xs animate-eq-4" />
+                            <span className="w-1 bg-[#bbf348] rounded-xs animate-eq-2" />
+                          </div>
+                        ) : (
+                          <span className="text-xs font-mono text-[#666666] px-2 py-1 rounded bg-[#171717] border border-[#333333] shrink-0">
+                            Mute
+                          </span>
                         )}
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-lg font-bold text-[#ededed] truncate">
-                          {peer.name} {isMe && <span className="text-[#9ac43e] font-normal text-sm">(Вы)</span>}
-                        </p>
-                        <p className="text-sm text-[#aaaaaa] flex items-center gap-1.5 font-semibold">
-                          <span className={`w-2 h-2 rounded-full ${activeMic ? 'bg-[#789d2a]' : 'bg-[#666666]'}`} />
-                          <span>{activeMic ? 'В эфире (голос)' : 'Микрофон отключен'}</span>
-                        </p>
+
+                      {/* Bottom Row: Status indicator & Local Quick Mute */}
+                      <div className="pt-2.5 border-t border-[#333333]/80 flex items-center justify-between text-xs sm:text-sm">
+                        <span className="flex items-center gap-1.5 font-semibold">
+                          <span
+                            className={`w-2 h-2 rounded-full ${
+                              activeMic ? 'bg-[#789d2a] animate-pulse' : 'bg-[#555555]'
+                            }`}
+                          />
+                          <span className={activeMic ? 'text-[#9ac43e]' : 'text-[#888888]'}>
+                            {activeMic ? 'Микрофон активен (звук идёт)' : 'Микрофон отключен'}
+                          </span>
+                        </span>
+
+                        {isMe && (
+                          <button
+                            onClick={onToggleMic}
+                            className={`px-3 py-1 rounded-md text-xs font-bold transition-colors cursor-pointer border ${
+                              isMicActive
+                                ? 'bg-[#ed2b3b]/15 border-[#ed2b3b]/40 text-[#ef9282] hover:bg-[#ed2b3b] hover:text-white'
+                                : 'bg-[#789d2a]/15 border-[#789d2a]/40 text-[#9ac43e] hover:bg-[#789d2a] hover:text-white'
+                            }`}
+                          >
+                            {isMicActive ? 'Заглушить' : 'Включить'}
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
                 })}
+
+                {/* Second Placeholder Card when Waiting for Peer */}
+                {otherPeers.length === 0 && (
+                  <div className="p-4 sm:p-5 rounded-xl border-2 border-dashed border-[#3a3a3a] hover:border-[#789d2a]/60 bg-[#171717]/40 flex flex-col justify-between gap-4 transition-colors">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-14 h-14 rounded-xl bg-[#202020] border border-[#3a3a3a] flex items-center justify-center text-[#9ac43e] shrink-0">
+                        <Radio className="w-7 h-7 animate-pulse" />
+                      </div>
+                      <div>
+                        <p className="text-lg font-bold text-[#ededed]">
+                          Ожидание второго участника...
+                        </p>
+                        <p className="text-xs sm:text-sm text-[#aaaaaa]">
+                          Отправьте ссылку или продиктуйте код <strong className="text-white">{pin}</strong>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-2 border-t border-[#333333]/60">
+                      <button
+                        onClick={handleCopyLink}
+                        className="flex-1 py-1.5 px-3 rounded-lg bg-[#262626] hover:bg-[#333333] border border-[#3a3a3a] text-xs font-bold text-[#ededed] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        {copiedLink ? (
+                          <Check className="w-3.5 h-3.5 text-[#9ac43e]" />
+                        ) : (
+                          <Share2 className="w-3.5 h-3.5" />
+                        )}
+                        <span>{copiedLink ? 'Скопировано!' : 'Копировать ссылку'}</span>
+                      </button>
+                      <button
+                        onClick={onOpenQR}
+                        className="py-1.5 px-3 rounded-lg bg-[#262626] hover:bg-[#333333] border border-[#3a3a3a] text-xs font-bold text-[#9ac43e] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <QrCode className="w-3.5 h-3.5" />
+                        <span>QR</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Stage bottom info */}
-              <div className="mt-6 pt-4 border-t border-[#333333] flex items-center justify-between text-xs sm:text-sm text-[#aaaaaa]">
-                <span>Нажмите «Экран» в шапке, чтобы запустить трансляцию в 60 FPS</span>
-                <span className="text-[#9ac43e] font-mono">0 байт на сервере</span>
+              {/* Stage bottom info bar */}
+              <div className="mt-6 pt-4 border-t border-[#333333] flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm text-[#aaaaaa]">
+                <span className="flex items-center gap-2">
+                  <ScreenShare className="w-4 h-4 text-[#9ac43e]" />
+                  <span>Нажмите «Экран» в шапке, чтобы запустить трансляцию в 60 FPS</span>
+                </span>
+                <span className="text-[#9ac43e] font-mono font-bold bg-[#171717] px-2.5 py-0.5 rounded border border-[#3a3a3a]">
+                  0 байт на сервере
+                </span>
               </div>
             </div>
           )}
