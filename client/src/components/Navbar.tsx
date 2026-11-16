@@ -66,12 +66,13 @@ export const Navbar: React.FC<NavbarProps> = ({
           }}
           className="flex items-center gap-2.5 cursor-pointer select-none group"
         >
-          <div className="p-1 rounded-lg bg-[#222222] border border-[#3a3a3a] group-hover:border-[#789d2a] transition-colors shrink-0 shadow-xs">
+          <div className="p-1 rounded-lg bg-[#202020] border border-[#3a3a3a] group-hover:border-[#789d2a] transition-all shrink-0 shadow-xs group-hover:shadow-[0_0_12px_rgba(120,157,42,0.3)]">
             <PixelMascot
               id={mascotConfig.id}
               palette={mascotConfig.palette}
-              size={26}
+              size={28}
               animated={true}
+              className="group-hover:scale-105 transition-transform"
             />
           </div>
           <span className="font-extrabold text-3xl tracking-tight text-[#ededed] group-hover:text-[#9ac43e] transition-colors">

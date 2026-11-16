@@ -16,6 +16,7 @@ import { NearbyPeer, PairRequest } from '../types/index.js';
 import { BridgeIcon } from './icons/BridgeIcon.js';
 import { sound } from '../utils/sound.js';
 import { HeroBridgeVisual } from './HeroBridgeVisual.js';
+import { PixelMascot } from './mascots/PixelMascot.js';
 
 interface HomeViewProps {
   onCreateBridge: () => void;
@@ -80,6 +81,18 @@ export const HomeView: React.FC<HomeViewProps> = ({
       {/* Title section in Handjet font with letter-by-letter green illumination wave */}
       <div className="mb-8">
         <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-[#ededed] mb-3 leading-none flex flex-wrap items-center gap-x-3">
+          {onOpenBrand && (
+            <div
+              onClick={() => {
+                onOpenBrand();
+                sound.playClick();
+              }}
+              className="p-1 sm:p-1.5 rounded-xl bg-[#202020] border border-[#3a3a3a] hover:border-[#789d2a] transition-all cursor-pointer inline-flex items-center justify-center shrink-0 shadow-sm hover:shadow-[0_0_15px_rgba(120,157,42,0.3)] hover:scale-105"
+              title="Официальный маскот: Кибер-Динозаврик bridgik (нажмите для открытия лаборатории)"
+            >
+              <PixelMascot id="dino" palette="eblo_lime" size={36} animated={true} />
+            </div>
+          )}
           <span className="inline-flex tracking-tight select-none">
             {['b', 'r', 'i', 'd', 'g', 'i', 'k'].map((letter, index) => (
               <span

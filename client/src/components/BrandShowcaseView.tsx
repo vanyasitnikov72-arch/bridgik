@@ -16,7 +16,7 @@ interface BrandShowcaseViewProps {
 }
 
 export const BrandShowcaseView: React.FC<BrandShowcaseViewProps> = ({ onBack }) => {
-  const [selectedMascot, setSelectedMascot] = useState<MascotId>('frog');
+  const [selectedMascot, setSelectedMascot] = useState<MascotId>('dino');
   const [selectedPalette, setSelectedPalette] = useState<PaletteId>('eblo_lime');
   const [appliedInHeader, setAppliedInHeader] = useState(false);
   const [copiedSvg, setCopiedSvg] = useState(false);
@@ -53,28 +53,28 @@ export const BrandShowcaseView: React.FC<BrandShowcaseViewProps> = ({ onBack }) 
 
   const galleryItems = [
     {
+      title: 'Кибер-Динозаврик · Горизонтальный логотип',
+      desc: '★ Официальный логотип bridgik: зеленый динозаврик в кибер-очках с радиомаяком связи и пиксельным шрифтом',
+      src: '/mascots/dino_horizontal.jpg',
+      tag: '★ Главный выбор',
+    },
+    {
+      title: 'Кибер-Динозаврик · 1:1 Аватар',
+      desc: 'Четкий 16-bit аватар динозаврика с радиоволнами над головой для иконки и фавикона',
+      src: '/mascots/dino_avatar.jpg',
+      tag: '★ Основной аватар',
+    },
+    {
       title: 'Жабик Бриджик · Горизонтальный логотип',
-      desc: 'Полноразмерный 16-bit пиксельный логотип с неоновым маскотом и шрифтом',
+      desc: 'Полноразмерный 16-bit пиксельный логотип с неоновым амфибийным маскотом',
       src: '/mascots/frog_horizontal.jpg',
-      tag: 'Логотип + Шрифт',
+      tag: 'Жабик · Лого',
     },
     {
       title: 'Жабик Бриджик · 1:1 Аватар',
       desc: 'Амфибийный нетраннер в бирюзовых кибер-очках с сигнальным маяком',
       src: '/mascots/frog_avatar.jpg',
-      tag: 'Иконка / Аватар',
-    },
-    {
-      title: 'Кибер-Динозаврик · Горизонтальный баннер',
-      desc: 'Зеленый динозаврик в кибер-очках с радиомаяком связи',
-      src: '/mascots/dino_horizontal.jpg',
-      tag: 'Новинка · Дино',
-    },
-    {
-      title: 'Кибер-Динозаврик · 1:1 Аватар',
-      desc: 'Четкий пиксельный аватар динозаврика с радиоволнами над головой',
-      src: '/mascots/dino_avatar.jpg',
-      tag: 'Аватар · Дино',
+      tag: 'Жабик · Аватар',
     },
     {
       title: 'Зеленый Кибер-Кот · Горизонтальный логотип',

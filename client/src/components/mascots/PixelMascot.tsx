@@ -12,16 +12,16 @@ export interface MascotInfo {
 
 export const MASCOT_LIST: MascotInfo[] = [
   {
-    id: 'frog',
-    name: 'Жабик Бриджик',
-    tagline: 'Cyber-Toad · Каноничный нетраннер',
-    description: 'Оригинальный зеленый амфибийный нетраннер в бирюзовых кибер-очках с антенной прямого радиомоста.',
-  },
-  {
     id: 'dino',
     name: 'Кибер-Динозаврик',
-    tagline: 'Cyber-Dino · Ретро-дракончик связи',
-    description: 'Зеленый динозаврик в кибер-очках с радиомаяком на гребне, транслирующий WebRTC пакеты.',
+    tagline: '★ Основной логотип bridgik · Cyber-Dino',
+    description: 'Зеленый динозаврик в бирюзовых кибер-очках с радиомаяком связи и невозмутимой хакерской улыбкой.',
+  },
+  {
+    id: 'frog',
+    name: 'Жабик Бриджик',
+    tagline: 'Cyber-Toad · Амфибийный нетраннер',
+    description: 'Оригинальный зеленый амфибийный нетраннер в бирюзовых кибер-очках с антенной прямого радиомоста.',
   },
   {
     id: 'cat',
@@ -142,9 +142,9 @@ const GRIDS: Record<MascotId, string[]> = {
     "....................",
   ],
   dino: [
-    ".........AA.........",
-    ".........GG.........",
-    "......########......",
+    "..##.....AA.....##..",
+    ".#LL#....GG....#LL#.",
+    "..##..########..##..",
     "....##HHHHHHHH##....",
     "..##HLLLLLLLLLLH##..",
     ".#LLLLLLLLLLLLLLLL#.",
@@ -285,7 +285,7 @@ interface PixelMascotProps {
 }
 
 export const PixelMascot: React.FC<PixelMascotProps> = ({
-  id = 'frog',
+  id = 'dino',
   palette = 'eblo_lime',
   size = 32,
   animated = true,
@@ -374,10 +374,10 @@ export const PixelMascot: React.FC<PixelMascotProps> = ({
 };
 
 export const getSavedMascot = (): { id: MascotId; palette: PaletteId } => {
-  const savedId = (localStorage.getItem('bridgik_mascot') as MascotId) || 'frog';
+  const savedId = (localStorage.getItem('bridgik_mascot') as MascotId) || 'dino';
   const savedPalette = (localStorage.getItem('bridgik_mascot_palette') as PaletteId) || 'eblo_lime';
   return {
-    id: GRIDS[savedId] ? savedId : 'frog',
+    id: GRIDS[savedId] ? savedId : 'dino',
     palette: PALETTES[savedPalette] ? savedPalette : 'eblo_lime',
   };
 };
