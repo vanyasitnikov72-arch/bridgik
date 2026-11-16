@@ -83,10 +83,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             onClick={() => {
               if (onSelectTab) onSelectTab('about');
-              const el = document.getElementById('about-section');
-              if (el) {
-                el.scrollIntoView({ behavior: 'smooth' });
-              }
+              window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
             className={`pb-1 cursor-pointer transition-colors ${
               activeTab === 'about'

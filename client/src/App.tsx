@@ -4,6 +4,7 @@ import { Navbar } from './components/Navbar.js';
 import { HomeView } from './components/HomeView.js';
 import { RoomView } from './components/RoomView.js';
 import { MeetingRoomView } from './components/MeetingRoomView.js';
+import { AboutView } from './components/AboutView.js';
 import { QRCodeModal } from './components/QRCodeModal.js';
 import { Footer } from './components/Footer.js';
 import { FileTransfer, Peer, TextMessage, ThemeMode, NearbyPeer, PairRequest, AppTab, RoomMode } from './types/index.js';
@@ -537,7 +538,9 @@ export function App() {
       />
 
       <main className="flex-1">
-        {!roomId ? (
+        {activeTab === 'about' ? (
+          <AboutView onBack={() => setActiveTab('bridge')} />
+        ) : !roomId ? (
           <HomeView
             onCreateBridge={() => handleCreateRoom('bridge')}
             onJoinBridge={(pinOrId) => handleJoinRoom(pinOrId, 'bridge')}
@@ -556,6 +559,7 @@ export function App() {
             myUserName={userName}
             myDeviceType={deviceType}
             lanIp={lanIp}
+            onOpenAbout={() => setActiveTab('about')}
           />
         ) : roomMode === 'meeting' ? (
           <MeetingRoomView
