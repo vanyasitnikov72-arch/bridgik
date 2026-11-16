@@ -32,7 +32,7 @@ import {
 import { FileTransfer, Peer, TextMessage } from '../types/index.js';
 import { sound } from '../utils/sound.js';
 
-export type RoomId = 'lofi-night' | 'cozy-apartment' | 'retro-den' | 'cabin-loft';
+export type RoomId = 'cozy-apartment' | 'cyber-lounge' | 'tech-bunker' | 'rooftop-terrace';
 
 interface RoomSeatDef {
   id: string;
@@ -57,28 +57,10 @@ interface RoomDefinition {
 }
 
 export const ROOM_PRESETS: Record<RoomId, RoomDefinition> = {
-  'lofi-night': {
-    id: 'lofi-night',
-    title: 'Lo-Fi Ночь',
-    subtitle: 'Изометрическая кибер-комната, кот на кровати и звёзды',
-    imageSrc: '/rooms/lofi-night.jpg',
-    width: 737,
-    height: 662,
-    accent: '#a855f7',
-    badgeBg: 'bg-[#231533]',
-    badgeBorder: 'border-[#a855f7]/60',
-    badgeText: 'text-[#c084fc]',
-    seats: [
-      { id: 'seat-1', label: 'Место 1', spotName: 'За игровым ПК', x: 25, y: 62 },
-      { id: 'seat-2', label: 'Место 2', spotName: 'На кровати с котом', x: 57, y: 52 },
-      { id: 'seat-3', label: 'Место 3', spotName: 'На фиолетовом ковре', x: 44, y: 76 },
-      { id: 'seat-4', label: 'Место 4', spotName: 'У шкафа с книгами', x: 80, y: 64 },
-    ],
-  },
   'cozy-apartment': {
     id: 'cozy-apartment',
     title: 'Уютная квартира',
-    subtitle: 'Изометрическая гостиная с диваном, ПК и паркетом',
+    subtitle: 'Изометрическая студия с диваном, ПК у окна и паркетом',
     imageSrc: '/rooms/cozy-apartment.png',
     width: 911,
     height: 671,
@@ -88,62 +70,79 @@ export const ROOM_PRESETS: Record<RoomId, RoomDefinition> = {
     badgeText: 'text-[#9ac43e]',
     seats: [
       { id: 'seat-1', label: 'Место 1', spotName: 'На кожаном диване', x: 52, y: 61 },
-      { id: 'seat-2', label: 'Место 2', spotName: 'За рабочим столом', x: 64, y: 44 },
+      { id: 'seat-2', label: 'Место 2', spotName: 'За рабочим ПК у окна', x: 64, y: 44 },
       { id: 'seat-3', label: 'Место 3', spotName: 'За обеденным столом', x: 76, y: 58 },
       { id: 'seat-4', label: 'Место 4', spotName: 'У журнального столика', x: 38, y: 56 },
     ],
   },
-  'retro-den': {
-    id: 'retro-den',
-    title: 'Ретро-берлога',
-    subtitle: 'Тёплая ночная комната, спящий кот и терминал',
-    imageSrc: '/rooms/retro-den.jpg',
-    width: 530,
-    height: 564,
-    accent: '#ef4444',
-    badgeBg: 'bg-[#291414]',
-    badgeBorder: 'border-[#ef4444]/60',
-    badgeText: 'text-[#f87171]',
+  'cyber-lounge': {
+    id: 'cyber-lounge',
+    title: 'Кибер-лаундж',
+    subtitle: 'Неоновый лаундж в стиле bridgik с модульным диваном и ПК',
+    imageSrc: '/rooms/cyber-lounge.jpg',
+    width: 1200,
+    height: 896,
+    accent: '#9ac43e',
+    badgeBg: 'bg-[#152212]',
+    badgeBorder: 'border-[#9ac43e]/60',
+    badgeText: 'text-[#bbf348]',
     seats: [
-      { id: 'seat-1', label: 'Место 1', spotName: 'За терминалом ПК', x: 65, y: 64 },
-      { id: 'seat-2', label: 'Место 2', spotName: 'На кровати с котом', x: 35, y: 55 },
-      { id: 'seat-3', label: 'Место 3', spotName: 'На красном коврике', x: 47, y: 75 },
-      { id: 'seat-4', label: 'Место 4', spotName: 'У прикроватной тумбы', x: 19, y: 68 },
+      { id: 'seat-1', label: 'Место 1', spotName: 'На модульном диване', x: 50, y: 62 },
+      { id: 'seat-2', label: 'Место 2', spotName: 'За игровым терминалом', x: 26, y: 52 },
+      { id: 'seat-3', label: 'Место 3', spotName: 'У голографического столика', x: 68, y: 64 },
+      { id: 'seat-4', label: 'Место 4', spotName: 'В зоне отдыха', x: 42, y: 78 },
     ],
   },
-  'cabin-loft': {
-    id: 'cabin-loft',
-    title: 'Тёплый лофт',
-    subtitle: 'Деревянная изба, персидский ковёр и камин',
-    imageSrc: '/rooms/cabin-loft.jpg',
-    width: 720,
-    height: 478,
-    accent: '#f59e0b',
-    badgeBg: 'bg-[#291b12]',
-    badgeBorder: 'border-[#f59e0b]/60',
-    badgeText: 'text-[#fbbf24]',
+  'tech-bunker': {
+    id: 'tech-bunker',
+    title: 'Секретный бункер',
+    subtitle: 'Подземный командный пункт с серверами и CRT-терминалами',
+    imageSrc: '/rooms/tech-bunker.jpg',
+    width: 1200,
+    height: 896,
+    accent: '#f97316',
+    badgeBg: 'bg-[#281c13]',
+    badgeBorder: 'border-[#f97316]/60',
+    badgeText: 'text-[#fb923c]',
     seats: [
-      { id: 'seat-1', label: 'Место 1', spotName: 'За деревянным столом', x: 66, y: 39 },
-      { id: 'seat-2', label: 'Место 2', spotName: 'В бирюзовом кресле', x: 13, y: 67 },
-      { id: 'seat-3', label: 'Место 3', spotName: 'На пледе с планшетом', x: 83, y: 68 },
-      { id: 'seat-4', label: 'Место 4', spotName: 'На персидском ковре', x: 49, y: 65 },
+      { id: 'seat-1', label: 'Место 1', spotName: 'За командным пультом', x: 42, y: 55 },
+      { id: 'seat-2', label: 'Место 2', spotName: 'У серверной стойки', x: 66, y: 58 },
+      { id: 'seat-3', label: 'Место 3', spotName: 'За тактическим столом', x: 30, y: 68 },
+      { id: 'seat-4', label: 'Место 4', spotName: 'У консоли управления', x: 55, y: 74 },
+    ],
+  },
+  'rooftop-terrace': {
+    id: 'rooftop-terrace',
+    title: 'Крыша пентхауса',
+    subtitle: 'Открытая ночная терраса с фонариками и панорамой кибер-города',
+    imageSrc: '/rooms/rooftop-terrace.jpg',
+    width: 1200,
+    height: 896,
+    accent: '#38bdf8',
+    badgeBg: 'bg-[#122332]',
+    badgeBorder: 'border-[#38bdf8]/60',
+    badgeText: 'text-[#7dd3fc]',
+    seats: [
+      { id: 'seat-1', label: 'Место 1', spotName: 'На диване под фонариками', x: 50, y: 60 },
+      { id: 'seat-2', label: 'Место 2', spotName: 'У панорамного телескопа', x: 25, y: 64 },
+      { id: 'seat-3', label: 'Место 3', spotName: 'В лаундж-кресле', x: 70, y: 62 },
+      { id: 'seat-4', label: 'Место 4', spotName: 'На деревянной террасе', x: 45, y: 76 },
     ],
   },
 };
 
 const sanitizeRoomId = (val: string | null): RoomId => {
   if (val && val in ROOM_PRESETS) return val as RoomId;
-  return 'lofi-night';
+  return 'cozy-apartment';
 };
 
-// Interactive Pixel Avatar Token placed in the diorama
+// Interactive Pixel Avatar Token (clean by default, details on hover only)
 interface PixelAvatarSeatProps {
   name: string;
   isMe: boolean;
   deviceType?: 'desktop' | 'mobile' | 'tablet' | 'unknown' | string;
   isMicActive: boolean;
   spotName: string;
-  seatLabel?: string;
   accentColor: string;
   onToggleMic?: () => void;
 }
@@ -154,15 +153,46 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
   deviceType,
   isMicActive,
   spotName,
-  seatLabel: _seatLabel,
   accentColor,
   onToggleMic,
 }) => {
+  const [isHovered, setIsHovered] = useState(false);
+
   return (
-    <div className="flex flex-col items-center select-none group cursor-pointer" onClick={isMe ? onToggleMic : undefined}>
+    <div
+      className="relative flex flex-col items-center select-none"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onClick={isMe ? onToggleMic : undefined}
+    >
+      {/* Floating Tooltip: ONLY VISIBLE ON HOVER (as requested by user) */}
+      <div
+        className={`absolute -top-11 z-30 transition-all duration-200 pointer-events-none flex flex-col items-center ${
+          isHovered ? 'opacity-100 -translate-y-1 scale-100' : 'opacity-0 translate-y-1 scale-95'
+        }`}
+      >
+        <div className="px-3 py-1 rounded-lg bg-[#0e0e14]/95 border border-white/20 shadow-2xl backdrop-blur-md flex items-center gap-2 whitespace-nowrap">
+          <span
+            className={`w-2 h-2 rounded-full ${isMicActive ? 'animate-pulse' : ''}`}
+            style={{ backgroundColor: isMicActive ? accentColor : '#666677' }}
+          />
+          <span className="text-xs font-bold text-[#ededed] font-mono">
+            {name} {isMe ? '(Вы)' : ''}
+          </span>
+          <span className="text-[10px] text-[#aaaaaa] font-mono">
+            · {spotName}
+          </span>
+          {isMe && (
+            <span className="text-[10px] text-[#9ac43e] font-mono border-l border-white/10 pl-1.5">
+              {isMicActive ? 'клик: выкл' : 'клик: вкл'}
+            </span>
+          )}
+        </div>
+        <div className="w-2 h-1 bg-[#0e0e14] border-r border-b border-white/20 rotate-45 -mt-0.5" />
+      </div>
+
       {/* Speech Halo & Avatar Circle */}
       <div className="relative flex items-center justify-center">
-        {/* Animated pulsating voice ripples */}
         {isMicActive && (
           <div
             className="absolute -inset-2 rounded-full border-2 animate-speech-halo pointer-events-none"
@@ -170,10 +200,10 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
           />
         )}
 
-        {/* Dancing equalizer bars above avatar when speaking */}
+        {/* Live Equalizer bars floating above avatar when speaking */}
         {isMicActive && (
           <div
-            className="absolute -top-5 flex items-end gap-0.5 h-3 px-1 py-0.5 rounded bg-[#101014]/95 border shadow-sm pointer-events-none"
+            className="absolute -top-4 flex items-end gap-0.5 h-3 px-1 py-0.5 rounded bg-[#101014]/95 border shadow-sm pointer-events-none"
             style={{ borderColor: `${accentColor}80` }}
             title="Голос передается"
           >
@@ -184,17 +214,16 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
           </div>
         )}
 
-        {/* Pixel Avatar Token */}
+        {/* Clean Avatar Token without any distracting text */}
         <div
-          className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full border-2 flex items-center justify-center transition-transform hover:scale-110 shadow-2xl relative ${
-            isMicActive ? 'bg-[#152414] text-[#bbf348]' : 'bg-[#1b1b22] text-[#ededed]'
-          }`}
+          className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full border-2 flex items-center justify-center transition-all duration-200 shadow-2xl relative cursor-pointer ${
+            isHovered ? 'scale-115 ring-2 ring-white/50' : 'hover:scale-105'
+          } ${isMicActive ? 'bg-[#152414] text-[#bbf348]' : 'bg-[#191922] text-[#ededed]'}`}
           style={{
-            borderColor: isMicActive ? accentColor : '#3e3e4c',
+            borderColor: isMicActive ? accentColor : isHovered ? '#ffffff' : '#444455',
             color: isMicActive ? accentColor : '#ededed',
-            boxShadow: isMicActive ? `0 0 16px ${accentColor}80` : '0 4px 12px rgba(0,0,0,0.6)',
+            boxShadow: isMicActive ? `0 0 16px ${accentColor}80` : '0 4px 12px rgba(0,0,0,0.7)',
           }}
-          title={isMe ? (isMicActive ? 'Нажмите, чтобы заглушить микрофон' : 'Нажмите, чтобы включить микрофон') : name}
         >
           {deviceType === 'mobile' ? (
             <Smartphone className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -211,86 +240,78 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
           </div>
         </div>
       </div>
-
-      {/* Retro Pixel Name Badge */}
-      <div className="mt-1 flex flex-col items-center pointer-events-none">
-        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#0e0e14]/90 border border-white/15 shadow-md backdrop-blur-xs">
-          <span
-            className={`w-1.5 h-1.5 rounded-full ${isMicActive ? 'animate-pulse' : ''}`}
-            style={{ backgroundColor: isMicActive ? accentColor : '#555566' }}
-          />
-          <span className="text-[11px] sm:text-xs font-extrabold text-[#ededed] max-w-[80px] sm:max-w-[105px] truncate">
-            {name}
-          </span>
-          {isMe && (
-            <span
-              className="text-[9px] font-bold px-1 rounded"
-              style={{ backgroundColor: `${accentColor}30`, color: accentColor }}
-            >
-              Вы
-            </span>
-          )}
-        </div>
-        <span className="text-[9px] font-mono text-[#aaaaaa] mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
-          {spotName}
-        </span>
-      </div>
     </div>
   );
 };
 
-// Interactive Empty Seat on the Pixel Diorama
+// Interactive Empty Seat (subtle dot in default state, reveals info on hover)
 interface EmptyPixelSeatProps {
   spotName: string;
-  seatLabel?: string;
   pin: string;
   copied: boolean;
   accentColor: string;
   onInvite: () => void;
-  onOpenQR: () => void;
 }
 
 const EmptyPixelSeat: React.FC<EmptyPixelSeatProps> = ({
   spotName,
-  seatLabel: _seatLabel,
   pin,
   copied,
   accentColor,
   onInvite,
-  onOpenQR: _onOpenQR,
 }) => {
-  return (
-    <div className="flex flex-col items-center select-none group">
-      {/* Dashed Pulse Circle */}
-      <div
-        onClick={onInvite}
-        className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 border-dashed border-white/30 hover:border-white/60 bg-[#121218]/70 hover:bg-[#1a1a24]/90 flex items-center justify-center cursor-pointer transition-all hover:scale-115 shadow-xl backdrop-blur-xs"
-        title={`Свободное место: ${spotName}. Нажмите, чтобы скопировать приглашение (PIN: ${pin})`}
-      >
-        <Plus
-          className="w-4 h-4 text-[#888888] group-hover:text-white transition-colors"
-          style={{ color: copied ? accentColor : undefined }}
-        />
-      </div>
+  const [isHovered, setIsHovered] = useState(false);
 
-      {/* Invite Tag */}
-      <div className="mt-1 flex flex-col items-center">
-        <button
-          onClick={onInvite}
-          className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#0e0e14]/90 border border-white/15 hover:border-white/40 text-[10px] font-bold text-[#aaaaaa] hover:text-[#ededed] transition-colors cursor-pointer shadow-md"
-        >
+  return (
+    <div
+      className="relative flex flex-col items-center select-none"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onClick={onInvite}
+    >
+      {/* Tooltip on hover */}
+      <div
+        className={`absolute -top-10 z-30 transition-all duration-200 pointer-events-none flex flex-col items-center ${
+          isHovered || copied ? 'opacity-100 -translate-y-1 scale-100' : 'opacity-0 translate-y-1 scale-95'
+        }`}
+      >
+        <div className="px-2.5 py-1 rounded-lg bg-[#0e0e14]/95 border border-white/20 shadow-2xl backdrop-blur-md flex items-center gap-1.5 whitespace-nowrap">
           {copied ? (
             <>
-              <Check className="w-2.5 h-2.5 text-[#9ac43e]" />
-              <span className="text-[#9ac43e]">Скопировано!</span>
+              <Check className="w-3 h-3 text-[#9ac43e]" />
+              <span className="text-xs font-bold text-[#9ac43e] font-mono">
+                Ссылка скопирована!
+              </span>
             </>
           ) : (
             <>
-              <Share2 className="w-2.5 h-2.5" />
-              <span>{spotName}</span>
+              <Share2 className="w-3 h-3 text-white/70" />
+              <span className="text-xs font-bold text-[#ededed] font-mono">
+                Пригласить: {spotName} (PIN: {pin})
+              </span>
             </>
           )}
-        </button>
+        </div>
+        <div className="w-2 h-1 bg-[#0e0e14] border-r border-b border-white/20 rotate-45 -mt-0.5" />
+      </div>
+
+      {/* Minimal clean empty cushion marker */}
+      <div
+        className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full border-2 border-dashed flex items-center justify-center cursor-pointer transition-all duration-200 shadow-md ${
+          isHovered
+            ? 'scale-115 border-white bg-[#1e1e28]/90 shadow-xl'
+            : 'border-white/25 bg-[#121218]/40 hover:border-white/50'
+        }`}
+        style={{
+          borderColor: copied ? accentColor : isHovered ? accentColor : undefined,
+        }}
+      >
+        <Plus
+          className={`w-3.5 h-3.5 transition-colors ${
+            isHovered ? 'text-white' : 'text-white/40'
+          }`}
+          style={{ color: copied ? accentColor : isHovered ? accentColor : undefined }}
+        />
       </div>
     </div>
   );
@@ -451,7 +472,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
 
   const otherPeers = peers.filter((p) => p.id !== myPeerId);
   const myPeer = peers.find((p) => p.id === myPeerId);
-  const currentRoom = ROOM_PRESETS[currentRoomId] || ROOM_PRESETS['lofi-night'];
+  const currentRoom = ROOM_PRESETS[currentRoomId] || ROOM_PRESETS['cozy-apartment'];
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-5">
@@ -485,10 +506,10 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
               sound.playClick();
             }}
             className={`px-3 py-1.5 rounded-lg border text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${currentRoom.badgeBg} ${currentRoom.badgeBorder} ${currentRoom.badgeText} hover:brightness-110`}
-            title="Выбрать другую комнату"
+            title="Выбрать другую локацию"
           >
             <Home className="w-3.5 h-3.5" />
-            <span>Комната: {currentRoom.title}</span>
+            <span>Локация: {currentRoom.title}</span>
           </button>
 
           {/* Fullscreen Theater Mode (if screen share active) */}
@@ -547,7 +568,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
             /* GENUINE ISOMETRIC PIXEL ART DIORAMA ROOM                       */
             /* ============================================================== */
             <div className="relative rounded-3xl border-2 border-[#33333e] bg-[#0c0c12] shadow-2xl overflow-hidden flex flex-col items-center justify-center">
-              {/* Room Header Pill Bar */}
+              {/* Room Top Minimal Bar */}
               <div className="absolute top-3 left-3 right-3 z-20 flex items-center justify-between gap-2 pointer-events-none">
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#0c0c14]/90 border border-white/10 shadow-lg backdrop-blur-xs pointer-events-auto">
                   <span
@@ -565,7 +586,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 </div>
               </div>
 
-              {/* Diorama Container with Exact Image Aspect Ratio */}
+              {/* Diorama Container matching Image Aspect Ratio */}
               <div
                 className="relative w-full max-h-[500px] flex items-center justify-center overflow-hidden"
                 style={{
@@ -582,9 +603,9 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                   }}
                 />
 
-                {/* Ambient CRT Scanline Overlay */}
+                {/* Subtle CRT Scanline Overlay */}
                 <div
-                  className="absolute inset-0 pointer-events-none opacity-20"
+                  className="absolute inset-0 pointer-events-none opacity-15"
                   style={{
                     backgroundImage: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.4) 50%)',
                     backgroundSize: '100% 4px',
@@ -611,7 +632,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 )}
 
                 {/* ============================================================== */}
-                {/* PARTICIPANT SEATS PINNED TO EXACT PIXEL FURNITURE SPOTS        */}
+                {/* PARTICIPANT SEATS PINNED TO FURNITURE (CLEAN - TOOLTIP ON HOVER) */}
                 {/* ============================================================== */}
                 {currentRoom.seats.map((seat, index) => {
                   let seatContent: React.ReactNode = null;
@@ -625,7 +646,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                         deviceType={myPeer?.deviceType}
                         isMicActive={isMicActive}
                         spotName={seat.spotName}
-                        seatLabel={seat.label}
                         accentColor={currentRoom.accent}
                         onToggleMic={onToggleMic}
                       />
@@ -640,7 +660,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                           deviceType={otherPeers[0].deviceType}
                           isMicActive={true}
                           spotName={seat.spotName}
-                          seatLabel={seat.label}
                           accentColor={currentRoom.accent}
                         />
                       );
@@ -648,12 +667,10 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                       seatContent = (
                         <EmptyPixelSeat
                           spotName={seat.spotName}
-                          seatLabel={seat.label}
                           pin={pin}
                           copied={copiedLink}
                           accentColor={currentRoom.accent}
                           onInvite={handleCopyLink}
-                          onOpenQR={onOpenQR}
                         />
                       );
                     }
@@ -667,7 +684,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                           deviceType={otherPeers[1].deviceType}
                           isMicActive={true}
                           spotName={seat.spotName}
-                          seatLabel={seat.label}
                           accentColor={currentRoom.accent}
                         />
                       );
@@ -675,17 +691,15 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                       seatContent = (
                         <EmptyPixelSeat
                           spotName={seat.spotName}
-                          seatLabel={seat.label}
                           pin={pin}
                           copied={copiedLink}
                           accentColor={currentRoom.accent}
                           onInvite={handleCopyLink}
-                          onOpenQR={onOpenQR}
                         />
                       );
                     }
                   } else if (index === 3) {
-                    // Seat 4: Peer 3 or subtle spark spot
+                    // Seat 4: Peer 3 or Empty
                     if (otherPeers.length > 2) {
                       seatContent = (
                         <PixelAvatarSeat
@@ -694,7 +708,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                           deviceType={otherPeers[2].deviceType}
                           isMicActive={true}
                           spotName={seat.spotName}
-                          seatLabel={seat.label}
                           accentColor={currentRoom.accent}
                         />
                       );
@@ -702,12 +715,10 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                       seatContent = (
                         <EmptyPixelSeat
                           spotName={seat.spotName}
-                          seatLabel={seat.label}
                           pin={pin}
                           copied={copiedLink}
                           accentColor={currentRoom.accent}
                           onInvite={handleCopyLink}
-                          onOpenQR={onOpenQR}
                         />
                       );
                     }
@@ -765,10 +776,10 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                     sound.playClick();
                   }}
                   className="px-2.5 py-1.5 rounded-xl bg-[#25252c] hover:bg-[#303038] text-[#ededed] border border-white/10 text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-                  title="Выбрать другую комнату"
+                  title="Выбрать другую локацию"
                 >
                   <Home className="w-4 h-4 text-[#9ac43e]" />
-                  <span className="hidden md:inline">Комната</span>
+                  <span className="hidden md:inline">Локация</span>
                 </button>
 
                 {/* QR Code Button */}
@@ -813,10 +824,10 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
 
               {/* Quick Room Picker Popover */}
               {isRoomPickerOpen && (
-                <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-40 bg-[#14141c] border border-white/20 rounded-2xl p-3 shadow-2xl w-80 max-w-[95%] animate-in fade-in zoom-in-95 duration-150">
+                <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-40 bg-[#14141c] border border-white/20 rounded-2xl p-3 shadow-2xl w-84 max-w-[95%] animate-in fade-in zoom-in-95 duration-150">
                   <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
                     <span className="text-xs font-bold text-[#ededed] uppercase font-mono tracking-wider">
-                      Выберите концепт комнаты:
+                      Выберите локацию:
                     </span>
                     <button
                       onClick={() => setIsRoomPickerOpen(false)}
@@ -842,7 +853,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                           <img
                             src={r.imageSrc}
                             alt={r.title}
-                            className="w-10 h-10 rounded-lg object-cover border border-white/10 shrink-0"
+                            className="w-12 h-9 rounded-lg object-cover border border-white/10 shrink-0"
                             style={{ imageRendering: 'pixelated' }}
                           />
                           <div className="min-w-0 flex-1">
@@ -1069,7 +1080,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 </div>
                 <div>
                   <h3 className="text-xl font-extrabold text-[#ededed]">Настройки комнаты</h3>
-                  <p className="text-xs text-[#888888]">Выбор концепции, позывной и звук</p>
+                  <p className="text-xs text-[#888888]">Выбор локации, позывной и звук</p>
                 </div>
               </div>
               <button
@@ -1084,14 +1095,14 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
             </div>
 
             <div className="py-5 space-y-6">
-              {/* Section 1: Choose Room Concept */}
+              {/* Section 1: Choose Room Location */}
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <Home className="w-4 h-4 text-[#9ac43e]" />
-                    <h4 className="text-base font-bold text-[#ededed]">Концепция комнаты (Изометрия)</h4>
+                    <h4 className="text-base font-bold text-[#ededed]">Локация комнаты (Изометрия)</h4>
                   </div>
-                  <span className="text-xs font-mono text-[#888888]">4 концепта</span>
+                  <span className="text-xs font-mono text-[#888888]">4 локации</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
