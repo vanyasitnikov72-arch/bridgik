@@ -322,14 +322,22 @@ io.on('connection', (socket) => {
         const room = roomManager.getRoom(data.roomIdOrPin);
         if (!room) {
           if (typeof callback === 'function') {
-            return callback({ success: false, error: 'Комната не найдена или код неверен' });
+            return callback({
+              success: false,
+              code: 'ROOM_NOT_FOUND',
+              error: 'Комната не найдена или код неверен',
+            });
           }
           return;
         }
 
         if (room.isLocked) {
           if (typeof callback === 'function') {
-            return callback({ success: false, error: 'Вход закрыт организатором комнаты' });
+            return callback({
+              success: false,
+              code: 'ROOM_LOCKED',
+              error: 'Вход закрыт организатором комнаты',
+            });
           }
           return;
         }
@@ -338,6 +346,8 @@ io.on('connection', (socket) => {
           if (typeof callback === 'function') {
             return callback({
               success: false,
+              code: 'ROOM_FULL',
+              maxSeats: room.maxSeats,
               error: `В комнате достигнут лимит мест (${room.maxSeats} участников)`,
             });
           }

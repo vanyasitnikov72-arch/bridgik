@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { Smartphone, Monitor, Check, X, Radio, AlertCircle } from 'lucide-react';
+import { Smartphone, Monitor, Check, X, Radio, AlertCircle, Lock, Users } from 'lucide-react';
 import { Navbar } from './components/Navbar.js';
 import { HomeView } from './components/HomeView.js';
 import { RoomView } from './components/RoomView.js';
@@ -12,6 +12,12 @@ import { FileTransfer, Peer, TextMessage, ThemeMode, NearbyPeer, PairRequest, Ap
 import { detectDeviceType, generateRandomName } from './utils/device.js';
 import { WebRTCManager } from './services/webrtc.js';
 import { sound } from './utils/sound.js';
+
+interface RoomAlertNotice {
+  type: 'locked' | 'full' | 'notFound' | 'general';
+  title: string;
+  message: string;
+}
 
 export function App() {
   const [userName, setUserName] = useState<string>(() => {
@@ -44,6 +50,7 @@ export function App() {
   const [pairingTargetName, setPairingTargetName] = useState<string>('');
   const [pairingTargetSocketId, setPairingTargetSocketId] = useState<string>('');
   const [pairRejectionNotice, setPairRejectionNotice] = useState<string | null>(null);
+  const [roomAlertNotice, setRoomAlertNotice] = useState<RoomAlertNotice | null>(null);
   const [lanIp, setLanIp] = useState<string | null>(null);
   const [destinationDirName, setDestinationDirName] = useState<string | null>(null);
   const destinationDirHandleRef = useRef<any>(null);
@@ -110,6 +117,15 @@ export function App() {
     }, 6000);
     return () => clearTimeout(timer);
   }, [pairRejectionNotice]);
+
+  // Auto-dismiss room alert notice after 7s
+  useEffect(() => {
+    if (!roomAlertNotice) return;
+    const timer = setTimeout(() => {
+      setRoomAlertNotice(null);
+    }, 7000);
+    return () => clearTimeout(timer);
+  }, [roomAlertNotice]);
 
   // Sync user name changes
   const handleUpdateUserName = (name: string) => {
@@ -520,7 +536,29 @@ export function App() {
           const modeQuery = resolvedMode === 'meeting' ? '&mode=meeting' : '';
           window.history.pushState({}, '', `?room=${res.pin}${modeQuery}`);
         } else {
-          setErrorMessage(res.error || 'Комната не найдена');
+          sound.playClick();
+          window.history.replaceState({}, '', window.location.pathname);
+          const errText = res.error || 'Комната не найдена';
+          if (res.code === 'ROOM_LOCKED' || errText.includes('закрыт') || errText.includes('заблокирован')) {
+            setRoomAlertNotice({
+              type: 'locked',
+              title: 'Комната закрыта',
+              message: 'Организатор заблокировал вход в эту комнату. Подключение невозможно.',
+            });
+          } else if (res.code === 'ROOM_FULL' || errText.includes('лимит') || errText.includes('переполн')) {
+            setRoomAlertNotice({
+              type: 'full',
+              title: 'Комната переполнена',
+              message: errText || 'В комнате достигнут лимит мест. Свободных мест нет.',
+            });
+          } else {
+            setRoomAlertNotice({
+              type: 'notFound',
+              title: 'Комната не найдена',
+              message: errText || 'Комната не найдена или код неверен.',
+            });
+          }
+          setErrorMessage(errText);
         }
       }
     );
@@ -905,6 +943,57 @@ export function App() {
               className="px-4 py-2 rounded-xl bg-[#262626] hover:bg-[#333333] text-[#ededed] text-sm font-bold border border-[#3a3a3a] transition-colors cursor-pointer shrink-0"
             >
               Отмена
+            </button>
+          </div>
+        </aside>
+      )}
+
+      {/* 4. Room Alert Notification (Room Locked / Room Full / Room Not Found) */}
+      {roomAlertNotice && (
+        <aside aria-label={roomAlertNotice.title} className="fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-xl animate-in slide-in-from-top-6 duration-300">
+          <div className={`p-4 sm:p-5 rounded-2xl shadow-[0_12px_45px_rgba(0,0,0,0.85)] backdrop-blur-md flex items-center justify-between gap-3.5 border-2 ${
+            roomAlertNotice.type === 'locked'
+              ? 'bg-[#221614]/95 border-[#ed2b3b]/60'
+              : roomAlertNotice.type === 'full'
+              ? 'bg-[#221a14]/95 border-[#f97316]/70'
+              : 'bg-[#201818]/95 border-[#ed2b3b]/50'
+          }`}>
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border ${
+                roomAlertNotice.type === 'locked'
+                  ? 'bg-[#ed2b3b]/20 border-[#ed2b3b]/40 text-[#ef9282]'
+                  : roomAlertNotice.type === 'full'
+                  ? 'bg-[#f97316]/20 border-[#f97316]/40 text-[#f97316]'
+                  : 'bg-[#ed2b3b]/20 border-[#ed2b3b]/40 text-[#ef9282]'
+              }`}>
+                {roomAlertNotice.type === 'locked' ? (
+                  <Lock className="w-6 h-6" />
+                ) : roomAlertNotice.type === 'full' ? (
+                  <Users className="w-6 h-6" />
+                ) : (
+                  <AlertCircle className="w-6 h-6" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="text-base sm:text-lg font-bold text-[#ededed] leading-snug">
+                  {roomAlertNotice.title}
+                </p>
+                <p className={`text-sm sm:text-base leading-snug ${
+                  roomAlertNotice.type === 'locked'
+                    ? 'text-[#ef9282]'
+                    : roomAlertNotice.type === 'full'
+                    ? 'text-[#fb923c]'
+                    : 'text-[#ef9282]'
+                }`}>
+                  {roomAlertNotice.message}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setRoomAlertNotice(null)}
+              className="px-4 py-2 rounded-xl bg-[#282828] hover:bg-[#333333] text-[#ededed] text-sm font-bold border border-white/10 transition-colors cursor-pointer shrink-0"
+            >
+              Закрыть
             </button>
           </div>
         </aside>
