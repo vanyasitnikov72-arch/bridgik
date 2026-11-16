@@ -37,8 +37,8 @@ interface RoomSeatDef {
   id: string;
   label: string;
   spotName: string;
-  x: number; // percentage from left (0 - 100)
-  y: number; // percentage from top (0 - 100)
+  x: number; // percentage from left
+  y: number; // percentage from top
 }
 
 interface RoomDefinition {
@@ -50,7 +50,7 @@ interface RoomDefinition {
   badgeBg: string;
   badgeBorder: string;
   badgeText: string;
-  seats: RoomSeatDef[]; // Exactly 8 organic spots
+  seats: RoomSeatDef[]; // Exactly 8 organic spots on real furniture
 }
 
 export const ROOM_PRESETS: Record<RoomId, RoomDefinition> = {
@@ -64,34 +64,34 @@ export const ROOM_PRESETS: Record<RoomId, RoomDefinition> = {
     badgeBorder: 'border-[#9ac43e]/60',
     badgeText: 'text-[#bbf348]',
     seats: [
-      { id: 'seat-1', label: 'Место 1', spotName: 'На модульном диване (центр)', x: 48, y: 55 },
-      { id: 'seat-2', label: 'Место 2', spotName: 'На модульном диване (слева)', x: 38, y: 56 },
-      { id: 'seat-3', label: 'Место 3', spotName: 'На модульном диване (справа)', x: 58, y: 54 },
-      { id: 'seat-4', label: 'Место 4', spotName: 'На угловой кушетке', x: 44, y: 65 },
-      { id: 'seat-5', label: 'Место 5', spotName: 'За игровым терминалом', x: 22, y: 46 },
-      { id: 'seat-6', label: 'Место 6', spotName: 'В мягком пуфе слева', x: 18, y: 64 },
-      { id: 'seat-7', label: 'Место 7', spotName: 'В лаундж-кресле справа', x: 74, y: 58 },
-      { id: 'seat-8', label: 'Место 8', spotName: 'У столика с голограммой', x: 64, y: 68 },
+      { id: 'seat-1', label: 'Место 1', spotName: 'На модульном диване (центр)', x: 44.5, y: 65.5 },
+      { id: 'seat-2', label: 'Место 2', spotName: 'На модульном диване (слева)', x: 36.5, y: 66.5 },
+      { id: 'seat-3', label: 'Место 3', spotName: 'На модульном диване (справа)', x: 57.5, y: 66.5 },
+      { id: 'seat-4', label: 'Место 4', spotName: 'На угловой кушетке дивана', x: 66.5, y: 67.5 },
+      { id: 'seat-5', label: 'Место 5', spotName: 'В неоновом лаундж-кресле слева', x: 20.5, y: 74.5 },
+      { id: 'seat-6', label: 'Место 6', spotName: 'В неоновом лаундж-кресле справа', x: 79.5, y: 73.5 },
+      { id: 'seat-7', label: 'Место 7', spotName: 'В светящемся бирюзовом пуфе', x: 34.5, y: 92.0 },
+      { id: 'seat-8', label: 'Место 8', spotName: 'В светящемся неоновом пуфе', x: 63.5, y: 92.0 },
     ],
   },
   'cozy-loft': {
     id: 'cozy-loft',
     title: 'Уютный лофт',
-    subtitle: 'Просторная гостиная с паркетом, диваном и панорамными окнами',
+    subtitle: 'Просторная гостиная с паркетом, кожаным диваном и окнами в пол',
     imageSrc: '/rooms/cozy-loft.jpg',
     accent: '#f59e0b',
     badgeBg: 'bg-[#291b12]',
     badgeBorder: 'border-[#f59e0b]/60',
     badgeText: 'text-[#fbbf24]',
     seats: [
-      { id: 'seat-1', label: 'Место 1', spotName: 'На кожаном диване (центр)', x: 48, y: 58 },
-      { id: 'seat-2', label: 'Место 2', spotName: 'На кожаном диване (слева)', x: 39, y: 60 },
-      { id: 'seat-3', label: 'Место 3', spotName: 'На кожаном диване (справа)', x: 57, y: 56 },
-      { id: 'seat-4', label: 'Место 4', spotName: 'На угловой секции дивана', x: 44, y: 68 },
-      { id: 'seat-5', label: 'Место 5', spotName: 'За рабочим ПК у окна', x: 76, y: 44 },
-      { id: 'seat-6', label: 'Место 6', spotName: 'В уютном кресле слева', x: 22, y: 60 },
-      { id: 'seat-7', label: 'Место 7', spotName: 'В плетёном пуфе справа', x: 68, y: 66 },
-      { id: 'seat-8', label: 'Место 8', spotName: 'На мягком ковре', x: 34, y: 72 },
+      { id: 'seat-1', label: 'Место 1', spotName: 'На кожаном диване (центр)', x: 57.5, y: 62.0 },
+      { id: 'seat-2', label: 'Место 2', spotName: 'На кожаном диване (слева)', x: 48.0, y: 61.0 },
+      { id: 'seat-3', label: 'Место 3', spotName: 'На кожаном диване (справа)', x: 74.0, y: 61.5 },
+      { id: 'seat-4', label: 'Место 4', spotName: 'На угловой секции дивана', x: 83.5, y: 65.0 },
+      { id: 'seat-5', label: 'Место 5', spotName: 'В темном деревянном кресле слева', x: 41.5, y: 76.0 },
+      { id: 'seat-6', label: 'Место 6', spotName: 'В плетеном кресле справа', x: 86.0, y: 79.0 },
+      { id: 'seat-7', label: 'Место 7', spotName: 'В круглом джутовом пуфе (слева)', x: 59.5, y: 86.5 },
+      { id: 'seat-8', label: 'Место 8', spotName: 'В круглом джутовом пуфе (справа)', x: 67.5, y: 82.0 },
     ],
   },
   'skyline-penthouse': {
@@ -104,34 +104,34 @@ export const ROOM_PRESETS: Record<RoomId, RoomDefinition> = {
     badgeBorder: 'border-[#38bdf8]/60',
     badgeText: 'text-[#7dd3fc]',
     seats: [
-      { id: 'seat-1', label: 'Место 1', spotName: 'На панорамном диване (центр)', x: 50, y: 56 },
-      { id: 'seat-2', label: 'Место 2', spotName: 'На панорамном диване (слева)', x: 40, y: 58 },
-      { id: 'seat-3', label: 'Место 3', spotName: 'На панорамном диване (справа)', x: 60, y: 56 },
-      { id: 'seat-4', label: 'Место 4', spotName: 'На кушетке у столика', x: 46, y: 68 },
-      { id: 'seat-5', label: 'Место 5', spotName: 'За барным терминалом', x: 78, y: 46 },
-      { id: 'seat-6', label: 'Место 6', spotName: 'В дизайнерском кресле', x: 24, y: 62 },
-      { id: 'seat-7', label: 'Место 7', spotName: 'В пуфе у стеклянного столика', x: 70, y: 66 },
-      { id: 'seat-8', label: 'Место 8', spotName: 'У панорамного окна', x: 32, y: 72 },
+      { id: 'seat-1', label: 'Место 1', spotName: 'На полукруглом диване (центр)', x: 50.0, y: 65.0 },
+      { id: 'seat-2', label: 'Место 2', spotName: 'На полукруглом диване (слева)', x: 43.0, y: 66.0 },
+      { id: 'seat-3', label: 'Место 3', spotName: 'На полукруглом диване (справа)', x: 58.0, y: 65.0 },
+      { id: 'seat-4', label: 'Место 4', spotName: 'На кушетке дивана', x: 65.0, y: 67.0 },
+      { id: 'seat-5', label: 'Место 5', spotName: 'В изумрудном клубном кресле', x: 30.0, y: 73.0 },
+      { id: 'seat-6', label: 'Место 6', spotName: 'В глубоком синем кресле', x: 77.0, y: 70.0 },
+      { id: 'seat-7', label: 'Место 7', spotName: 'На круглом синем пуфе', x: 72.0, y: 81.0 },
+      { id: 'seat-8', label: 'Место 8', spotName: 'На переднем велюровом пуфе', x: 49.0, y: 91.0 },
     ],
   },
   'retro-lounge': {
     id: 'retro-lounge',
-    title: 'Ретро-гостиная 90-х',
-    subtitle: 'Атмосферная игровая комната с винтажным диваном и аркадой',
+    title: 'Ретро-гостиная 98-го',
+    subtitle: 'Атмосферный подвал с винтажным вельветовым диваном, креслами и ПК',
     imageSrc: '/rooms/retro-lounge.jpg',
     accent: '#ec4899',
     badgeBg: 'bg-[#291322]',
     badgeBorder: 'border-[#ec4899]/60',
     badgeText: 'text-[#f472b6]',
     seats: [
-      { id: 'seat-1', label: 'Место 1', spotName: 'На винтажном диване (центр)', x: 48, y: 56 },
-      { id: 'seat-2', label: 'Место 2', spotName: 'На винтажном диване (слева)', x: 38, y: 58 },
-      { id: 'seat-3', label: 'Место 3', spotName: 'На винтажном диване (справа)', x: 58, y: 55 },
-      { id: 'seat-4', label: 'Место 4', spotName: 'На вельветовом пуфе', x: 44, y: 68 },
-      { id: 'seat-5', label: 'Место 5', spotName: 'За ретро-ПК с ЭЛТ-монитором', x: 20, y: 46 },
-      { id: 'seat-6', label: 'Место 6', spotName: 'В бирюзовом кресле-мешке', x: 24, y: 64 },
-      { id: 'seat-7', label: 'Место 7', spotName: 'В фиолетовом ретро-кресле', x: 74, y: 58 },
-      { id: 'seat-8', label: 'Место 8', spotName: 'У игрового автомата', x: 66, y: 68 },
+      { id: 'seat-1', label: 'Место 1', spotName: 'На вельветовом диване (центр)', x: 50.5, y: 62.5 },
+      { id: 'seat-2', label: 'Место 2', spotName: 'На вельветовом диване (слева)', x: 42.0, y: 62.5 },
+      { id: 'seat-3', label: 'Место 3', spotName: 'На вельветовом диване (справа)', x: 59.0, y: 62.5 },
+      { id: 'seat-4', label: 'Место 4', spotName: 'В оливковом кресле с «ушами»', x: 29.0, y: 62.0 },
+      { id: 'seat-5', label: 'Место 5', spotName: 'В бордовом кресле справа', x: 72.5, y: 65.0 },
+      { id: 'seat-6', label: 'Место 6', spotName: 'В компьютерном кресле у ПК с Win98', x: 83.5, y: 71.5 },
+      { id: 'seat-7', label: 'Место 7', spotName: 'В бирюзовом бинбэге слева', x: 33.5, y: 89.5 },
+      { id: 'seat-8', label: 'Место 8', spotName: 'В оранжевом бинбэге справа', x: 67.0, y: 89.5 },
     ],
   },
 };
@@ -141,7 +141,7 @@ const sanitizeRoomId = (val: string | null): RoomId => {
   return 'cyber-lounge';
 };
 
-// Interactive Avatar Token (clean by default, name & mic highlighted on hover only)
+// Interactive Avatar Token (clean on furniture, details only on hover)
 interface PixelAvatarSeatProps {
   name: string;
   isMe: boolean;
@@ -196,7 +196,7 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
         <div className="w-2 h-1 bg-[#0e0e14] border-r border-b border-white/20 rotate-45 -mt-0.5" />
       </div>
 
-      {/* Speech Halo & Avatar Circle */}
+      {/* Speech Halo & Avatar Circle sitting firmly on furniture */}
       <div className="relative flex items-center justify-center">
         {isMicActive && (
           <div
@@ -221,7 +221,7 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
 
         {/* Avatar Token sitting cleanly on the furniture */}
         <div
-          className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full border-2 flex items-center justify-center transition-all duration-200 shadow-2xl relative cursor-pointer ${
+          className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full border-2 flex items-center justify-center transition-all duration-200 shadow-2xl relative cursor-pointer drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)] ${
             isHovered ? 'scale-115 ring-2 ring-white/50' : 'hover:scale-105'
           } ${isMicActive ? 'bg-[#152414] text-[#bbf348]' : 'bg-[#191922] text-[#ededed]'}`}
           style={{
@@ -249,7 +249,7 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
   );
 };
 
-// Interactive Empty Seat (gentle marker on furniture, reveals invite on hover)
+// Interactive Empty Seat on furniture (reveals tooltip on hover)
 interface EmptyPixelSeatProps {
   spotName: string;
   pin: string;
@@ -292,7 +292,7 @@ const EmptyPixelSeat: React.FC<EmptyPixelSeatProps> = ({
             <>
               <Share2 className="w-3 h-3 text-white/70" />
               <span className="text-xs font-bold text-[#ededed] font-mono">
-                Пригласить: {spotName} (PIN: {pin})
+                Свободное место: {spotName} (PIN: {pin})
               </span>
             </>
           )}
@@ -300,12 +300,12 @@ const EmptyPixelSeat: React.FC<EmptyPixelSeatProps> = ({
         <div className="w-2 h-1 bg-[#0e0e14] border-r border-b border-white/20 rotate-45 -mt-0.5" />
       </div>
 
-      {/* Minimal clean empty cushion marker */}
+      {/* Clean dashed circular seat marker directly on the furniture */}
       <div
-        className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full border-2 border-dashed flex items-center justify-center cursor-pointer transition-all duration-200 shadow-md ${
+        className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full border-2 border-dashed flex items-center justify-center cursor-pointer transition-all duration-200 drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)] ${
           isHovered
-            ? 'scale-115 border-white bg-[#1e1e28]/90 shadow-xl'
-            : 'border-white/25 bg-[#121218]/40 hover:border-white/50'
+            ? 'scale-120 border-white bg-[#1e1e28]/95 shadow-2xl ring-2 ring-white/40'
+            : 'border-white/30 bg-[#121218]/50 hover:border-white/60'
         }`}
         style={{
           borderColor: copied ? accentColor : isHovered ? accentColor : undefined,
@@ -313,7 +313,7 @@ const EmptyPixelSeat: React.FC<EmptyPixelSeatProps> = ({
       >
         <Plus
           className={`w-3.5 h-3.5 transition-colors ${
-            isHovered ? 'text-white' : 'text-white/40'
+            isHovered ? 'text-white' : 'text-white/50'
           }`}
           style={{ color: copied ? accentColor : isHovered ? accentColor : undefined }}
         />
@@ -479,9 +479,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   const myPeer = peers.find((p) => p.id === myPeerId);
   const currentRoom = ROOM_PRESETS[currentRoomId] || ROOM_PRESETS['cyber-lounge'];
 
-  // Total active participants in room (Host + peers, max 8)
-  const totalParticipants = Math.min(8, 1 + otherPeers.length);
-
   return (
     <div className="max-w-7xl mx-auto px-4 py-5">
       {/* Top Header Bar */}
@@ -500,7 +497,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
           <div className="flex items-center gap-2 text-sm text-[#aaaaaa]">
             <Users className="w-4 h-4 text-[#9ac43e]" />
             <span className="font-semibold text-[#ededed]">
-              {peers.length} {peers.length === 1 ? 'участник' : 'участников'} (до 8 мест)
+              {peers.length} {peers.length === 1 ? 'участник' : 'участников'} · Все 8 мест в комнате
             </span>
           </div>
         </div>
@@ -591,7 +588,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 <div className="flex items-center gap-2 pointer-events-auto">
                   <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#0c0c14]/90 border border-white/10 shadow-lg backdrop-blur-xs text-[11px] font-mono text-[#aaaaaa]">
                     <ShieldCheck className="w-3.5 h-3.5 text-[#9ac43e]" />
-                    <span>P2P Direct · 48 kHz</span>
+                    <span>8 мест · P2P Direct</span>
                   </div>
                 </div>
               </div>
@@ -615,7 +612,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 />
 
                 {/* ============================================================== */}
-                {/* PARTICIPANTS ON THE FURNITURE (MAXIMUM 8 ORGANIC SEATS)        */}
+                {/* ALL 8 ORGANIC SEATS ARE POSITIONED DIRECTLY ON FURNITURE       */}
                 {/* ============================================================== */}
                 {currentRoom.seats.map((seat, index) => {
                   let seatContent: React.ReactNode = null;
@@ -633,11 +630,12 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                         onToggleMic={onToggleMic}
                       />
                     );
-                  } else if (index < totalParticipants) {
-                    // Peer 1 to Peer 7
+                  } else {
                     const peerIndex = index - 1;
                     const peer = otherPeers[peerIndex];
+
                     if (peer) {
+                      // An active peer sits on this seat
                       seatContent = (
                         <PixelAvatarSeat
                           name={peer.name}
@@ -648,24 +646,19 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                           accentColor={currentRoom.accent}
                         />
                       );
+                    } else {
+                      // An empty seat on the furniture, ready to be occupied
+                      seatContent = (
+                        <EmptyPixelSeat
+                          spotName={seat.spotName}
+                          pin={pin}
+                          copied={copiedLink}
+                          accentColor={currentRoom.accent}
+                          onInvite={handleCopyLink}
+                        />
+                      );
                     }
-                  } else if (index === totalParticipants || (totalParticipants < 3 && index < 3)) {
-                    // Next available seats shown as subtle inviting + markers on the furniture
-                    seatContent = (
-                      <EmptyPixelSeat
-                        spotName={seat.spotName}
-                        pin={pin}
-                        copied={copiedLink}
-                        accentColor={currentRoom.accent}
-                        onInvite={handleCopyLink}
-                      />
-                    );
-                  } else {
-                    // Remaining empty spots stay hidden until more peers arrive
-                    seatContent = null;
                   }
-
-                  if (!seatContent) return null;
 
                   return (
                     <div
@@ -789,7 +782,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-40 bg-[#14141c] border border-white/20 rounded-2xl p-3 shadow-2xl w-84 max-w-[95%] animate-in fade-in zoom-in-95 duration-150">
                   <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
                     <span className="text-xs font-bold text-[#ededed] uppercase font-mono tracking-wider">
-                      Выберите локацию (макс. 8 мест):
+                      Выберите локацию (все 8 мест):
                     </span>
                     <button
                       onClick={() => setIsRoomPickerOpen(false)}
@@ -867,7 +860,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                     className="p-3 rounded-xl bg-[#141414] border border-[#333333] flex items-center justify-between gap-3 text-sm"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <File className="w-4 h-4 text-[#9ac43e] shrink-0" />
+                      <File className="w-4 h-4 text-[#9ac43e]" />
                       <div className="min-w-0">
                         <p className="font-bold text-[#ededed] truncate">{t.name}</p>
                         <p className="text-xs text-[#aaaaaa]">
@@ -1041,7 +1034,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 </div>
                 <div>
                   <h3 className="text-xl font-extrabold text-[#ededed]">Настройки гостиной</h3>
-                  <p className="text-xs text-[#888888]">Выбор интерьера (до 8 мест), позывной и звук</p>
+                  <p className="text-xs text-[#888888]">Выбор интерьера (все 8 мест), позывной и звук</p>
                 </div>
               </div>
               <button
