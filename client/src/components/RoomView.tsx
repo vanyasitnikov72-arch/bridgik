@@ -3,7 +3,6 @@ import {
   Share2,
   QrCode,
   LogOut,
-  UploadCloud,
   File,
   Download,
   Check,
@@ -21,6 +20,7 @@ import {
   Music,
   HardDrive,
   FolderDown,
+  Folder,
   Eye,
   CheckSquare,
   Square,
@@ -94,6 +94,7 @@ export const RoomView: React.FC<RoomViewProps> = ({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -423,7 +424,7 @@ export const RoomView: React.FC<RoomViewProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Dropzone & File Transfers (7 cols) */}
         <div className="lg:col-span-7 space-y-5">
-          {/* File Dropzone */}
+          {/* Modern P2P Transfer Hub */}
           <div
             onDragOver={(e) => {
               e.preventDefault();
@@ -431,13 +432,13 @@ export const RoomView: React.FC<RoomViewProps> = ({
             }}
             onDragLeave={() => setIsDragging(false)}
             onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-            className={`border-2 border-dashed rounded-xl p-8 sm:p-10 text-center cursor-pointer transition-colors select-none ${
+            className={`rounded-xl border transition-all p-6 sm:p-7 text-center select-none shadow-md ${
               isDragging
-                ? 'border-[#789d2a] bg-[#222222]'
-                : 'border-[#3a3a3a] bg-[#222222]/60 hover:bg-[#222222] hover:border-[#4a4a4a]'
+                ? 'border-[#789d2a] bg-[#1c2214] ring-2 ring-[#789d2a]/30'
+                : 'border-[#3a3a3a] bg-[#202020] hover:border-[#4a4a4a]'
             }`}
           >
+            {/* Hidden native inputs for files and folders */}
             <input
               type="file"
               multiple
@@ -445,22 +446,81 @@ export const RoomView: React.FC<RoomViewProps> = ({
               onChange={(e) => e.target.files && onSendFiles(e.target.files)}
               className="hidden"
             />
-            <div className="w-14 h-14 rounded-md bg-[#2d2d2d] border border-[#3a3a3a] flex items-center justify-center text-[#9ac43e] mx-auto mb-3">
-              <UploadCloud className="w-7 h-7" />
+            <input
+              type="file"
+              // @ts-ignore - webkitdirectory is standard for folder picking
+              webkitdirectory=""
+              directory=""
+              multiple
+              ref={folderInputRef}
+              onChange={(e) => e.target.files && onSendFiles(e.target.files)}
+              className="hidden"
+            />
+
+            {/* Ctrl + V Interactive Keyboard Badge */}
+            <div className="flex items-center justify-center gap-2 mb-3.5">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#171717] border border-[#3a3a3a] text-xs">
+                <kbd className="px-1.5 py-0.5 rounded bg-[#2a2a2a] text-[#ededed] font-mono font-bold border border-[#444444] text-[11px] shadow-inner">
+                  Ctrl
+                </kbd>
+                <span className="text-[#999999] font-bold">+</span>
+                <kbd className="px-1.5 py-0.5 rounded bg-[#2a2a2a] text-[#ededed] font-mono font-bold border border-[#444444] text-[11px] shadow-inner">
+                  V
+                </kbd>
+                <span className="text-[#9ac43e] font-semibold ml-1.5">
+                  вставить в любом месте
+                </span>
+              </div>
             </div>
-            <h3 className="text-base font-bold text-[#ededed] mb-1">
-              Перетащите любые файлы или папки сюда
+
+            <h3 className="text-xl font-bold text-[#ededed] mb-1.5 tracking-tight">
+              Передача файлов и папок
             </h3>
-            <p className="text-xs text-[#aaaaaa] max-w-sm mx-auto mb-3">
-              Или нажмите для выбора. Также работает <strong className="text-[#9ac43e]">Ctrl + V</strong> из буфера обмена.
+            <p className="text-xs text-[#aaaaaa] max-w-md mx-auto mb-5 leading-relaxed">
+              Нажмите <strong className="text-[#ededed]">Ctrl + V</strong> для мгновенной отправки скриншота или файла, перетащите мышкой в окно или выберите вручную:
             </p>
-            <div className="flex items-center justify-center gap-2">
-              <span className="inline-block px-3 py-1 rounded-full bg-[#171717] border border-[#3a3a3a] text-xs font-semibold text-[#9ac43e]">
-                Прямой P2P WebRTC
+
+            {/* Action Buttons */}
+            <div className="flex flex-wrap items-center justify-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="px-4 py-2.5 rounded-lg bg-[#789d2a] hover:bg-[#8cb632] text-white font-bold text-xs flex items-center gap-2 transition-colors cursor-pointer shadow-sm"
+              >
+                <File className="w-4 h-4" />
+                <span>Выбрать файлы</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => folderInputRef.current?.click()}
+                className="px-4 py-2.5 rounded-lg bg-[#2d2d2d] hover:bg-[#3a3a3a] text-[#ededed] font-bold text-xs flex items-center gap-2 transition-colors cursor-pointer border border-[#3a3a3a]"
+              >
+                <Folder className="w-4 h-4 text-[#9ac43e]" />
+                <span>Выбрать папку</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handlePasteFromClipboard}
+                className="px-4 py-2.5 rounded-lg bg-[#2d2d2d] hover:bg-[#3a3a3a] text-[#ededed] font-bold text-xs flex items-center gap-2 transition-colors cursor-pointer border border-[#3a3a3a]"
+                title="Вставить из буфера обмена (Ctrl + V)"
+              >
+                <Copy className="w-4 h-4 text-[#aaaaaa]" />
+                <span>Из буфера</span>
+              </button>
+            </div>
+
+            {/* Bottom Tag Badges */}
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 pt-4 mt-5 border-t border-[#3a3a3a]/60 text-[11px] text-[#aaaaaa]">
+              <span className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#789d2a]" />
+                Прямой WebRTC канал
               </span>
-              <span className="inline-block px-3 py-1 rounded-full bg-[#171717] border border-[#3a3a3a] text-xs font-semibold text-[#aaaaaa]">
-                Поддержка папок
-              </span>
+              <span className="text-[#555555]">·</span>
+              <span>Без ограничений по размеру</span>
+              <span className="text-[#555555]">·</span>
+              <span>Drag & Drop в любую область</span>
             </div>
           </div>
 
