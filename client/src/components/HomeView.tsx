@@ -14,6 +14,7 @@ import {
 import { NearbyPeer, PairRequest } from '../types/index.js';
 import { BridgeIcon } from './icons/BridgeIcon.js';
 import { sound } from '../utils/sound.js';
+import { HeroBridgeVisual } from './HeroBridgeVisual.js';
 
 interface HomeViewProps {
   onCreateBridge: () => void;
@@ -70,94 +71,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
-      {/* Thematic Pixel & Cable Bridge Visual: Screen 1 ↔ bridgik ↔ Screen 2 */}
-      <div className="mb-6 select-none">
-        <div className="h-16 sm:h-20 w-full flex items-end justify-between relative overflow-hidden border-b border-[#3a3a3a] pb-1">
-          {/* Left Pylon (Screen 1 / Desktop) */}
-          <div className="flex items-end gap-2 relative z-10 shrink-0">
-            <div className="flex flex-col items-center">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#9ac43e] animate-beacon mb-1" />
-              <div className="w-4 sm:w-5 h-10 sm:h-12 bg-[#262626] border-x border-t border-[#3a3a3a] rounded-t flex flex-col justify-between py-1">
-                <div className="w-2 h-1 bg-[#789d2a] mx-auto rounded-xs" />
-                <div className="w-2 h-1 bg-[#3a3a3a] mx-auto rounded-xs" />
-              </div>
-            </div>
-            <span className="text-xs sm:text-sm font-bold text-[#aaaaaa] hidden sm:inline mb-1 font-mono">
-              [ Экран 1 ]
-            </span>
-          </div>
-
-          {/* Bridge Cables Span & Animated WebRTC Data Packets */}
-          <div className="flex-1 h-12 sm:h-14 relative mx-2 sm:mx-6">
-            <svg
-              className="w-full h-full absolute inset-0 overflow-visible"
-              preserveAspectRatio="none"
-              viewBox="0 0 400 48"
-            >
-              {/* Main Suspension Cable Arc */}
-              <path
-                d="M 0 6 Q 200 46 400 6"
-                fill="none"
-                stroke="#3a3a3a"
-                strokeWidth="1.5"
-                strokeDasharray="4 3"
-              />
-              {/* Secondary Cable */}
-              <path
-                d="M 0 10 Q 200 42 400 10"
-                fill="none"
-                stroke="#2a2a2a"
-                strokeWidth="1"
-              />
-              {/* Vertical Suspenders */}
-              {[40, 80, 120, 160, 200, 240, 280, 320, 360].map((x) => (
-                <line
-                  key={x}
-                  x1={x}
-                  y1={6 + 40 * Math.pow((x - 200) / 200, 2)}
-                  x2={x}
-                  y2={48}
-                  stroke="#262626"
-                  strokeWidth="1"
-                />
-              ))}
-            </svg>
-
-            {/* Glowing Green Data Packet 1 flowing across bridge */}
-            <div
-              className="animate-bridge-flow bottom-0 flex items-center gap-1 pointer-events-none"
-              style={{ animationDuration: '3.2s' }}
-            >
-              <span className="w-2.5 h-2.5 bg-[#bbf348] rounded-xs shadow-[0_0_10px_#9ac43e]" />
-              <span className="w-1.5 h-1.5 bg-[#789d2a] rounded-xs opacity-80" />
-              <span className="w-1 h-1 bg-[#789d2a]/50 rounded-xs" />
-            </div>
-
-            {/* Glowing Green Data Packet 2 flowing across bridge (staggered) */}
-            <div
-              className="animate-bridge-flow bottom-0 flex items-center gap-1 pointer-events-none"
-              style={{ animationDuration: '3.2s', animationDelay: '1.6s' }}
-            >
-              <span className="w-2.5 h-2.5 bg-[#9ac43e] rounded-xs shadow-[0_0_8px_#789d2a]" />
-              <span className="w-1.5 h-1.5 bg-[#789d2a] rounded-xs opacity-75" />
-            </div>
-          </div>
-
-          {/* Right Pylon (Screen 2 / Mobile) */}
-          <div className="flex items-end gap-2 relative z-10 shrink-0">
-            <span className="text-xs sm:text-sm font-bold text-[#aaaaaa] hidden sm:inline mb-1 font-mono">
-              [ Экран 2 ]
-            </span>
-            <div className="flex flex-col items-center">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#9ac43e] animate-beacon mb-1" />
-              <div className="w-4 sm:w-5 h-10 sm:h-12 bg-[#262626] border-x border-t border-[#3a3a3a] rounded-t flex flex-col justify-between py-1">
-                <div className="w-2 h-1 bg-[#789d2a] mx-auto rounded-xs" />
-                <div className="w-2 h-1 bg-[#3a3a3a] mx-auto rounded-xs" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Real Cyber P2P Bridge: Screen 1 (Computer) ↔ Glowing Bridge ↔ Screen 2 (Mobile) */}
+      <HeroBridgeVisual />
 
       {/* Title section in Handjet font with letter-by-letter green illumination wave */}
       <div className="mb-8">
