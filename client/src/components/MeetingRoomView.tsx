@@ -28,6 +28,8 @@ import {
   Plus,
   Home,
   CheckCircle2,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react';
 import { FileTransfer, Peer, TextMessage } from '../types/index.js';
 import { sound } from '../utils/sound.js';
@@ -50,9 +52,12 @@ interface RoomDefinition {
   width: number;
   height: number;
   accent: string;
+  ambientGlow: string;
   badgeBg: string;
   badgeBorder: string;
   badgeText: string;
+  defaultZoom: number;
+  zoomOrigin: string;
   seats: RoomSeatDef[];
 }
 
@@ -65,14 +70,23 @@ export const ROOM_PRESETS: Record<RoomId, RoomDefinition> = {
     width: 911,
     height: 671,
     accent: '#9ac43e',
+    ambientGlow: 'radial-gradient(ellipse at 50% 50%, rgba(154, 196, 62, 0.15), transparent 70%)',
     badgeBg: 'bg-[#192414]',
     badgeBorder: 'border-[#789d2a]/60',
     badgeText: 'text-[#9ac43e]',
+    defaultZoom: 1.28,
+    zoomOrigin: '50% 54%',
     seats: [
-      { id: 'seat-1', label: 'Место 1', spotName: 'На кожаном диване', x: 52, y: 61 },
-      { id: 'seat-2', label: 'Место 2', spotName: 'За рабочим ПК у окна', x: 64, y: 44 },
-      { id: 'seat-3', label: 'Место 3', spotName: 'За обеденным столом', x: 76, y: 58 },
-      { id: 'seat-4', label: 'Место 4', spotName: 'У журнального столика', x: 38, y: 56 },
+      { id: 'seat-1', label: 'Место 1', spotName: 'На кожаном диване (слева)', x: 48, y: 62 },
+      { id: 'seat-2', label: 'Место 2', spotName: 'На кожаном диване (по центру)', x: 54, y: 60 },
+      { id: 'seat-3', label: 'Место 3', spotName: 'На кожаном диване (справа)', x: 60, y: 58 },
+      { id: 'seat-4', label: 'Место 4', spotName: 'За рабочим ПК у окна', x: 64, y: 44 },
+      { id: 'seat-5', label: 'Место 5', spotName: 'За обеденным столом (слева)', x: 74, y: 61 },
+      { id: 'seat-6', label: 'Место 6', spotName: 'За обеденным столом (справа)', x: 82, y: 59 },
+      { id: 'seat-7', label: 'Место 7', spotName: 'У журнального столика', x: 39, y: 56 },
+      { id: 'seat-8', label: 'Место 8', spotName: 'На мягком ковре', x: 44, y: 54 },
+      { id: 'seat-9', label: 'Место 9', spotName: 'У книжного стеллажа', x: 50, y: 43 },
+      { id: 'seat-10', label: 'Место 10', spotName: 'У прихожей', x: 32, y: 84 },
     ],
   },
   'cyber-lounge': {
@@ -83,14 +97,23 @@ export const ROOM_PRESETS: Record<RoomId, RoomDefinition> = {
     width: 1200,
     height: 896,
     accent: '#9ac43e',
+    ambientGlow: 'radial-gradient(ellipse at 50% 50%, rgba(120, 157, 42, 0.2), transparent 70%)',
     badgeBg: 'bg-[#152212]',
     badgeBorder: 'border-[#9ac43e]/60',
     badgeText: 'text-[#bbf348]',
+    defaultZoom: 1.26,
+    zoomOrigin: '50% 55%',
     seats: [
-      { id: 'seat-1', label: 'Место 1', spotName: 'На модульном диване', x: 50, y: 62 },
-      { id: 'seat-2', label: 'Место 2', spotName: 'За игровым терминалом', x: 26, y: 52 },
-      { id: 'seat-3', label: 'Место 3', spotName: 'У голографического столика', x: 68, y: 64 },
-      { id: 'seat-4', label: 'Место 4', spotName: 'В зоне отдыха', x: 42, y: 78 },
+      { id: 'seat-1', label: 'Место 1', spotName: 'На модульном диване (центр)', x: 51, y: 47 },
+      { id: 'seat-2', label: 'Место 2', spotName: 'На модульном диване (слева)', x: 42, y: 52 },
+      { id: 'seat-3', label: 'Место 3', spotName: 'На модульном диване (справа)', x: 62, y: 49 },
+      { id: 'seat-4', label: 'Место 4', spotName: 'На угловой кушетке', x: 46, y: 58 },
+      { id: 'seat-5', label: 'Место 5', spotName: 'За игровым терминалом', x: 23, y: 56 },
+      { id: 'seat-6', label: 'Место 6', spotName: 'У боевой станции ПК', x: 30, y: 52 },
+      { id: 'seat-7', label: 'Место 7', spotName: 'У голографического столика', x: 48, y: 68 },
+      { id: 'seat-8', label: 'Место 8', spotName: 'Перед голографическим столиком', x: 62, y: 65 },
+      { id: 'seat-9', label: 'Место 9', spotName: 'У неоновой монстеры', x: 76, y: 68 },
+      { id: 'seat-10', label: 'Место 10', spotName: 'На тёмном глянцевом полу', x: 36, y: 74 },
     ],
   },
   'tech-bunker': {
@@ -101,14 +124,23 @@ export const ROOM_PRESETS: Record<RoomId, RoomDefinition> = {
     width: 1200,
     height: 896,
     accent: '#f97316',
+    ambientGlow: 'radial-gradient(ellipse at 50% 50%, rgba(249, 115, 22, 0.18), transparent 70%)',
     badgeBg: 'bg-[#281c13]',
     badgeBorder: 'border-[#f97316]/60',
     badgeText: 'text-[#fb923c]',
+    defaultZoom: 1.25,
+    zoomOrigin: '50% 55%',
     seats: [
-      { id: 'seat-1', label: 'Место 1', spotName: 'За командным пультом', x: 42, y: 55 },
-      { id: 'seat-2', label: 'Место 2', spotName: 'У серверной стойки', x: 66, y: 58 },
-      { id: 'seat-3', label: 'Место 3', spotName: 'За тактическим столом', x: 30, y: 68 },
-      { id: 'seat-4', label: 'Место 4', spotName: 'У консоли управления', x: 55, y: 74 },
+      { id: 'seat-1', label: 'Место 1', spotName: 'За командным пультом', x: 40, y: 54 },
+      { id: 'seat-2', label: 'Место 2', spotName: 'У пульта второго пилота', x: 48, y: 52 },
+      { id: 'seat-3', label: 'Место 3', spotName: 'У серверной стойки', x: 65, y: 56 },
+      { id: 'seat-4', label: 'Место 4', spotName: 'За тактическим столом', x: 28, y: 68 },
+      { id: 'seat-5', label: 'Место 5', spotName: 'У радарной консоли', x: 73, y: 63 },
+      { id: 'seat-6', label: 'Место 6', spotName: 'На стальной решётке', x: 52, y: 66 },
+      { id: 'seat-7', label: 'Место 7', spotName: 'У аварийного пульта', x: 58, y: 76 },
+      { id: 'seat-8', label: 'Место 8', spotName: 'На бронированном пуфе', x: 36, y: 76 },
+      { id: 'seat-9', label: 'Место 9', spotName: 'У ящика снабжения', x: 22, y: 76 },
+      { id: 'seat-10', label: 'Место 10', spotName: 'У резервного генератора', x: 80, y: 74 },
     ],
   },
   'rooftop-terrace': {
@@ -119,14 +151,23 @@ export const ROOM_PRESETS: Record<RoomId, RoomDefinition> = {
     width: 1200,
     height: 896,
     accent: '#38bdf8',
+    ambientGlow: 'radial-gradient(ellipse at 50% 50%, rgba(56, 189, 248, 0.18), transparent 70%)',
     badgeBg: 'bg-[#122332]',
     badgeBorder: 'border-[#38bdf8]/60',
     badgeText: 'text-[#7dd3fc]',
+    defaultZoom: 1.26,
+    zoomOrigin: '50% 55%',
     seats: [
-      { id: 'seat-1', label: 'Место 1', spotName: 'На диване под фонариками', x: 50, y: 60 },
-      { id: 'seat-2', label: 'Место 2', spotName: 'У панорамного телескопа', x: 25, y: 64 },
-      { id: 'seat-3', label: 'Место 3', spotName: 'В лаундж-кресле', x: 70, y: 62 },
-      { id: 'seat-4', label: 'Место 4', spotName: 'На деревянной террасе', x: 45, y: 76 },
+      { id: 'seat-1', label: 'Место 1', spotName: 'На диване под гирляндой (слева)', x: 45, y: 58 },
+      { id: 'seat-2', label: 'Место 2', spotName: 'На диване под гирляндой (справа)', x: 55, y: 56 },
+      { id: 'seat-3', label: 'Место 3', spotName: 'У панорамного телескопа', x: 25, y: 63 },
+      { id: 'seat-4', label: 'Место 4', spotName: 'В лаундж-кресле с фонарём', x: 68, y: 60 },
+      { id: 'seat-5', label: 'Место 5', spotName: 'В деревянном шезлонге', x: 35, y: 68 },
+      { id: 'seat-6', label: 'Место 6', spotName: 'На деревянной террасе', x: 48, y: 74 },
+      { id: 'seat-7', label: 'Место 7', spotName: 'У цветочного вазона', x: 60, y: 68 },
+      { id: 'seat-8', label: 'Место 8', spotName: 'У парапета с видом на город', x: 75, y: 70 },
+      { id: 'seat-9', label: 'Место 9', spotName: 'У уютного столика', x: 38, y: 52 },
+      { id: 'seat-10', label: 'Место 10', spotName: 'На передней террасе', x: 58, y: 80 },
     ],
   },
 };
@@ -136,7 +177,7 @@ const sanitizeRoomId = (val: string | null): RoomId => {
   return 'cozy-apartment';
 };
 
-// Interactive Pixel Avatar Token (clean by default, details on hover only)
+// Interactive Pixel Avatar Token (minimalistic, details revealed on hover only)
 interface PixelAvatarSeatProps {
   name: string;
   isMe: boolean;
@@ -165,7 +206,7 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
       onMouseLeave={() => setIsHovered(false)}
       onClick={isMe ? onToggleMic : undefined}
     >
-      {/* Floating Tooltip: ONLY VISIBLE ON HOVER (as requested by user) */}
+      {/* Floating Tooltip: ONLY VISIBLE ON HOVER */}
       <div
         className={`absolute -top-11 z-30 transition-all duration-200 pointer-events-none flex flex-col items-center ${
           isHovered ? 'opacity-100 -translate-y-1 scale-100' : 'opacity-0 translate-y-1 scale-95'
@@ -214,7 +255,7 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
           </div>
         )}
 
-        {/* Clean Avatar Token without any distracting text */}
+        {/* Clean Avatar Token without any distracting text on the furniture */}
         <div
           className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full border-2 flex items-center justify-center transition-all duration-200 shadow-2xl relative cursor-pointer ${
             isHovered ? 'scale-115 ring-2 ring-white/50' : 'hover:scale-105'
@@ -244,7 +285,7 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
   );
 };
 
-// Interactive Empty Seat (subtle dot in default state, reveals info on hover)
+// Interactive Empty Seat (subtle marker, shows prompt on hover only)
 interface EmptyPixelSeatProps {
   spotName: string;
   pin: string;
@@ -377,6 +418,11 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
     return sanitizeRoomId(localStorage.getItem('bridgik_pixel_room'));
   });
 
+  // Immersive Zoom State: Enabled by default so the room fills the frame and doesn't look like a floating chunk!
+  const [isImmersiveZoom, setIsImmersiveZoom] = useState<boolean>(() => {
+    return localStorage.getItem('bridgik_room_zoom') !== 'false';
+  });
+
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isRoomPickerOpen, setIsRoomPickerOpen] = useState(false);
   const [isTheaterMode, setIsTheaterMode] = useState(false);
@@ -453,6 +499,13 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
     sound.playClick();
   };
 
+  const handleToggleZoom = () => {
+    const next = !isImmersiveZoom;
+    setIsImmersiveZoom(next);
+    localStorage.setItem('bridgik_room_zoom', next ? 'true' : 'false');
+    sound.playClick();
+  };
+
   const handleToggleSound = () => {
     const next = !soundEnabled;
     setSoundEnabled(next);
@@ -474,6 +527,9 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   const myPeer = peers.find((p) => p.id === myPeerId);
   const currentRoom = ROOM_PRESETS[currentRoomId] || ROOM_PRESETS['cozy-apartment'];
 
+  // Total active participants in room
+  const totalParticipants = 1 + otherPeers.length;
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-5">
       {/* Top Header Bar */}
@@ -492,7 +548,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
           <div className="flex items-center gap-2 text-sm text-[#aaaaaa]">
             <Users className="w-4 h-4 text-[#9ac43e]" />
             <span className="font-semibold text-[#ededed]">
-              {peers.length} {peers.length === 1 ? 'участник' : 'участника'} в комнате
+              {peers.length} {peers.length === 1 ? 'участник' : 'участников'} в комнате
             </span>
           </div>
         </div>
@@ -565,9 +621,14 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
             </div>
           ) : (
             /* ============================================================== */
-            /* GENUINE ISOMETRIC PIXEL ART DIORAMA ROOM                       */
+            /* IMMERSIVE ISOMETRIC ROOM (CONTINUOUS ENVIRONMENT, NOT FLOATING) */
             /* ============================================================== */
-            <div className="relative rounded-3xl border-2 border-[#33333e] bg-[#0c0c12] shadow-2xl overflow-hidden flex flex-col items-center justify-center">
+            <div
+              className="relative rounded-3xl border-2 border-[#33333e] bg-[#0c0c12] shadow-2xl overflow-hidden flex flex-col items-center justify-center"
+              style={{
+                backgroundImage: currentRoom.ambientGlow,
+              }}
+            >
               {/* Room Top Minimal Bar */}
               <div className="absolute top-3 left-3 right-3 z-20 flex items-center justify-between gap-2 pointer-events-none">
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#0c0c14]/90 border border-white/10 shadow-lg backdrop-blur-xs pointer-events-auto">
@@ -580,37 +641,128 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                   </span>
                 </div>
 
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#0c0c14]/90 border border-white/10 shadow-lg backdrop-blur-xs text-[11px] font-mono text-[#aaaaaa]">
-                  <ShieldCheck className="w-3.5 h-3.5 text-[#9ac43e]" />
-                  <span>0 байт на сервере</span>
+                <div className="flex items-center gap-2 pointer-events-auto">
+                  {/* Zoom / Framing Toggle Button */}
+                  <button
+                    onClick={handleToggleZoom}
+                    className="p-1.5 rounded-xl bg-[#0c0c14]/90 border border-white/10 hover:border-white/30 text-[#ededed] shadow-lg backdrop-blur-xs transition-colors cursor-pointer text-xs flex items-center gap-1"
+                    title={isImmersiveZoom ? 'Отдалить (показать диораму целиком)' : 'Приблизить (полное погружение в интерьер)'}
+                  >
+                    {isImmersiveZoom ? <ZoomOut className="w-3.5 h-3.5 text-[#9ac43e]" /> : <ZoomIn className="w-3.5 h-3.5" />}
+                    <span className="text-[11px] font-mono hidden sm:inline">
+                      {isImmersiveZoom ? 'Интерьер' : 'Диорама'}
+                    </span>
+                  </button>
+
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#0c0c14]/90 border border-white/10 shadow-lg backdrop-blur-xs text-[11px] font-mono text-[#aaaaaa]">
+                    <ShieldCheck className="w-3.5 h-3.5 text-[#9ac43e]" />
+                    <span>P2P</span>
+                  </div>
                 </div>
               </div>
 
-              {/* Diorama Container matching Image Aspect Ratio */}
+              {/* Diorama Container: Uses Immersive Scaling so the room extends to the walls and doesn't float in void! */}
               <div
-                className="relative w-full max-h-[500px] flex items-center justify-center overflow-hidden"
+                className="relative w-full max-h-[520px] flex items-center justify-center overflow-hidden"
                 style={{
                   aspectRatio: `${currentRoom.width} / ${currentRoom.height}`,
                 }}
               >
-                {/* Pixel Art Diorama Background */}
-                <img
-                  src={currentRoom.imageSrc}
-                  alt={currentRoom.title}
-                  className="w-full h-full object-cover select-none pointer-events-none"
-                  style={{
-                    imageRendering: 'pixelated',
-                  }}
-                />
-
-                {/* Subtle CRT Scanline Overlay */}
+                {/* Scaled Room Interior Layer (Moves cutaway void outside the viewport) */}
                 <div
-                  className="absolute inset-0 pointer-events-none opacity-15"
+                  className="relative w-full h-full transition-transform duration-500 ease-out"
                   style={{
-                    backgroundImage: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.4) 50%)',
-                    backgroundSize: '100% 4px',
+                    transform: isImmersiveZoom ? `scale(${currentRoom.defaultZoom})` : 'scale(1)',
+                    transformOrigin: currentRoom.zoomOrigin,
                   }}
-                />
+                >
+                  {/* Pixel Art Background */}
+                  <img
+                    src={currentRoom.imageSrc}
+                    alt={currentRoom.title}
+                    className="w-full h-full object-cover select-none pointer-events-none"
+                    style={{
+                      imageRendering: 'pixelated',
+                    }}
+                  />
+
+                  {/* Subtle Scanline Overlay */}
+                  <div
+                    className="absolute inset-0 pointer-events-none opacity-15"
+                    style={{
+                      backgroundImage: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.4) 50%)',
+                      backgroundSize: '100% 4px',
+                    }}
+                  />
+
+                  {/* ============================================================== */}
+                  {/* PARTICIPANT SEATS PINNED TO EXACT PIXEL FURNITURE SPOTS        */}
+                  {/* ACCOMMODATES MAXIMUM PARTICIPANTS (UP TO 10+ SEATS)           */}
+                  {/* ============================================================== */}
+                  {currentRoom.seats.map((seat, index) => {
+                    let seatContent: React.ReactNode = null;
+
+                    if (index === 0) {
+                      // Seat 1: Host (You)
+                      seatContent = (
+                        <PixelAvatarSeat
+                          name={myPeer?.name || 'Quantum Lynx'}
+                          isMe={true}
+                          deviceType={myPeer?.deviceType}
+                          isMicActive={isMicActive}
+                          spotName={seat.spotName}
+                          accentColor={currentRoom.accent}
+                          onToggleMic={onToggleMic}
+                        />
+                      );
+                    } else if (index < totalParticipants) {
+                      // Peer sits here (Peer 1, Peer 2, Peer 3... Peer 9)
+                      const peerIndex = index - 1;
+                      const peer = otherPeers[peerIndex];
+                      if (peer) {
+                        seatContent = (
+                          <PixelAvatarSeat
+                            name={peer.name}
+                            isMe={false}
+                            deviceType={peer.deviceType}
+                            isMicActive={true}
+                            spotName={seat.spotName}
+                            accentColor={currentRoom.accent}
+                          />
+                        );
+                      }
+                    } else if (index === totalParticipants || (totalParticipants < 3 && index < 3)) {
+                      // Show the NEXT available empty seat(s) as inviting subtle + markers!
+                      seatContent = (
+                        <EmptyPixelSeat
+                          spotName={seat.spotName}
+                          pin={pin}
+                          copied={copiedLink}
+                          accentColor={currentRoom.accent}
+                          onInvite={handleCopyLink}
+                        />
+                      );
+                    } else {
+                      // Extra unoccupied spots are kept invisible until more peers join, keeping room clean!
+                      seatContent = null;
+                    }
+
+                    if (!seatContent) return null;
+
+                    return (
+                      <div
+                        key={seat.id}
+                        className="absolute z-10 -translate-x-1/2 -translate-y-1/2 transition-all duration-300"
+                        style={{
+                          left: `${seat.x}%`,
+                          top: `${seat.y}%`,
+                        }}
+                      >
+                        {seatContent}
+                      </div>
+                    );
+                  })}
+                </div>
 
                 {/* Screen Share Overlay in Room Corner (if screen sharing is active) */}
                 {hasRemoteVideo && (
@@ -630,113 +782,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                     </button>
                   </div>
                 )}
-
-                {/* ============================================================== */}
-                {/* PARTICIPANT SEATS PINNED TO FURNITURE (CLEAN - TOOLTIP ON HOVER) */}
-                {/* ============================================================== */}
-                {currentRoom.seats.map((seat, index) => {
-                  let seatContent: React.ReactNode = null;
-
-                  if (index === 0) {
-                    // Seat 1: Host (You)
-                    seatContent = (
-                      <PixelAvatarSeat
-                        name={myPeer?.name || 'Quantum Lynx'}
-                        isMe={true}
-                        deviceType={myPeer?.deviceType}
-                        isMicActive={isMicActive}
-                        spotName={seat.spotName}
-                        accentColor={currentRoom.accent}
-                        onToggleMic={onToggleMic}
-                      />
-                    );
-                  } else if (index === 1) {
-                    // Seat 2: Peer 1 (Guest or Empty)
-                    if (otherPeers.length > 0) {
-                      seatContent = (
-                        <PixelAvatarSeat
-                          name={otherPeers[0].name}
-                          isMe={false}
-                          deviceType={otherPeers[0].deviceType}
-                          isMicActive={true}
-                          spotName={seat.spotName}
-                          accentColor={currentRoom.accent}
-                        />
-                      );
-                    } else {
-                      seatContent = (
-                        <EmptyPixelSeat
-                          spotName={seat.spotName}
-                          pin={pin}
-                          copied={copiedLink}
-                          accentColor={currentRoom.accent}
-                          onInvite={handleCopyLink}
-                        />
-                      );
-                    }
-                  } else if (index === 2) {
-                    // Seat 3: Peer 2 or Empty
-                    if (otherPeers.length > 1) {
-                      seatContent = (
-                        <PixelAvatarSeat
-                          name={otherPeers[1].name}
-                          isMe={false}
-                          deviceType={otherPeers[1].deviceType}
-                          isMicActive={true}
-                          spotName={seat.spotName}
-                          accentColor={currentRoom.accent}
-                        />
-                      );
-                    } else {
-                      seatContent = (
-                        <EmptyPixelSeat
-                          spotName={seat.spotName}
-                          pin={pin}
-                          copied={copiedLink}
-                          accentColor={currentRoom.accent}
-                          onInvite={handleCopyLink}
-                        />
-                      );
-                    }
-                  } else if (index === 3) {
-                    // Seat 4: Peer 3 or Empty
-                    if (otherPeers.length > 2) {
-                      seatContent = (
-                        <PixelAvatarSeat
-                          name={otherPeers[2].name}
-                          isMe={false}
-                          deviceType={otherPeers[2].deviceType}
-                          isMicActive={true}
-                          spotName={seat.spotName}
-                          accentColor={currentRoom.accent}
-                        />
-                      );
-                    } else {
-                      seatContent = (
-                        <EmptyPixelSeat
-                          spotName={seat.spotName}
-                          pin={pin}
-                          copied={copiedLink}
-                          accentColor={currentRoom.accent}
-                          onInvite={handleCopyLink}
-                        />
-                      );
-                    }
-                  }
-
-                  return (
-                    <div
-                      key={seat.id}
-                      className="absolute z-10 -translate-x-1/2 -translate-y-1/2 transition-all duration-300"
-                      style={{
-                        left: `${seat.x}%`,
-                        top: `${seat.y}%`,
-                      }}
-                    >
-                      {seatContent}
-                    </div>
-                  );
-                })}
               </div>
 
               {/* Floating Bottom Control Dock (HUD) */}
@@ -1080,7 +1125,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 </div>
                 <div>
                   <h3 className="text-xl font-extrabold text-[#ededed]">Настройки комнаты</h3>
-                  <p className="text-xs text-[#888888]">Выбор локации, позывной и звук</p>
+                  <p className="text-xs text-[#888888]">Выбор локации, масштаб, позывной и звук</p>
                 </div>
               </div>
               <button
@@ -1100,9 +1145,9 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <Home className="w-4 h-4 text-[#9ac43e]" />
-                    <h4 className="text-base font-bold text-[#ededed]">Локация комнаты (Изометрия)</h4>
+                    <h4 className="text-base font-bold text-[#ededed]">Локация комнаты</h4>
                   </div>
-                  <span className="text-xs font-mono text-[#888888]">4 локации</span>
+                  <span className="text-xs font-mono text-[#888888]">вместимость: 10 мест</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1142,9 +1187,36 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 </div>
               </div>
 
-              {/* Section 2: Nickname */}
-              <div>
-                <div className="flex items-center gap-2 mb-2">
+              {/* Section 2: Immersive Scale Toggle */}
+              <div className="space-y-3 pt-2 border-t border-[#303038]">
+                <h4 className="text-base font-bold text-[#ededed] flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-[#9ac43e]" />
+                  <span>Отображение комнаты</span>
+                </h4>
+
+                <div className="flex items-center justify-between p-3 rounded-xl bg-[#15151a] border border-[#2f2f3a]">
+                  <div>
+                    <p className="text-sm font-bold text-[#ededed]">Полное погружение в интерьер</p>
+                    <p className="text-xs text-[#888888]">Стены и пол продолжаются до краев экрана без ощущения висящей в воздухе диорамы</p>
+                  </div>
+                  <button
+                    onClick={handleToggleZoom}
+                    className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
+                      isImmersiveZoom ? 'bg-[#789d2a]' : 'bg-[#33333d]'
+                    }`}
+                  >
+                    <span
+                      className={`block w-5 h-5 rounded-full bg-white transition-transform ${
+                        isImmersiveZoom ? 'translate-x-6.5' : 'translate-x-0.5'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              {/* Section 3: Nickname */}
+              <div className="space-y-2 pt-2 border-t border-[#303038]">
+                <div className="flex items-center gap-2">
                   <Users className="w-4 h-4 text-[#9ac43e]" />
                   <h4 className="text-base font-bold text-[#ededed]">Ваш позывной в комнате</h4>
                 </div>
@@ -1167,11 +1239,11 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 </div>
               </div>
 
-              {/* Section 3: Sound Toggles */}
+              {/* Section 4: Sound Toggles */}
               <div className="space-y-3 pt-2 border-t border-[#303038]">
                 <h4 className="text-base font-bold text-[#ededed] flex items-center gap-2">
-                  <Sliders className="w-4 h-4 text-[#9ac43e]" />
-                  <span>Звуки и эффекты</span>
+                  <Volume2 className="w-4 h-4 text-[#9ac43e]" />
+                  <span>Звуковые эффекты</span>
                 </h4>
 
                 <div className="flex items-center justify-between p-3 rounded-xl bg-[#15151a] border border-[#2f2f3a]">
@@ -1182,7 +1254,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                       <VolumeX className="w-4 h-4 text-[#888888]" />
                     )}
                     <div>
-                      <p className="text-sm font-bold text-[#ededed]">8-битные звуковые эффекты</p>
+                      <p className="text-sm font-bold text-[#ededed]">8-битные звуки</p>
                       <p className="text-xs text-[#888888]">Щелчки кнопок и уведомления чата</p>
                     </div>
                   </div>
@@ -1201,7 +1273,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 </div>
               </div>
 
-              {/* Section 4: Security Info */}
+              {/* Section 5: Security Info */}
               <div className="p-3.5 rounded-xl bg-[#121216] border border-[#2a2a35] text-xs text-[#888888] space-y-1 font-mono">
                 <div className="flex items-center justify-between text-[#ededed] font-bold">
                   <span className="flex items-center gap-1.5">
@@ -1211,7 +1283,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                   <span className="text-[#9ac43e]">E2E DTLS-SRTP</span>
                 </div>
                 <p>Аудиокодек: Opus 48 kHz (динамический битрейт 32-128 kbps)</p>
-                <p>Архитектура: Pure P2P Mesh · 0 байт на сервере</p>
+                <p>Вместимость: до 10 участников в P2P Mesh · 0 байт на сервере</p>
               </div>
             </div>
 
