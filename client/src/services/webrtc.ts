@@ -140,6 +140,9 @@ export class WebRTCManager {
     pc.ontrack = (event) => {
       if (event.streams && event.streams[0]) {
         this.callbacks.onRemoteStream(targetPeerId, event.streams[0]);
+      } else if (event.track) {
+        const stream = new MediaStream([event.track]);
+        this.callbacks.onRemoteStream(targetPeerId, stream);
       }
     };
 
@@ -913,24 +916,45 @@ export class WebRTCManager {
     this.cancelledTransfers.add(fileId);
   }
 
+  private async renegotiate(peerId: string, pc: RTCPeerConnection) {
+    try {
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      this.socket.emit('signal', {
+        to: peerId,
+        payload: { sdp: pc.localDescription },
+      });
+    } catch (err) {
+      console.warn(`Renegotiation failed with peer ${peerId}`, err);
+    }
+  }
+
   /**
-   * Audio/Voice call toggle
+   * Audio/Voice call toggle (live P2P microphone)
    */
   public async toggleMicrophone(): Promise<boolean> {
     if (this.localStream) {
-      // Stop and remove audio
+      // Stop and remove audio tracks
       this.localStream.getTracks().forEach((track) => track.stop());
       this.localStream = null;
+
+      for (const [peerId, { pc }] of this.connections) {
+        const senders = pc.getSenders().filter((s) => s.track && s.track.kind === 'audio');
+        senders.forEach((s) => pc.removeTrack(s));
+        await this.renegotiate(peerId, pc);
+      }
       return false;
     } else {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         this.localStream = stream;
-        stream.getTracks().forEach((track) => {
-          this.connections.forEach(({ pc }) => {
+
+        for (const [peerId, { pc }] of this.connections) {
+          stream.getTracks().forEach((track) => {
             pc.addTrack(track, stream);
           });
-        });
+          await this.renegotiate(peerId, pc);
+        }
         return true;
       } catch (err) {
         console.error('Failed to get audio', err);
@@ -940,25 +964,37 @@ export class WebRTCManager {
   }
 
   /**
-   * Screen sharing toggle
+   * Screen sharing toggle (live 60fps screen/tab/window P2P broadcast)
    */
   public async toggleScreenShare(): Promise<boolean> {
     if (this.screenStream) {
       this.screenStream.getTracks().forEach((track) => track.stop());
       this.screenStream = null;
+
+      for (const [peerId, { pc }] of this.connections) {
+        const senders = pc.getSenders().filter((s) => s.track && s.track.kind === 'video');
+        senders.forEach((s) => pc.removeTrack(s));
+        await this.renegotiate(peerId, pc);
+      }
       return false;
     } else {
       try {
-        const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: true,
+        });
         this.screenStream = stream;
+
         stream.getVideoTracks()[0].onended = () => {
-          this.screenStream = null;
+          this.toggleScreenShare();
         };
-        stream.getTracks().forEach((track) => {
-          this.connections.forEach(({ pc }) => {
+
+        for (const [peerId, { pc }] of this.connections) {
+          stream.getTracks().forEach((track) => {
             pc.addTrack(track, stream);
           });
-        });
+          await this.renegotiate(peerId, pc);
+        }
         return true;
       } catch (err) {
         console.error('Failed to get screen share', err);

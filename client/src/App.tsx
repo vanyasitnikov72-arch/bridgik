@@ -47,6 +47,7 @@ export function App() {
   const [isScreenActive, setIsScreenActive] = useState(false);
   const [hasRemoteVideo, setHasRemoteVideo] = useState(false);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const webrtcRef = useRef<WebRTCManager | null>(null);
 
@@ -156,9 +157,20 @@ export function App() {
         });
       },
       onRemoteStream: (_peerId, stream) => {
-        if (remoteVideoRef.current) {
+        const videoTracks = stream.getVideoTracks();
+        const audioTracks = stream.getAudioTracks();
+
+        if (videoTracks.length > 0 && remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = stream;
           setHasRemoteVideo(true);
+          videoTracks[0].onended = () => {
+            setHasRemoteVideo(false);
+          };
+        }
+
+        if (audioTracks.length > 0 && remoteAudioRef.current) {
+          remoteAudioRef.current.srcObject = stream;
+          remoteAudioRef.current.play().catch(() => {});
         }
       },
       onPeerConnectionStateChange: (peerId, state) => {
@@ -554,6 +566,8 @@ export function App() {
       />
 
       <Footer />
+      {/* Hidden audio element to play remote peer microphone live */}
+      <audio ref={remoteAudioRef} autoPlay playsInline />
     </div>
   );
 }
