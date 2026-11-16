@@ -221,17 +221,17 @@ export const RoomView: React.FC<RoomViewProps> = ({
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
       {/* Top Bar: Room Info & Actions */}
-      <div className="bg-[#222222] border border-[#3a3a3a] rounded-xl p-4 mb-6 flex flex-col gap-3 shadow-md">
+      <div className="bg-[#222222] border border-[#3a3a3a] rounded-xl p-4 sm:p-5 mb-6 flex flex-col gap-3.5 shadow-md">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 bg-[#171717] px-3.5 py-1.5 rounded-md border border-[#3a3a3a]">
-              <span className="text-xs text-[#999999] uppercase font-semibold">PIN:</span>
-              <span className="font-mono text-xl font-bold tracking-wider text-[#9ac43e]">{pin}</span>
+          <div className="flex items-center gap-3.5">
+            <div className="flex items-center gap-2 bg-[#171717] px-4 py-2 rounded-lg border border-[#3a3a3a]">
+              <span className="text-sm text-[#999999] uppercase font-bold tracking-wider">PIN:</span>
+              <span className="font-mono text-2xl font-extrabold tracking-wider text-[#9ac43e]">{pin}</span>
             </div>
 
-            <div className="flex items-center gap-1.5 text-xs text-[#ededed]">
+            <div className="flex items-center gap-2 text-sm sm:text-base text-[#ededed]">
               <Users className="w-4 h-4 text-[#9ac43e]" />
-              <span className="font-medium">
+              <span className="font-semibold">
                 {otherPeers.length === 0
                   ? 'Ожидание участников...'
                   : `${peers.length} устройств(а) в сети`}
@@ -244,7 +244,7 @@ export const RoomView: React.FC<RoomViewProps> = ({
             {/* Auto-Download Toggle */}
             <button
               onClick={onToggleAutoDownload}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border ${
+              className={`px-3.5 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer border ${
                 autoDownload
                   ? 'bg-[#1c2214] border-[#789d2a] text-[#9ac43e]'
                   : 'bg-[#2d2d2d] border-[#3a3a3a] text-[#aaaaaa] hover:text-[#ededed]'
@@ -256,9 +256,9 @@ export const RoomView: React.FC<RoomViewProps> = ({
               }
             >
               {autoDownload ? (
-                <CheckSquare className="w-3.5 h-3.5 text-[#9ac43e]" />
+                <CheckSquare className="w-4 h-4 text-[#9ac43e]" />
               ) : (
-                <Square className="w-3.5 h-3.5" />
+                <Square className="w-4 h-4" />
               )}
               <span className="hidden sm:inline">
                 {autoDownload ? 'Автосохранение' : 'Автосохранение: ВЫКЛ'}
@@ -268,9 +268,9 @@ export const RoomView: React.FC<RoomViewProps> = ({
             {/* Target Download Directory Handle (Zero-Prompt Direct-to-Disk) */}
             {typeof window !== 'undefined' && 'showDirectoryPicker' in window && (
               destinationDirName ? (
-                <div className="flex items-center gap-1.5 bg-[#1c2214] border border-[#789d2a] rounded-md px-2.5 py-1 text-xs text-[#9ac43e]">
-                  <FolderDown className="w-3.5 h-3.5 text-[#9ac43e] shrink-0" />
-                  <span className="font-semibold max-w-[130px] truncate" title={`Папка на диске: ${destinationDirName}`}>
+                <div className="flex items-center gap-1.5 bg-[#1c2214] border border-[#789d2a] rounded-lg px-3 py-2 text-sm text-[#9ac43e]">
+                  <FolderDown className="w-4 h-4 text-[#9ac43e] shrink-0" />
+                  <span className="font-bold max-w-[130px] truncate" title={`Папка на диске: ${destinationDirName}`}>
                     Папка: {destinationDirName}
                   </span>
                   <button
@@ -278,16 +278,16 @@ export const RoomView: React.FC<RoomViewProps> = ({
                     className="p-0.5 hover:text-white transition-colors cursor-pointer"
                     title="Сбросить выбранную папку"
                   >
-                    <X className="w-3 h-3 text-[#aaaaaa] hover:text-[#ef9282]" />
+                    <X className="w-3.5 h-3.5 text-[#aaaaaa] hover:text-[#ef9282]" />
                   </button>
                 </div>
               ) : (
                 <button
                   onClick={onPickDestinationDir}
-                  className="px-3 py-1.5 rounded-md bg-[#2d2d2d] hover:bg-[#3a3a3a] text-[#ededed] text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border border-[#3a3a3a]"
+                  className="px-3.5 py-2 rounded-lg bg-[#2d2d2d] hover:bg-[#3a3a3a] text-[#ededed] text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer border border-[#3a3a3a]"
                   title="Выберите папку на диске для автоматического сохранения всех файлов без всплывающих окон"
                 >
-                  <FolderDown className="w-3.5 h-3.5 text-[#9ac43e]" />
+                  <FolderDown className="w-4 h-4 text-[#9ac43e]" />
                   <span className="hidden sm:inline">Папка на диске</span>
                 </button>
               )
@@ -295,24 +295,24 @@ export const RoomView: React.FC<RoomViewProps> = ({
 
             <button
               onClick={onOpenQR}
-              className="px-3 py-1.5 rounded-md bg-[#2d2d2d] hover:bg-[#3a3a3a] text-[#ededed] text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3.5 py-2 rounded-lg bg-[#2d2d2d] hover:bg-[#3a3a3a] text-[#ededed] text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <QrCode className="w-3.5 h-3.5 text-[#9ac43e]" />
+              <QrCode className="w-4 h-4 text-[#9ac43e]" />
               <span className="hidden sm:inline">QR-код</span>
             </button>
 
             <button
               onClick={handleCopyLink}
-              className="px-3 py-1.5 rounded-md bg-[#2d2d2d] hover:bg-[#3a3a3a] text-[#ededed] text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3.5 py-2 rounded-lg bg-[#2d2d2d] hover:bg-[#3a3a3a] text-[#ededed] text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               {copiedLink ? (
                 <>
-                  <Check className="w-3.5 h-3.5 text-[#9ac43e]" />
+                  <Check className="w-4 h-4 text-[#9ac43e]" />
                   <span className="text-[#9ac43e]">Скопировано</span>
                 </>
               ) : (
                 <>
-                  <Share2 className="w-3.5 h-3.5" />
+                  <Share2 className="w-4 h-4" />
                   <span className="hidden sm:inline">Ссылка</span>
                 </>
               )}
@@ -321,38 +321,38 @@ export const RoomView: React.FC<RoomViewProps> = ({
             {/* Voice Mic Toggle */}
             <button
               onClick={onToggleMic}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+              className={`px-3.5 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
                 isMicActive
                   ? 'bg-[#ed2b3b] text-white'
                   : 'bg-[#2d2d2d] hover:bg-[#3a3a3a] text-[#ededed]'
               }`}
               title={isMicActive ? 'Выключить микрофон' : 'Включить голос'}
             >
-              {isMicActive ? <Mic className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5" />}
+              {isMicActive ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
               <span className="hidden sm:inline">{isMicActive ? 'Голос вкл' : 'Микрофон'}</span>
             </button>
 
             {/* Screen Share Toggle */}
             <button
               onClick={onToggleScreen}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+              className={`px-3.5 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
                 isScreenActive
                   ? 'bg-[#789d2a] text-white'
                   : 'bg-[#2d2d2d] hover:bg-[#3a3a3a] text-[#ededed]'
               }`}
               title="Демонстрация экрана"
             >
-              <ScreenShare className="w-3.5 h-3.5" />
+              <ScreenShare className="w-4 h-4" />
               <span className="hidden sm:inline">{isScreenActive ? 'Трансляция...' : 'Экран'}</span>
             </button>
 
             {/* Exit Button */}
             <button
               onClick={onLeaveRoom}
-              className="px-3 py-1.5 rounded-md bg-[#2d2d2d] hover:bg-[#ef9282]/15 hover:text-[#ef9282] border border-transparent hover:border-[#ef9282]/30 text-[#aaaaaa] text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ml-1"
+              className="px-3.5 py-2 rounded-lg bg-[#2d2d2d] hover:bg-[#ef9282]/15 hover:text-[#ef9282] border border-transparent hover:border-[#ef9282]/30 text-[#aaaaaa] text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer ml-1"
               title="Закрыть комнату и очистить память"
             >
-              <LogOut className="w-3.5 h-3.5" />
+              <LogOut className="w-4 h-4" />
               <span className="hidden sm:inline">Выйти</span>
             </button>
           </div>
@@ -360,22 +360,22 @@ export const RoomView: React.FC<RoomViewProps> = ({
 
         {/* Connected devices list */}
         {peers.length > 0 && (
-          <div className="flex items-center gap-2 pt-2.5 border-t border-[#3a3a3a] w-full flex-wrap text-xs">
-            <span className="text-[#999999] text-[11px] font-medium mr-1">Устройства в комнате:</span>
+          <div className="flex items-center gap-2 pt-3 border-t border-[#3a3a3a] w-full flex-wrap text-sm">
+            <span className="text-[#999999] text-sm font-semibold mr-1">Устройства в комнате:</span>
             {peers.map((p) => {
               const isMe = p.id === myPeerId;
               return (
                 <span
                   key={p.id}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs border ${
+                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border font-bold ${
                     isMe
                       ? 'bg-[#171717] text-[#ededed] border-[#3a3a3a]'
                       : 'bg-[#2d2d2d] text-[#ededed] border-[#3a3a3a]'
                   }`}
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#789d2a]" />
-                  <span className="font-semibold">{p.name}</span>
-                  {isMe && <span className="text-[10px] text-[#999999]">(Вы)</span>}
+                  <span className="w-2 h-2 rounded-full bg-[#789d2a]" />
+                  <span>{p.name}</span>
+                  {isMe && <span className="text-xs text-[#999999] font-normal">(Вы)</span>}
                 </span>
               );
             })}
@@ -392,8 +392,8 @@ export const RoomView: React.FC<RoomViewProps> = ({
             playsInline
             className="w-full h-full object-contain"
           />
-          <div className="absolute top-3 left-3 bg-[#171717]/90 px-3 py-1 rounded-md text-xs text-[#ededed] border border-[#3a3a3a] flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#ed2b3b] animate-pulse" />
+          <div className="absolute top-3 left-3 bg-[#171717]/90 px-3 py-1.5 rounded-lg text-sm font-semibold text-[#ededed] border border-[#3a3a3a] flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#ed2b3b] animate-pulse" />
             <span>Демонстрация экрана собеседника</span>
           </div>
         </div>
@@ -401,19 +401,19 @@ export const RoomView: React.FC<RoomViewProps> = ({
 
       {/* Waiting for peer banner */}
       {otherPeers.length === 0 && (
-        <div className="mb-6 p-4 rounded-xl bg-[#222222] border border-[#3a3a3a] flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-2.5 h-2.5 rounded-full bg-[#789d2a] animate-ping" />
+        <div className="mb-6 p-5 rounded-xl bg-[#222222] border border-[#3a3a3a] flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-3 h-3 rounded-full bg-[#789d2a] animate-ping" />
             <div>
-              <p className="text-sm font-bold text-[#ededed]">Ожидание собеседника</p>
-              <p className="text-xs text-[#aaaaaa]">
-                Отправьте ссылку или продиктуйте 4-значный код <strong>{pin}</strong>, либо покажите QR-код
+              <p className="text-lg font-bold text-[#ededed]">Ожидание собеседника</p>
+              <p className="text-sm sm:text-base text-[#aaaaaa]">
+                Отправьте ссылку или продиктуйте код <strong>{pin}</strong>, либо покажите QR-код
               </p>
             </div>
           </div>
           <button
             onClick={onOpenQR}
-            className="px-3.5 py-1.5 rounded-md bg-[#789d2a] hover:bg-[#8cb632] text-white text-xs font-bold shrink-0 cursor-pointer transition-colors"
+            className="px-4 py-2 rounded-lg bg-[#789d2a] hover:bg-[#8cb632] text-white text-sm font-bold shrink-0 cursor-pointer transition-colors"
           >
             Показать QR
           </button>
@@ -432,7 +432,7 @@ export const RoomView: React.FC<RoomViewProps> = ({
             }}
             onDragLeave={() => setIsDragging(false)}
             onDrop={handleDrop}
-            className={`rounded-xl border transition-all p-6 sm:p-7 text-center select-none shadow-md ${
+            className={`rounded-xl border transition-all p-6 sm:p-8 text-center select-none shadow-md ${
               isDragging
                 ? 'border-[#789d2a] bg-[#1c2214] ring-2 ring-[#789d2a]/30'
                 : 'border-[#3a3a3a] bg-[#202020] hover:border-[#4a4a4a]'
@@ -448,7 +448,7 @@ export const RoomView: React.FC<RoomViewProps> = ({
             />
             <input
               type="file"
-              // @ts-ignore - webkitdirectory is standard for folder picking
+              // @ts-ignore
               webkitdirectory=""
               directory=""
               multiple
@@ -458,63 +458,63 @@ export const RoomView: React.FC<RoomViewProps> = ({
             />
 
             {/* Ctrl + V Interactive Keyboard Badge */}
-            <div className="flex items-center justify-center gap-2 mb-3.5">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#171717] border border-[#3a3a3a] text-xs">
-                <kbd className="px-1.5 py-0.5 rounded bg-[#2a2a2a] text-[#ededed] font-mono font-bold border border-[#444444] text-[11px] shadow-inner">
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-[#171717] border border-[#3a3a3a] text-sm">
+                <kbd className="px-2 py-0.5 rounded bg-[#2a2a2a] text-[#ededed] font-mono font-bold border border-[#444444] text-xs shadow-inner">
                   Ctrl
                 </kbd>
                 <span className="text-[#999999] font-bold">+</span>
-                <kbd className="px-1.5 py-0.5 rounded bg-[#2a2a2a] text-[#ededed] font-mono font-bold border border-[#444444] text-[11px] shadow-inner">
+                <kbd className="px-2 py-0.5 rounded bg-[#2a2a2a] text-[#ededed] font-mono font-bold border border-[#444444] text-xs shadow-inner">
                   V
                 </kbd>
-                <span className="text-[#9ac43e] font-semibold ml-1.5">
+                <span className="text-[#9ac43e] font-bold ml-1 text-sm sm:text-base">
                   вставить в любом месте
                 </span>
               </div>
             </div>
 
-            <h3 className="text-xl font-bold text-[#ededed] mb-1.5 tracking-tight">
+            <h3 className="text-2xl sm:text-3xl font-extrabold text-[#ededed] mb-2 tracking-tight">
               Передача файлов и папок
             </h3>
-            <p className="text-xs text-[#aaaaaa] max-w-md mx-auto mb-5 leading-relaxed">
-              Нажмите <strong className="text-[#ededed]">Ctrl + V</strong> для мгновенной отправки скриншота или файла, перетащите мышкой в окно или выберите вручную:
+            <p className="text-base sm:text-lg text-[#ededed] max-w-lg mx-auto mb-6 leading-relaxed">
+              Нажмите <strong className="text-white bg-[#171717] px-2 py-0.5 rounded border border-[#3a3a3a]">Ctrl + V</strong> для мгновенной отправки скриншота или файла, перетащите мышкой в окно или выберите вручную:
             </p>
 
             {/* Action Buttons */}
-            <div className="flex flex-wrap items-center justify-center gap-2.5">
+            <div className="flex flex-wrap items-center justify-center gap-3">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="px-4 py-2.5 rounded-lg bg-[#789d2a] hover:bg-[#8cb632] text-white font-bold text-xs flex items-center gap-2 transition-colors cursor-pointer shadow-sm"
+                className="px-5 py-2.5 rounded-lg bg-[#789d2a] hover:bg-[#8cb632] text-white font-bold text-base flex items-center gap-2 transition-colors cursor-pointer shadow-sm"
               >
-                <File className="w-4 h-4" />
+                <File className="w-5 h-5" />
                 <span>Выбрать файлы</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => folderInputRef.current?.click()}
-                className="px-4 py-2.5 rounded-lg bg-[#2d2d2d] hover:bg-[#3a3a3a] text-[#ededed] font-bold text-xs flex items-center gap-2 transition-colors cursor-pointer border border-[#3a3a3a]"
+                className="px-5 py-2.5 rounded-lg bg-[#2d2d2d] hover:bg-[#3a3a3a] text-[#ededed] font-bold text-base flex items-center gap-2 transition-colors cursor-pointer border border-[#3a3a3a]"
               >
-                <Folder className="w-4 h-4 text-[#9ac43e]" />
+                <Folder className="w-5 h-5 text-[#9ac43e]" />
                 <span>Выбрать папку</span>
               </button>
 
               <button
                 type="button"
                 onClick={handlePasteFromClipboard}
-                className="px-4 py-2.5 rounded-lg bg-[#2d2d2d] hover:bg-[#3a3a3a] text-[#ededed] font-bold text-xs flex items-center gap-2 transition-colors cursor-pointer border border-[#3a3a3a]"
+                className="px-5 py-2.5 rounded-lg bg-[#2d2d2d] hover:bg-[#3a3a3a] text-[#ededed] font-bold text-base flex items-center gap-2 transition-colors cursor-pointer border border-[#3a3a3a]"
                 title="Вставить из буфера обмена (Ctrl + V)"
               >
-                <Copy className="w-4 h-4 text-[#aaaaaa]" />
+                <Copy className="w-5 h-5 text-[#aaaaaa]" />
                 <span>Из буфера</span>
               </button>
             </div>
 
             {/* Bottom Tag Badges */}
-            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 pt-4 mt-5 border-t border-[#3a3a3a]/60 text-[11px] text-[#aaaaaa]">
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 pt-4 mt-6 border-t border-[#3a3a3a]/60 text-sm sm:text-base text-[#aaaaaa]">
               <span className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#789d2a]" />
+                <span className="w-2 h-2 rounded-full bg-[#789d2a]" />
                 Прямой WebRTC канал
               </span>
               <span className="text-[#555555]">·</span>
@@ -526,12 +526,12 @@ export const RoomView: React.FC<RoomViewProps> = ({
 
           {/* Transfers List */}
           {transfers.length > 0 && (
-            <div className="bg-[#222222] border border-[#3a3a3a] rounded-xl p-5 shadow-sm">
-              <h4 className="text-sm font-bold text-[#ededed] mb-4">
+            <div className="bg-[#222222] border border-[#3a3a3a] rounded-xl p-5 sm:p-6 shadow-sm">
+              <h4 className="text-lg sm:text-xl font-bold text-[#ededed] mb-4">
                 Передачи файлов ({transfers.length})
               </h4>
 
-              <div className="space-y-3">
+              <div className="space-y-3.5">
                 {transfers.map((t) => {
                   const isImage =
                     t.mimeType.startsWith('image/') ||
@@ -543,10 +543,10 @@ export const RoomView: React.FC<RoomViewProps> = ({
                   return (
                     <div
                       key={t.id}
-                      className="p-3.5 rounded-md bg-[#171717] border border-[#3a3a3a] flex flex-col gap-2.5 transition-all"
+                      className="p-4 rounded-lg bg-[#171717] border border-[#3a3a3a] flex flex-col gap-3 transition-all"
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex items-center gap-3.5 min-w-0">
                           {/* Image preview thumbnail if available */}
                           {isImage && t.blobUrl ? (
                             <div className="relative group shrink-0">
@@ -557,7 +557,7 @@ export const RoomView: React.FC<RoomViewProps> = ({
                                   setPreviewImageUrl(t.blobUrl!);
                                   setPreviewImageName(t.name);
                                 }}
-                                className="w-11 h-11 object-cover rounded-md border border-[#3a3a3a] cursor-pointer group-hover:border-[#789d2a] transition-all"
+                                className="w-13 h-13 object-cover rounded-lg border border-[#3a3a3a] cursor-pointer group-hover:border-[#789d2a] transition-all"
                                 title="Нажмите для просмотра в полном размере"
                               />
                               <div
@@ -565,31 +565,31 @@ export const RoomView: React.FC<RoomViewProps> = ({
                                   setPreviewImageUrl(t.blobUrl!);
                                   setPreviewImageName(t.name);
                                 }}
-                                className="absolute inset-0 bg-black/50 rounded-md opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity text-white"
+                                className="absolute inset-0 bg-black/50 rounded-lg opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity text-white"
                               >
-                                <Eye className="w-3.5 h-3.5" />
+                                <Eye className="w-4 h-4" />
                               </div>
                             </div>
                           ) : (
-                            <div className="p-2 rounded-md bg-[#222222] border border-[#3a3a3a] shrink-0">
+                            <div className="p-2.5 rounded-lg bg-[#222222] border border-[#3a3a3a] shrink-0">
                               {getFileIcon(t.mimeType)}
                             </div>
                           )}
 
                           <div className="min-w-0">
-                            <p className="text-sm font-semibold text-[#ededed] truncate max-w-[200px] sm:max-w-xs">
+                            <p className="text-base sm:text-lg font-bold text-[#ededed] truncate max-w-[220px] sm:max-w-md">
                               {t.name}
                             </p>
-                            <p className="text-xs text-[#aaaaaa] flex items-center gap-2">
+                            <p className="text-sm text-[#aaaaaa] flex items-center gap-2 mt-0.5">
                               <span>{formatBytes(t.size)}</span>
                               <span>•</span>
-                              <span className={t.type === 'upload' ? 'text-[#9ac43e]' : 'text-[#ededed]'}>
+                              <span className={t.type === 'upload' ? 'text-[#9ac43e] font-semibold' : 'text-[#ededed]'}>
                                 {t.type === 'upload' ? 'Отправка' : 'Получение'}
                               </span>
                               {t.status === 'transferring' && t.speed > 0 && (
                                 <>
                                   <span>•</span>
-                                  <span className="font-mono text-[#9ac43e]">{formatSpeed(t.speed)}</span>
+                                  <span className="font-mono text-[#9ac43e] font-bold">{formatSpeed(t.speed)}</span>
                                 </>
                               )}
                             </p>
@@ -599,8 +599,8 @@ export const RoomView: React.FC<RoomViewProps> = ({
                         {/* Right Action */}
                         <div className="flex items-center gap-2 shrink-0">
                           {t.status === 'completed' && t.savedToDisk && (
-                            <span className="px-2.5 py-1 rounded-md bg-[#789d2a]/15 border border-[#789d2a]/40 text-[#9ac43e] text-xs font-semibold flex items-center gap-1.5">
-                              <Check className="w-3.5 h-3.5" />
+                            <span className="px-3 py-1.5 rounded-lg bg-[#789d2a]/15 border border-[#789d2a]/40 text-[#9ac43e] text-sm font-bold flex items-center gap-1.5">
+                              <Check className="w-4 h-4" />
                               <span>Сохранено на диск</span>
                             </span>
                           )}
@@ -609,9 +609,9 @@ export const RoomView: React.FC<RoomViewProps> = ({
                             <a
                               href={t.blobUrl}
                               download={t.name}
-                              className="px-3 py-1.5 rounded-md bg-[#789d2a] hover:bg-[#8cb632] text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"
+                              className="px-4 py-2 rounded-lg bg-[#789d2a] hover:bg-[#8cb632] text-white text-sm font-bold flex items-center gap-1.5 transition-colors shadow-sm"
                             >
-                              <Download className="w-3.5 h-3.5" />
+                              <Download className="w-4 h-4" />
                               <span>Скачать</span>
                             </a>
                           )}
@@ -619,7 +619,7 @@ export const RoomView: React.FC<RoomViewProps> = ({
                           {t.status === 'transferring' && (
                             <button
                               onClick={() => onCancelTransfer(t.id)}
-                              className="p-1.5 rounded-md hover:bg-[#2d2d2d] text-[#aaaaaa] hover:text-[#ef9282] transition-colors cursor-pointer"
+                              className="p-2 rounded-lg hover:bg-[#2d2d2d] text-[#aaaaaa] hover:text-[#ef9282] transition-colors cursor-pointer"
                               title="Отменить"
                             >
                               <X className="w-4 h-4" />
@@ -627,8 +627,8 @@ export const RoomView: React.FC<RoomViewProps> = ({
                           )}
 
                           {t.status === 'error' && (
-                            <span className="text-xs text-[#ef9282] flex items-center gap-1">
-                              <AlertCircle className="w-3.5 h-3.5" />
+                            <span className="text-sm text-[#ef9282] flex items-center gap-1 font-semibold">
+                              <AlertCircle className="w-4 h-4" />
                               <span>{t.error || 'Ошибка'}</span>
                             </span>
                           )}
@@ -648,22 +648,22 @@ export const RoomView: React.FC<RoomViewProps> = ({
 
                       {/* Large file approval prompt (for receiver) */}
                       {t.status === 'pending_approval' && (
-                        <div className="mt-1 p-3 rounded-md bg-[#222222] border border-[#3a3a3a] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                          <div className="flex items-center gap-2 text-xs text-[#ededed]">
-                            <HardDrive className="w-4 h-4 text-[#9ac43e] shrink-0" />
+                        <div className="mt-1 p-3.5 rounded-lg bg-[#222222] border border-[#3a3a3a] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="flex items-center gap-2.5 text-sm text-[#ededed]">
+                            <HardDrive className="w-5 h-5 text-[#9ac43e] shrink-0" />
                             <span>Большой файл. Выберите папку на диске для потоковой записи без расхода RAM.</span>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             <button
                               onClick={() => onAcceptFile(t.id)}
-                              className="px-3 py-1.5 rounded-md bg-[#789d2a] hover:bg-[#8cb632] text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                              className="px-3.5 py-2 rounded-lg bg-[#789d2a] hover:bg-[#8cb632] text-white text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
                             >
-                              <FolderDown className="w-3.5 h-3.5" />
+                              <FolderDown className="w-4 h-4" />
                               <span>Выбрать папку</span>
                             </button>
                             <button
                               onClick={() => onRejectFile(t.id)}
-                              className="px-2.5 py-1.5 rounded-md bg-[#2d2d2d] hover:bg-[#3a3a3a] text-[#ededed] text-xs font-semibold transition-colors cursor-pointer"
+                              className="px-3 py-2 rounded-lg bg-[#2d2d2d] hover:bg-[#3a3a3a] text-[#ededed] text-sm font-bold transition-colors cursor-pointer"
                             >
                               Отклонить
                             </button>
@@ -673,17 +673,17 @@ export const RoomView: React.FC<RoomViewProps> = ({
 
                       {/* Waiting for receiver approval (for sender) */}
                       {t.status === 'waiting_receiver' && (
-                        <div className="mt-1 text-xs text-[#9ac43e] flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-[#789d2a] animate-pulse" />
+                        <div className="mt-1 text-sm text-[#9ac43e] flex items-center gap-2 font-semibold">
+                          <span className="w-2.5 h-2.5 rounded-full bg-[#789d2a] animate-pulse" />
                           <span>Ожидание: получатель выбирает папку для сохранения...</span>
                         </div>
                       )}
 
                       {/* Progress Bar */}
                       {t.status === 'transferring' && (
-                        <div className="w-full bg-[#222222] rounded-full h-1.5 overflow-hidden border border-[#3a3a3a]/40">
+                        <div className="w-full bg-[#222222] rounded-full h-2 overflow-hidden border border-[#3a3a3a]/40">
                           <div
-                            className="bg-[#789d2a] h-1.5 rounded-full transition-all duration-300"
+                            className="bg-[#789d2a] h-2 rounded-full transition-all duration-300"
                             style={{ width: `${t.progress}%` }}
                           />
                         </div>
@@ -697,30 +697,30 @@ export const RoomView: React.FC<RoomViewProps> = ({
         </div>
 
         {/* Right Column: Instant Clipboard & Ephemeral Text (5 cols) */}
-        <div className="lg:col-span-5 flex flex-col h-[580px] bg-[#222222] border border-[#3a3a3a] rounded-xl p-5 shadow-sm">
+        <div className="lg:col-span-5 flex flex-col h-[580px] bg-[#222222] border border-[#3a3a3a] rounded-xl p-5 sm:p-6 shadow-sm">
           {/* Header */}
-          <div className="flex items-center justify-between mb-3 shrink-0">
+          <div className="flex items-center justify-between mb-3.5 shrink-0">
             <div>
-              <h4 className="text-sm font-bold text-[#ededed]">Мгновенный буфер и текст</h4>
-              <p className="text-[11px] text-[#999999]">Ссылки, пароли, заметки в 1 клик</p>
+              <h4 className="text-lg font-bold text-[#ededed]">Мгновенный буфер и текст</h4>
+              <p className="text-sm text-[#aaaaaa]">Ссылки, пароли, заметки в 1 клик</p>
             </div>
             <button
               onClick={handlePasteFromClipboard}
-              className="px-2.5 py-1 rounded-md bg-[#2d2d2d] hover:bg-[#3a3a3a] text-[#ededed] text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded-lg bg-[#2d2d2d] hover:bg-[#3a3a3a] text-[#ededed] text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer border border-[#3a3a3a]"
               title="Вставить из системного буфера"
             >
-              <Copy className="w-3 h-3 text-[#9ac43e]" />
+              <Copy className="w-3.5 h-3.5 text-[#9ac43e]" />
               <span>Вставить из буфера</span>
             </button>
           </div>
 
           {/* Messages list */}
-          <div className="flex-1 overflow-y-auto space-y-3 pr-1 py-1">
+          <div className="flex-1 overflow-y-auto space-y-3.5 pr-1 py-1">
             {messages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-6 text-[#999999]">
-                <FileText className="w-8 h-8 stroke-1 mb-2 opacity-40" />
-                <p className="text-xs">Вставьте ссылку или текст ниже</p>
-                <p className="text-[10px] text-[#999999] mt-1">
+              <div className="h-full flex flex-col items-center justify-center text-center p-6 text-[#aaaaaa]">
+                <FileText className="w-10 h-10 stroke-1 mb-2.5 opacity-40" />
+                <p className="text-base font-semibold text-[#ededed]">Вставьте ссылку или текст ниже</p>
+                <p className="text-sm text-[#aaaaaa] mt-1">
                   У собеседника моментально появится кнопка «Скопировать»
                 </p>
               </div>
@@ -728,41 +728,41 @@ export const RoomView: React.FC<RoomViewProps> = ({
               messages.map((m) => (
                 <div
                   key={m.id}
-                  className="p-3 rounded-md bg-[#171717] border border-[#3a3a3a] group"
+                  className="p-3.5 rounded-lg bg-[#171717] border border-[#3a3a3a] group"
                 >
-                  <div className="flex items-center justify-between text-[11px] text-[#999999] mb-1.5">
-                    <span className="font-semibold text-[#ededed]">{m.senderName}</span>
+                  <div className="flex items-center justify-between text-xs text-[#aaaaaa] mb-2 font-semibold">
+                    <span className="font-bold text-[#ededed]">{m.senderName}</span>
                     <span>{new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
 
-                  <p className="text-xs text-[#ededed] break-words whitespace-pre-wrap select-all font-sans leading-relaxed">
+                  <p className="text-base sm:text-lg text-[#ededed] break-words whitespace-pre-wrap select-all font-sans leading-relaxed">
                     {m.text}
                   </p>
 
-                  <div className="mt-2.5 pt-2 border-t border-[#222222] flex items-center justify-end gap-2">
+                  <div className="mt-3 pt-2.5 border-t border-[#222222] flex items-center justify-end gap-2">
                     {isUrl(m.text) && (
                       <a
                         href={m.text}
                         target="_blank"
                         rel="noreferrer"
-                        className="px-2 py-1 rounded-md bg-[#222222] hover:bg-[#2d2d2d] text-[11px] font-semibold text-[#9ac43e] flex items-center gap-1 transition-colors"
+                        className="px-3 py-1.5 rounded-lg bg-[#222222] hover:bg-[#2d2d2d] text-xs font-bold text-[#9ac43e] flex items-center gap-1.5 transition-colors"
                       >
-                        <ExternalLink className="w-3 h-3" />
+                        <ExternalLink className="w-3.5 h-3.5" />
                         <span>Открыть</span>
                       </a>
                     )}
                     <button
                       onClick={() => handleCopyText(m.id, m.text)}
-                      className="px-2 py-1 rounded-md bg-[#222222] hover:bg-[#2d2d2d] text-[11px] font-semibold text-[#ededed] flex items-center gap-1 transition-colors cursor-pointer"
+                      className="px-3 py-1.5 rounded-lg bg-[#222222] hover:bg-[#2d2d2d] text-xs font-bold text-[#ededed] flex items-center gap-1.5 transition-colors cursor-pointer"
                     >
                       {copiedTextId === m.id ? (
                         <>
-                          <Check className="w-3 h-3 text-[#9ac43e]" />
+                          <Check className="w-3.5 h-3.5 text-[#9ac43e]" />
                           <span className="text-[#9ac43e]">Скопировано!</span>
                         </>
                       ) : (
                         <>
-                          <Copy className="w-3 h-3" />
+                          <Copy className="w-3.5 h-3.5" />
                           <span>Скопировать</span>
                         </>
                       )}
@@ -775,19 +775,19 @@ export const RoomView: React.FC<RoomViewProps> = ({
           </div>
 
           {/* Text Input Box */}
-          <form onSubmit={handleTextSubmit} className="mt-3 pt-3 border-t border-[#3a3a3a] shrink-0">
+          <form onSubmit={handleTextSubmit} className="mt-3.5 pt-3.5 border-t border-[#3a3a3a] shrink-0">
             <div className="flex gap-2">
               <input
                 type="text"
                 value={textInput}
                 onChange={(e) => setTextInput(e.target.value)}
                 placeholder="Вставьте ссылку или текст..."
-                className="flex-1 bg-[#171717] border border-[#3a3a3a] rounded-md px-3.5 py-2.5 text-xs text-[#ededed] placeholder-[#999999] outline-none focus:border-[#789d2a] transition-colors"
+                className="flex-1 bg-[#171717] border border-[#3a3a3a] rounded-lg px-4 py-2.5 text-base text-[#ededed] placeholder-[#999999] outline-none focus:border-[#789d2a] transition-colors"
               />
               <button
                 type="submit"
                 disabled={!textInput.trim()}
-                className="px-4 py-2.5 rounded-md bg-[#789d2a] hover:bg-[#8cb632] text-white font-bold text-xs transition-colors disabled:opacity-40 cursor-pointer"
+                className="px-5 py-2.5 rounded-lg bg-[#789d2a] hover:bg-[#8cb632] text-white font-bold text-base transition-colors disabled:opacity-40 cursor-pointer"
               >
                 Отправить
               </button>
@@ -806,20 +806,20 @@ export const RoomView: React.FC<RoomViewProps> = ({
             className="relative max-w-4xl w-full flex flex-col items-center"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-full flex items-center justify-between pb-3 text-sm text-[#ededed]">
-              <span className="font-semibold truncate max-w-md">{previewImageName}</span>
+            <div className="w-full flex items-center justify-between pb-3 text-base text-[#ededed]">
+              <span className="font-bold truncate max-w-md">{previewImageName}</span>
               <div className="flex items-center gap-2">
                 <a
                   href={previewImageUrl}
                   download={previewImageName || 'image'}
-                  className="px-3.5 py-1.5 rounded-md bg-[#789d2a] text-white text-xs font-bold hover:bg-[#8cb632] transition-colors flex items-center gap-1.5"
+                  className="px-4 py-2 rounded-lg bg-[#789d2a] text-white text-sm font-bold hover:bg-[#8cb632] transition-colors flex items-center gap-1.5"
                 >
-                  <Download className="w-3.5 h-3.5" />
+                  <Download className="w-4 h-4" />
                   <span>Скачать</span>
                 </a>
                 <button
                   onClick={() => setPreviewImageUrl(null)}
-                  className="p-1.5 rounded-md bg-[#222222] border border-[#3a3a3a] text-[#aaaaaa] hover:text-white transition-colors cursor-pointer"
+                  className="p-2 rounded-lg bg-[#222222] border border-[#3a3a3a] text-[#aaaaaa] hover:text-white transition-colors cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -836,8 +836,8 @@ export const RoomView: React.FC<RoomViewProps> = ({
 
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 px-4 py-2.5 rounded-lg bg-[#202020] border border-[#789d2a] text-[#ededed] text-xs font-semibold shadow-2xl flex items-center gap-2.5 animate-in slide-in-from-bottom-2">
-          <span className="w-2 h-2 rounded-full bg-[#789d2a] shrink-0" />
+        <div className="fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl bg-[#202020] border border-[#789d2a] text-[#ededed] text-sm sm:text-base font-bold shadow-2xl flex items-center gap-2.5 animate-in slide-in-from-bottom-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#789d2a] shrink-0" />
           <span>{toastMessage}</span>
         </div>
       )}

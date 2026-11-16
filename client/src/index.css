@@ -34,15 +34,16 @@
 @layer base {
   *, *::before, *::after {
     font-family: 'Handjet', monospace, system-ui, sans-serif !important;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.02em;
   }
 
   body {
     background-color: var(--bg);
     color: var(--ink);
-    font-size: 1.25rem;
-    line-height: 1.3;
+    font-size: 1.3rem;
+    line-height: 1.35;
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
   /* Custom scrollbar matching eblo.id */
