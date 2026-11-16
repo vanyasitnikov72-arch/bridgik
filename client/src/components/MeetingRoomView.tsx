@@ -344,6 +344,8 @@ interface MeetingRoomViewProps {
   myPeerId: string;
   myUserName?: string;
   onUpdateUserName?: (name: string) => void;
+  roomTheme?: string;
+  onRoomThemeChange?: (theme: string) => void;
   roomUrl: string;
   peers: Peer[];
   transfers: FileTransfer[];
@@ -370,6 +372,8 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   myPeerId,
   myUserName,
   onUpdateUserName,
+  roomTheme,
+  onRoomThemeChange,
   roomUrl,
   peers,
   transfers,
@@ -400,10 +404,17 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   const [maxSeats, setMaxSeats] = useState<number>(8);
   const [isLocked, setIsLocked] = useState<boolean>(false);
 
-  // Active Room Concept State
+  // Active Room Concept State - synced from server / host
   const [currentRoomId, setCurrentRoomId] = useState<RoomId>(() => {
+    if (roomTheme && roomTheme in ROOM_PRESETS) return roomTheme as RoomId;
     return sanitizeRoomId(localStorage.getItem('bridgik_pixel_room'));
   });
+
+  useEffect(() => {
+    if (roomTheme && roomTheme in ROOM_PRESETS) {
+      setCurrentRoomId(roomTheme as RoomId);
+    }
+  }, [roomTheme]);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isRoomPickerOpen, setIsRoomPickerOpen] = useState(false);
@@ -573,10 +584,20 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   };
 
   const handleSelectRoom = (roomId: RoomId) => {
+    if (!isHost) return; // Room theme selection is controlled exclusively by the Host
     setCurrentRoomId(roomId);
     localStorage.setItem('bridgik_pixel_room', roomId);
     setIsRoomPickerOpen(false);
     sound.playClick();
+    if (socket) {
+      socket.emit('change-room-theme', {
+        roomId: pin || _roomId,
+        theme: roomId,
+      });
+    }
+    if (onRoomThemeChange) {
+      onRoomThemeChange(roomId);
+    }
   };
 
   const handleToggleSound = () => {
@@ -677,18 +698,28 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
 
         {/* Header Right Actions */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Room Selector Badge */}
-          <button
-            onClick={() => {
-              setIsRoomPickerOpen(!isRoomPickerOpen);
-              sound.playClick();
-            }}
-            className={`px-3 py-1.5 rounded-lg border text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${currentRoom.badgeBg} ${currentRoom.badgeBorder} ${currentRoom.badgeText} hover:brightness-110`}
-            title="Выбрать другую локацию"
-          >
-            <Home className="w-3.5 h-3.5" />
-            <span>Локация: {currentRoom.title}</span>
-          </button>
+          {/* Room Selector Badge - Only host can open the picker */}
+          {isHost ? (
+            <button
+              onClick={() => {
+                setIsRoomPickerOpen(!isRoomPickerOpen);
+                sound.playClick();
+              }}
+              className={`px-3 py-1.5 rounded-lg border text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${currentRoom.badgeBg} ${currentRoom.badgeBorder} ${currentRoom.badgeText} hover:brightness-110`}
+              title="Выбрать другую локацию (Организатор)"
+            >
+              <Home className="w-3.5 h-3.5" />
+              <span>Локация: {currentRoom.title}</span>
+            </button>
+          ) : (
+            <div
+              className={`px-3 py-1.5 rounded-lg border text-xs sm:text-sm font-bold flex items-center gap-1.5 ${currentRoom.badgeBg} ${currentRoom.badgeBorder} ${currentRoom.badgeText}`}
+              title="Локация установлена организатором"
+            >
+              <Home className="w-3.5 h-3.5" />
+              <span>Локация: {currentRoom.title}</span>
+            </div>
+          )}
 
           {/* Fullscreen Theater Mode (if screen share active) */}
           {hasRemoteVideo && (
@@ -813,7 +844,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                         name={peer.name}
                         isMe={false}
                         deviceType={peer.deviceType}
-                        isMicActive={true}
+                        isMicActive={Boolean(peer.isMicActive)}
                         spotName={seat.spotName}
                         accentColor={currentRoom.accent}
                         isHost={peer.isHost}
@@ -895,18 +926,20 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                   <span className="hidden sm:inline">{isScreenActive ? 'Трансляция...' : 'Экран'}</span>
                 </button>
 
-                {/* Room Selector Trigger */}
-                <button
-                  onClick={() => {
-                    setIsRoomPickerOpen(!isRoomPickerOpen);
-                    sound.playClick();
-                  }}
-                  className="px-2.5 py-1.5 rounded-xl bg-[#25252c] hover:bg-[#303038] text-[#ededed] border border-white/10 text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-                  title="Выбрать другую локацию"
-                >
-                  <Home className="w-4 h-4 text-[#9ac43e]" />
-                  <span className="hidden md:inline">Локация</span>
-                </button>
+                {/* Room Selector Trigger (Host only) */}
+                {isHost && (
+                  <button
+                    onClick={() => {
+                      setIsRoomPickerOpen(!isRoomPickerOpen);
+                      sound.playClick();
+                    }}
+                    className="px-2.5 py-1.5 rounded-xl bg-[#25252c] hover:bg-[#303038] text-[#ededed] border border-white/10 text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                    title="Выбрать другую локацию (Организатор)"
+                  >
+                    <Home className="w-4 h-4 text-[#9ac43e]" />
+                    <span className="hidden md:inline">Локация</span>
+                  </button>
+                )}
 
                 {/* QR Code Button */}
                 <button
@@ -1313,50 +1346,60 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
               )}
 
               {/* Section 1: Choose Room Location */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Home className="w-4 h-4 text-[#9ac43e]" />
-                    <h4 className="text-base font-bold text-[#ededed]">Интерьер комнаты (Discord Concept)</h4>
+              {isHost ? (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Home className="w-4 h-4 text-[#9ac43e]" />
+                      <h4 className="text-base font-bold text-[#ededed]">Интерьер комнаты (выбор хоста)</h4>
+                    </div>
+                    <span className="text-xs font-mono text-[#888888]">вместимость: {maxSeats} мест</span>
                   </div>
-                  <span className="text-xs font-mono text-[#888888]">вместимость: 8 мест</span>
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {Object.values(ROOM_PRESETS).map((r) => {
-                    const isSelected = currentRoomId === r.id;
-                    return (
-                      <button
-                        key={r.id}
-                        onClick={() => handleSelectRoom(r.id)}
-                        className={`p-3 rounded-2xl border text-left transition-all cursor-pointer relative flex flex-col gap-2 ${
-                          isSelected
-                            ? 'bg-[#222230] border-[#9ac43e] shadow-lg'
-                            : 'bg-[#15151a] border-[#2f2f3a] hover:border-[#444455]'
-                        }`}
-                      >
-                        <div className="relative aspect-video w-full rounded-xl overflow-hidden border border-white/10">
-                          <img
-                            src={r.imageSrc}
-                            alt={r.title}
-                            className="w-full h-full object-cover"
-                          />
-                          {isSelected && (
-                            <div className="absolute top-2 right-2 px-2 py-0.5 rounded text-[10px] font-bold bg-[#789d2a] text-white shadow-md flex items-center gap-1">
-                              <CheckCircle2 className="w-3 h-3" />
-                              <span>Выбрано</span>
-                            </div>
-                          )}
-                        </div>
-                        <div>
-                          <p className="font-extrabold text-sm text-[#ededed]">{r.title}</p>
-                          <p className="text-xs text-[#888888] leading-tight mt-0.5">{r.subtitle}</p>
-                        </div>
-                      </button>
-                    );
-                  })}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {Object.values(ROOM_PRESETS).map((r) => {
+                      const isSelected = currentRoomId === r.id;
+                      return (
+                        <button
+                          key={r.id}
+                          onClick={() => handleSelectRoom(r.id)}
+                          className={`p-3 rounded-2xl border text-left transition-all cursor-pointer relative flex flex-col gap-2 ${
+                            isSelected
+                              ? 'bg-[#222230] border-[#9ac43e] shadow-lg'
+                              : 'bg-[#15151a] border-[#2f2f3a] hover:border-[#444455]'
+                          }`}
+                        >
+                          <div className="relative aspect-video w-full rounded-xl overflow-hidden border border-white/10">
+                            <img
+                              src={r.imageSrc}
+                              alt={r.title}
+                              className="w-full h-full object-cover"
+                            />
+                            {isSelected && (
+                              <div className="absolute top-2 right-2 px-2 py-0.5 rounded text-[10px] font-bold bg-[#789d2a] text-white shadow-md flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3" />
+                                <span>Выбрано</span>
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-extrabold text-sm text-[#ededed]">{r.title}</p>
+                            <p className="text-xs text-[#888888] leading-tight mt-0.5">{r.subtitle}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="p-3.5 rounded-xl bg-[#15151a] border border-[#2f2f3a] text-xs text-[#888888] flex items-center justify-between">
+                  <span className="flex items-center gap-2 text-[#ededed] font-medium">
+                    <Home className="w-4 h-4 text-[#9ac43e]" />
+                    Локация: <b>{currentRoom.title}</b>
+                  </span>
+                  <span className="text-[11px] font-mono text-[#789d2a]">Управляется организатором</span>
+                </div>
+              )}
 
               {/* Section 2: Nickname */}
               <div className="space-y-2 pt-2 border-t border-[#303038]">

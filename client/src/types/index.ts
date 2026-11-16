@@ -8,6 +8,7 @@ export interface Peer {
   deviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown';
   joinedAt: number;
   isHost: boolean;
+  isMicActive?: boolean;
 }
 
 export interface NearbyPeer {

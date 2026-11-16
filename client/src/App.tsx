@@ -51,6 +51,9 @@ export function App() {
   const [isMicActive, setIsMicActive] = useState(false);
   const [isScreenActive, setIsScreenActive] = useState(false);
   const [hasRemoteVideo, setHasRemoteVideo] = useState(false);
+  const [roomTheme, setRoomTheme] = useState<string>(() => {
+    return localStorage.getItem('bridgik_pixel_room') || 'cyber-lounge';
+  });
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -230,6 +233,19 @@ export function App() {
       );
     });
 
+    socket.on('peer-mic-changed', (data: { peerId: string; isMicActive: boolean }) => {
+      setPeers((prev) =>
+        prev.map((p) => (p.id === data.peerId ? { ...p, isMicActive: data.isMicActive } : p))
+      );
+    });
+
+    socket.on('room-theme-changed', (data: { theme: string }) => {
+      if (data.theme) {
+        setRoomTheme(data.theme);
+        localStorage.setItem('bridgik_pixel_room', data.theme);
+      }
+    });
+
     socket.on('kicked', (data: { reason?: string }) => {
       alert(data?.reason || 'Организатор исключил вас из комнаты.');
       handleLeaveRoom();
@@ -251,6 +267,8 @@ export function App() {
       socket.off('peer-joined');
       socket.off('peer-left');
       socket.off('peer-updated');
+      socket.off('peer-mic-changed');
+      socket.off('room-theme-changed');
       socket.off('kicked');
       socket.off('remote-mute');
       socket.off('signal');
@@ -323,6 +341,7 @@ export function App() {
         deviceType,
         mode,
         maxSeats: 8,
+        roomTheme,
       },
       (res: any) => {
         setIsLoading(false);
@@ -331,6 +350,9 @@ export function App() {
           setPin(res.pin);
           setMyPeerId(res.peerId);
           setPeers(res.peers || []);
+          if (res.currentRoomTheme) {
+            setRoomTheme(res.currentRoomTheme);
+          }
           setupWebRTC(socket, res.peerId);
           const modeQuery = mode === 'meeting' ? '&mode=meeting' : '';
           window.history.pushState({}, '', `?room=${res.pin}${modeQuery}`);
@@ -414,6 +436,10 @@ export function App() {
           const resolvedMode = (res.mode as RoomMode) || targetMode;
           setRoomMode(resolvedMode);
           setActiveTab(resolvedMode);
+          if (res.currentRoomTheme) {
+            setRoomTheme(res.currentRoomTheme);
+            localStorage.setItem('bridgik_pixel_room', res.currentRoomTheme);
+          }
           setupWebRTC(socket, res.peerId);
           const modeQuery = resolvedMode === 'meeting' ? '&mode=meeting' : '';
           window.history.pushState({}, '', `?room=${res.pin}${modeQuery}`);
@@ -524,6 +550,12 @@ export function App() {
     if (!webrtcRef.current) return false;
     const active = await webrtcRef.current.toggleMicrophone();
     setIsMicActive(active);
+    setPeers((prev) =>
+      prev.map((p) => (p.id === myPeerId ? { ...p, isMicActive: active } : p))
+    );
+    if (socket && roomId) {
+      socket.emit('toggle-mic', { roomId, isMicActive: active });
+    }
     return active;
   };
 
@@ -602,6 +634,8 @@ export function App() {
             myPeerId={myPeerId}
             myUserName={userName}
             onUpdateUserName={handleUpdateUserName}
+            roomTheme={roomTheme}
+            onRoomThemeChange={(theme) => setRoomTheme(theme)}
             roomUrl={roomUrl}
             peers={peers}
             transfers={transfers}

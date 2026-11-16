@@ -398,10 +398,27 @@ io.on('connection', (socket) => {
   socket.on('change-room-theme', (data: { roomId: string; theme: string }) => {
     const room = roomManager.getRoom(data.roomId);
     if (!room) return;
+    const sender = room.peers.get(socket.id);
+    if (!sender?.isHost && room.peers.size > 1) return;
+
     room.currentRoomTheme = data.theme;
-    socket.to(room.id).emit('room-theme-changed', {
+    io.to(room.id).emit('room-theme-changed', {
       theme: data.theme,
     });
+  });
+
+  // Peer: Toggle mic status
+  socket.on('toggle-mic', (data: { roomId: string; isMicActive: boolean }) => {
+    const room = roomManager.getRoom(data.roomId);
+    if (!room) return;
+    const peer = room.peers.get(socket.id);
+    if (peer) {
+      peer.isMicActive = Boolean(data.isMicActive);
+      socket.to(room.id).emit('peer-mic-changed', {
+        peerId: socket.id,
+        isMicActive: peer.isMicActive,
+      });
+    }
   });
 
   // 3. WebRTC Signal Relay (offer, answer, ice-candidate)
