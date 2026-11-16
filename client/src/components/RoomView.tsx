@@ -53,6 +53,9 @@ interface RoomViewProps {
   hasRemoteVideo: boolean;
   autoDownload: boolean;
   onToggleAutoDownload: () => void;
+  destinationDirName: string | null;
+  onPickDestinationDir: () => void;
+  onClearDestinationDir: () => void;
 }
 
 export const RoomView: React.FC<RoomViewProps> = ({
@@ -78,6 +81,9 @@ export const RoomView: React.FC<RoomViewProps> = ({
   hasRemoteVideo,
   autoDownload,
   onToggleAutoDownload,
+  destinationDirName,
+  onPickDestinationDir,
+  onClearDestinationDir,
 }) => {
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedTextId, setCopiedTextId] = useState<string | null>(null);
@@ -257,6 +263,34 @@ export const RoomView: React.FC<RoomViewProps> = ({
                 {autoDownload ? 'Автосохранение' : 'Автосохранение: ВЫКЛ'}
               </span>
             </button>
+
+            {/* Target Download Directory Handle (Zero-Prompt Direct-to-Disk) */}
+            {typeof window !== 'undefined' && 'showDirectoryPicker' in window && (
+              destinationDirName ? (
+                <div className="flex items-center gap-1.5 bg-[#1c2214] border border-[#789d2a] rounded-md px-2.5 py-1 text-xs text-[#9ac43e]">
+                  <FolderDown className="w-3.5 h-3.5 text-[#9ac43e] shrink-0" />
+                  <span className="font-semibold max-w-[130px] truncate" title={`Папка на диске: ${destinationDirName}`}>
+                    Папка: {destinationDirName}
+                  </span>
+                  <button
+                    onClick={onClearDestinationDir}
+                    className="p-0.5 hover:text-white transition-colors cursor-pointer"
+                    title="Сбросить выбранную папку"
+                  >
+                    <X className="w-3 h-3 text-[#aaaaaa] hover:text-[#ef9282]" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={onPickDestinationDir}
+                  className="px-3 py-1.5 rounded-md bg-[#2d2d2d] hover:bg-[#3a3a3a] text-[#ededed] text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border border-[#3a3a3a]"
+                  title="Выберите папку на диске для автоматического сохранения всех файлов без всплывающих окон"
+                >
+                  <FolderDown className="w-3.5 h-3.5 text-[#9ac43e]" />
+                  <span className="hidden sm:inline">Папка на диске</span>
+                </button>
+              )
+            )}
 
             <button
               onClick={onOpenQR}

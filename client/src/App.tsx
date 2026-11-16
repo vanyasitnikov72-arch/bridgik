@@ -36,6 +36,8 @@ export function App() {
   const [incomingPairRequest, setIncomingPairRequest] = useState<PairRequest | null>(null);
   const [isPairing, setIsPairing] = useState(false);
   const [lanIp, setLanIp] = useState<string | null>(null);
+  const [destinationDirName, setDestinationDirName] = useState<string | null>(null);
+  const destinationDirHandleRef = useRef<any>(null);
   const [autoDownload, setAutoDownload] = useState<boolean>(() => {
     return localStorage.getItem('bridgit_auto_download') !== 'false';
   });
@@ -163,6 +165,10 @@ export function App() {
         console.log(`Peer ${peerId} state changed to ${state}`);
       },
     });
+
+    if (destinationDirHandleRef.current) {
+      manager.setDestinationDirectory(destinationDirHandleRef.current);
+    }
 
     webrtcRef.current = manager;
     return manager;
@@ -355,6 +361,37 @@ export function App() {
     );
   };
 
+  const handlePickDestinationDir = async () => {
+    if (typeof window === 'undefined' || !('showDirectoryPicker' in window)) {
+      alert(
+        'Ваш браузер не поддерживает выбор папки на диске. Используйте Google Chrome, Microsoft Edge или Яндекс Браузер.'
+      );
+      return;
+    }
+    try {
+      const handle = await (window as any).showDirectoryPicker({
+        mode: 'readwrite',
+      });
+      destinationDirHandleRef.current = handle;
+      setDestinationDirName(handle.name);
+      if (webrtcRef.current) {
+        webrtcRef.current.setDestinationDirectory(handle);
+      }
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        console.warn('showDirectoryPicker error', err);
+      }
+    }
+  };
+
+  const handleClearDestinationDir = () => {
+    destinationDirHandleRef.current = null;
+    setDestinationDirName(null);
+    if (webrtcRef.current) {
+      webrtcRef.current.setDestinationDirectory(null);
+    }
+  };
+
   // Leave Room
   const handleLeaveRoom = () => {
     if (socket) {
@@ -502,6 +539,9 @@ export function App() {
             hasRemoteVideo={hasRemoteVideo}
             autoDownload={autoDownload}
             onToggleAutoDownload={handleToggleAutoDownload}
+            destinationDirName={destinationDirName}
+            onPickDestinationDir={handlePickDestinationDir}
+            onClearDestinationDir={handleClearDestinationDir}
           />
         )}
       </main>

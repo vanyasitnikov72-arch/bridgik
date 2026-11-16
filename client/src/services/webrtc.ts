@@ -16,6 +16,16 @@ const ICE_SERVERS: RTCConfiguration = {
   ],
 };
 
+async function getFileHandleFromPath(dirHandle: any, relativePath: string): Promise<any> {
+  const parts = relativePath.split('/').filter(Boolean);
+  let currentDir = dirHandle;
+  for (let i = 0; i < parts.length - 1; i++) {
+    currentDir = await currentDir.getDirectoryHandle(parts[i], { create: true });
+  }
+  const fileName = parts[parts.length - 1] || 'file';
+  return await currentDir.getFileHandle(fileName, { create: true });
+}
+
 interface PeerConnectionBundle {
   pc: RTCPeerConnection;
   controlChannel: RTCDataChannel | null;
@@ -38,6 +48,7 @@ export class WebRTCManager {
   private connections: Map<string, PeerConnectionBundle> = new Map();
   private localStream: MediaStream | null = null;
   private screenStream: MediaStream | null = null;
+  private destinationDirectoryHandle: any = null;
 
   // Receiving file states: fileId -> state
   private incomingFiles: Map<
@@ -56,6 +67,7 @@ export class WebRTCManager {
       streamToDisk: boolean;
       writableStream?: any;
       writeQueue?: Promise<void>;
+      initPromise?: Promise<void>;
       receivedChunks: (Uint8Array | undefined)[];
       receivedCount: number;
       receivedBytes: number;
@@ -224,18 +236,24 @@ export class WebRTCManager {
         } else if (msg.type === 'FILE_OFFER') {
           // Large file offer from peer
           this.pendingOffers.set(msg.fileId, { meta: msg, peerId });
-          this.callbacks.onTransferProgress({
-            id: msg.fileId,
-            name: msg.name,
-            size: msg.size,
-            mimeType: msg.mimeType,
-            type: 'download',
-            peerId,
-            peerName: msg.senderName,
-            progress: 0,
-            speed: 0,
-            status: 'pending_approval',
-          });
+
+          if (this.destinationDirectoryHandle) {
+            // Target folder configured: auto-accept directly into disk directory!
+            this.acceptIncomingFileWithDirectory(msg.fileId, this.destinationDirectoryHandle);
+          } else {
+            this.callbacks.onTransferProgress({
+              id: msg.fileId,
+              name: msg.name,
+              size: msg.size,
+              mimeType: msg.mimeType,
+              type: 'download',
+              peerId,
+              peerName: msg.senderName,
+              progress: 0,
+              speed: 0,
+              status: 'pending_approval',
+            });
+          }
         } else if (msg.type === 'FILE_ACCEPT') {
           // Receiver accepted large file transfer
           const pending = this.pendingOutgoingFiles.get(msg.fileId);
@@ -256,6 +274,35 @@ export class WebRTCManager {
             // Already initialized via direct-to-disk acceptIncomingFile
             existing.meta.totalChunks = msg.totalChunks;
             existing.meta.chunkSize = msg.chunkSize;
+          } else if (this.destinationDirectoryHandle) {
+            // Destination directory configured: stream all incoming files directly to disk!
+            const totalChunks = msg.totalChunks;
+            const incomingState: any = {
+              meta: msg,
+              peerId,
+              streamToDisk: true,
+              writableStream: undefined,
+              writeQueue: Promise.resolve(),
+              receivedChunks: [],
+              receivedCount: 0,
+              receivedBytes: 0,
+              lastProgressUpdate: Date.now(),
+              lastBytesTransferred: 0,
+              speed: 0,
+            };
+
+            incomingState.initPromise = (async () => {
+              try {
+                const fileHandle = await getFileHandleFromPath(this.destinationDirectoryHandle, msg.name);
+                incomingState.writableStream = await fileHandle.createWritable();
+              } catch (err) {
+                console.warn('Direct to disk init failed, falling back to in-memory', err);
+                incomingState.streamToDisk = false;
+                incomingState.receivedChunks = new Array(totalChunks);
+              }
+            })();
+
+            this.incomingFiles.set(msg.fileId, incomingState);
           } else {
             // In-memory Blob flow
             this.incomingFiles.set(msg.fileId, {
@@ -327,13 +374,16 @@ export class WebRTCManager {
       const incoming = this.incomingFiles.get(fileId);
       if (!incoming) return;
 
-      if (incoming.streamToDisk && incoming.writableStream) {
+      if (incoming.streamToDisk) {
         // Stream directly to disk! 0 MB RAM accumulation!
         incoming.receivedCount++;
         incoming.receivedBytes += chunkData.byteLength;
 
         // Chain write promises sequentially to maintain exact file order
         incoming.writeQueue = (incoming.writeQueue || Promise.resolve()).then(async () => {
+          if (incoming.initPromise) {
+            await incoming.initPromise;
+          }
           if (incoming.writableStream) {
             await incoming.writableStream.write(chunkData);
           }
@@ -367,11 +417,16 @@ export class WebRTCManager {
 
       // Check if file is completely received
       if (incoming.receivedCount === totalChunks) {
-        if (incoming.streamToDisk && incoming.writableStream) {
+        if (incoming.streamToDisk) {
           try {
             await (incoming.writeQueue || Promise.resolve());
-            await incoming.writableStream.close();
-            incoming.writableStream = undefined;
+            if (incoming.initPromise) {
+              await incoming.initPromise;
+            }
+            if (incoming.writableStream) {
+              await incoming.writableStream.close();
+              incoming.writableStream = undefined;
+            }
           } catch (e) {
             console.error('Error closing disk stream', e);
           }
@@ -717,6 +772,76 @@ export class WebRTCManager {
     const totalChunks = Math.ceil(offer.meta.size / CHUNK_SIZE);
 
     // Pre-initialize incomingFiles with disk stream
+    this.incomingFiles.set(fileId, {
+      meta: {
+        ...offer.meta,
+        totalChunks,
+        chunkSize: CHUNK_SIZE,
+      },
+      peerId: offer.peerId,
+      streamToDisk,
+      writableStream,
+      writeQueue: Promise.resolve(),
+      receivedChunks: streamToDisk ? [] : new Array(totalChunks),
+      receivedCount: 0,
+      receivedBytes: 0,
+      lastProgressUpdate: Date.now(),
+      lastBytesTransferred: 0,
+      speed: 0,
+    });
+
+    this.pendingOffers.delete(fileId);
+
+    // Send FILE_ACCEPT to sender
+    const acceptMsg: WebRTCMessage = {
+      type: 'FILE_ACCEPT',
+      fileId,
+      streamToDisk,
+    };
+    const payload = JSON.stringify(acceptMsg);
+
+    const bundle = this.connections.get(offer.peerId);
+    if (bundle?.controlChannel?.readyState === 'open') {
+      bundle.controlChannel.send(payload);
+    }
+
+    this.callbacks.onTransferProgress({
+      id: fileId,
+      status: 'transferring',
+      savedToDisk: streamToDisk,
+    });
+
+    return true;
+  }
+
+  public setDestinationDirectory(handle: any) {
+    this.destinationDirectoryHandle = handle;
+  }
+
+  public getDestinationDirectory(): any {
+    return this.destinationDirectoryHandle;
+  }
+
+  /**
+   * Automatically accept incoming offer using preconfigured destination folder
+   */
+  public async acceptIncomingFileWithDirectory(fileId: string, dirHandle: any): Promise<boolean> {
+    const offer = this.pendingOffers.get(fileId);
+    if (!offer) return false;
+
+    let streamToDisk = false;
+    let writableStream: any = undefined;
+
+    try {
+      const fileHandle = await getFileHandleFromPath(dirHandle, offer.meta.name);
+      writableStream = await fileHandle.createWritable();
+      streamToDisk = true;
+    } catch (err) {
+      console.warn('Direct directory write failed, falling back to prompt/memory', err);
+    }
+
+    const totalChunks = Math.ceil(offer.meta.size / CHUNK_SIZE);
+
     this.incomingFiles.set(fileId, {
       meta: {
         ...offer.meta,
