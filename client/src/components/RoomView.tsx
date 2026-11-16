@@ -779,7 +779,7 @@ export const RoomView: React.FC<RoomViewProps> = ({
               <img
                 src={userAvatar || getAvatarForName(peers.find((p) => p.id === myPeerId)?.name || 'Вы')}
                 alt="Ваш аватар"
-                className="w-9 h-9 rounded-full object-cover border-2 border-[#789d2a] shadow-[0_0_8px_rgba(120,157,42,0.3)] bg-[#171717] shrink-0"
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border-2 border-[#789d2a] shadow-[0_0_8px_rgba(120,157,42,0.3)] bg-[#171717] shrink-0"
                 style={{ imageRendering: 'pixelated' }}
                 title="Ваш аватар"
               />

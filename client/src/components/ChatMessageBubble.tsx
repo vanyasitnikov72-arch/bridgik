@@ -150,7 +150,7 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
           <img
             src={avatarSrc}
             alt={senderName}
-            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover border border-[#444444] bg-[#1a1a1a] shadow-md transition-transform hover:scale-105"
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border border-[#444444] bg-[#1a1a1a] shadow-md transition-transform hover:scale-105"
             style={{ imageRendering: 'pixelated' }}
           />
         </div>
@@ -523,7 +523,7 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
           <img
             src={avatarSrc}
             alt={senderName}
-            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover border-2 border-[#789d2a]/80 shadow-[0_0_8px_rgba(120,157,42,0.3)] bg-[#1a1a1a] transition-transform hover:scale-105"
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border-2 border-[#789d2a]/80 shadow-[0_0_10px_rgba(120,157,42,0.35)] bg-[#1a1a1a] transition-transform hover:scale-105"
             style={{ imageRendering: 'pixelated' }}
           />
         </div>
