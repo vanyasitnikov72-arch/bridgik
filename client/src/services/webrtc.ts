@@ -48,6 +48,7 @@ export class WebRTCManager {
   private callbacks: WebRTCCallbacks;
   private connections: Map<string, PeerConnectionBundle> = new Map();
   private localStream: MediaStream | null = null;
+  private isMicMuted: boolean = false;
   private screenStream: MediaStream | null = null;
   private destinationDirectoryHandle: any = null;
 
@@ -202,14 +203,22 @@ export class WebRTCManager {
     const { pc } = bundle;
 
     if (payload.sdp) {
-      await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-      if (payload.sdp.type === 'offer') {
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        this.socket.emit('signal', {
-          to: fromPeerId,
-          payload: { sdp: pc.localDescription },
-        });
+      try {
+        if (payload.sdp.type === 'offer') {
+          await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          this.socket.emit('signal', {
+            to: fromPeerId,
+            payload: { sdp: pc.localDescription },
+          });
+        } else if (payload.sdp.type === 'answer') {
+          if (pc.signalingState === 'have-local-offer') {
+            await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+          }
+        }
+      } catch (sdpErr) {
+        console.warn('Error applying SDP signal', sdpErr);
       }
     } else if (payload.candidate) {
       try {
@@ -958,37 +967,131 @@ export class WebRTCManager {
   }
 
   /**
-   * Audio/Voice call toggle (live P2P microphone)
+   * Audio/Voice call toggle (live P2P microphone with instant mute/unmute and error diagnostics)
    */
   public async toggleMicrophone(): Promise<boolean> {
+    // 1. If we already have an active stream, toggle mute/unmute seamlessly
     if (this.localStream) {
-      // Stop and remove audio tracks
-      this.localStream.getTracks().forEach((track) => track.stop());
-      this.localStream = null;
-
-      for (const [peerId, { pc }] of this.connections) {
-        const senders = pc.getSenders().filter((s) => s.track && s.track.kind === 'audio');
-        senders.forEach((s) => pc.removeTrack(s));
-        await this.renegotiate(peerId, pc);
-      }
-      return false;
-    } else {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        this.localStream = stream;
-
-        for (const [peerId, { pc }] of this.connections) {
-          stream.getTracks().forEach((track) => {
-            pc.addTrack(track, stream);
+      const audioTracks = this.localStream.getAudioTracks().filter((t) => t.readyState === 'live');
+      if (audioTracks.length > 0) {
+        if (!this.isMicMuted) {
+          // MUTE
+          audioTracks.forEach((track) => {
+            track.enabled = false;
           });
-          await this.renegotiate(peerId, pc);
+          this.isMicMuted = true;
+          return false;
+        } else {
+          // UNMUTE
+          audioTracks.forEach((track) => {
+            track.enabled = true;
+          });
+          this.isMicMuted = false;
+          return true;
         }
-        return true;
-      } catch (err) {
-        console.error('Failed to get audio', err);
-        return false;
+      } else {
+        // Tracks were closed externally or ended
+        this.localStream = null;
+        this.isMicMuted = false;
       }
     }
+
+    // 2. Validate browser environment for microphone access
+    if (typeof window !== 'undefined') {
+      const isSecure =
+        window.isSecureContext ||
+        window.location.hostname === 'localhost' ||
+        window.location.hostname === '127.0.0.1';
+      if (!isSecure && window.location.protocol === 'http:') {
+        throw new Error(
+          'Браузер блокирует доступ к микрофону по незащищенному HTTP. Откройте страницу через http://localhost:5173 или настройте HTTPS.'
+        );
+      }
+    }
+
+    if (!navigator?.mediaDevices?.getUserMedia) {
+      throw new Error(
+        'Ваш браузер не поддерживает доступ к микрофону (navigator.mediaDevices.getUserMedia отсутствует).'
+      );
+    }
+
+    // 3. Check permission status proactively if available
+    if (navigator.permissions && navigator.permissions.query) {
+      try {
+        const permStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+        if (permStatus.state === 'denied') {
+          throw new Error(
+            'Доступ к микрофону заблокирован в браузере. Нажмите на значок замочка/настроек в адресной строке и включите «Микрофон: Разрешить», затем перезагрузите страницу.'
+          );
+        }
+      } catch (pErr: any) {
+        if (pErr.message && pErr.message.includes('заблокирован')) {
+          throw pErr;
+        }
+      }
+    }
+
+    // 4. Request microphone access with high quality audio & robust fallbacks
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+    } catch (firstErr: any) {
+      console.warn('Advanced audio constraints failed, trying basic audio: true', firstErr);
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (err: any) {
+        console.error('Failed to get audio stream', err);
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          throw new Error(
+            'Доступ к микрофону запрещен в браузере. Нажмите на значок замочка/настроек в строке адреса и выберите «Микрофон: Разрешить».'
+          );
+        } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+          throw new Error('Микрофон не обнаружен в вашей системе. Подключите гарнитуру или микрофон к компьютеру.');
+        } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+          throw new Error(
+            'Микрофон занят другой программой (Discord, Zoom, Teams, запись звука). Закройте её и повторите.'
+          );
+        }
+        throw new Error(err.message || 'Не удалось получить доступ к микрофону.');
+      }
+    }
+
+    const audioTrack = stream.getAudioTracks()[0];
+    if (audioTrack) {
+      audioTrack.enabled = true;
+      audioTrack.onended = () => {
+        this.localStream = null;
+        this.isMicMuted = false;
+      };
+    }
+
+    this.localStream = stream;
+    this.isMicMuted = false;
+
+    // 5. Connect stream to all active peer connections safely
+    for (const [peerId, { pc }] of this.connections) {
+      try {
+        const existingAudioSender = pc.getSenders().find(
+          (s) => s.track && s.track.kind === 'audio'
+        );
+        if (existingAudioSender && audioTrack) {
+          await existingAudioSender.replaceTrack(audioTrack);
+        } else if (audioTrack) {
+          pc.addTrack(audioTrack, stream);
+          await this.renegotiate(peerId, pc);
+        }
+      } catch (trackErr) {
+        console.warn(`Failed to attach audio track to peer ${peerId}`, trackErr);
+      }
+    }
+
+    return true;
   }
 
   /**

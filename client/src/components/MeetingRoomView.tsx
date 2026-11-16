@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   Mic,
   MicOff,
-  ScreenShare,
   Share2,
   QrCode,
   LogOut,
@@ -22,8 +21,6 @@ import {
   Volume2,
   VolumeX,
   ShieldCheck,
-  Maximize2,
-  Minimize2,
   Plus,
   Home,
   CheckCircle2,
@@ -202,7 +199,12 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
           <span className="text-xs font-bold text-[#ededed] font-mono">
             {name} {isMe ? '(Вы)' : ''}
           </span>
-          <span className="text-[10px] text-[#aaaaaa] font-mono">
+          <span className="text-[10px] text-[#aaaaaa] font-mono flex items-center gap-1">
+            {deviceType === 'mobile' ? (
+              <Smartphone className="w-2.5 h-2.5 text-[#9ac43e]" />
+            ) : (
+              <Monitor className="w-2.5 h-2.5 text-[#9ac43e]" />
+            )}
             · {spotName}
           </span>
           {isMe && (
@@ -256,24 +258,23 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
 
         {/* Avatar Token sitting cleanly on the furniture */}
         <div
-          className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full border-2 flex items-center justify-center transition-all duration-200 shadow-2xl relative cursor-pointer drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)] ${
+          className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 flex items-center justify-center transition-all duration-200 shadow-2xl relative cursor-pointer drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)] overflow-visible ${
             isHovered ? 'scale-115 ring-2 ring-white/50' : 'hover:scale-105'
-          } ${isMicActive ? 'bg-[#152414] text-[#bbf348]' : 'bg-[#191922] text-[#ededed]'}`}
+          } ${isMicActive ? 'bg-[#152414]' : 'bg-[#191922]'}`}
           style={{
             borderColor: isMicActive ? accentColor : isHovered ? '#ffffff' : '#444455',
-            color: isMicActive ? accentColor : '#ededed',
             boxShadow: isMicActive ? `0 0 16px ${accentColor}80` : '0 4px 12px rgba(0,0,0,0.7)',
           }}
         >
-          {deviceType === 'mobile' ? (
-            <Smartphone className="w-4 h-4 sm:w-5 sm:h-5" />
-          ) : (
-            <Monitor className="w-4 h-4 sm:w-5 sm:h-5" />
-          )}
+          <img
+            src="/mascots/dino_avatar_transparent.png"
+            alt={name}
+            className="w-7 h-7 sm:w-9 sm:h-9 object-contain pointer-events-none select-none drop-shadow-sm"
+          />
 
           {/* Corner Mic Indicator */}
           <div
-            className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border border-[#121218] flex items-center justify-center text-white shadow-xs"
+            className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border border-[#121218] flex items-center justify-center text-white shadow-xs z-10"
             style={{ backgroundColor: isMicActive ? accentColor : '#33333d' }}
           >
             {isMicActive ? <Mic className="w-2 h-2 animate-pulse" /> : <MicOff className="w-2 h-2 text-[#888888]" />}
@@ -371,11 +372,11 @@ interface MeetingRoomViewProps {
   onLeaveRoom: () => void;
   onOpenQR: () => void;
   onToggleMic: () => Promise<boolean>;
-  onToggleScreen: () => Promise<boolean>;
+  onToggleScreen?: () => Promise<boolean>;
   remoteVideoRef?: React.RefObject<HTMLVideoElement | null>;
   isMicActive: boolean;
-  isScreenActive: boolean;
-  hasRemoteVideo: boolean;
+  isScreenActive?: boolean;
+  hasRemoteVideo?: boolean;
   onAcceptFile: (fileId: string) => void;
 }
 
@@ -406,11 +407,11 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   onLeaveRoom,
   onOpenQR,
   onToggleMic,
-  onToggleScreen,
-  remoteVideoRef,
+  onToggleScreen: _onToggleScreen,
+  remoteVideoRef: _remoteVideoRef,
   isMicActive,
-  isScreenActive,
-  hasRemoteVideo,
+  isScreenActive: _isScreenActive,
+  hasRemoteVideo: _hasRemoteVideo,
   onAcceptFile,
 }) => {
   const [copiedLink, setCopiedLink] = useState(false);
@@ -433,7 +434,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isRoomPickerOpen, setIsRoomPickerOpen] = useState(false);
-  const [isTheaterMode, setIsTheaterMode] = useState(false);
   const [isEmotePickerOpen, setIsEmotePickerOpen] = useState(false);
   const [customNameInput, setCustomNameInput] = useState(myUserName || '');
   const [nameSavedSuccess, setNameSavedSuccess] = useState(false);
@@ -828,18 +828,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
             </div>
           )}
 
-          {/* Fullscreen Theater Mode (if screen share active) */}
-          {hasRemoteVideo && (
-            <button
-              onClick={() => setIsTheaterMode(!isTheaterMode)}
-              className="px-3 py-1.5 rounded-lg bg-[#272727] hover:bg-[#333333] border border-[#3a3a3a] text-xs sm:text-sm font-bold flex items-center gap-1.5 text-[#ededed] transition-colors cursor-pointer"
-              title="Переключить полноэкранный режим видео"
-            >
-              {isTheaterMode ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-              <span>{isTheaterMode ? 'В комнату' : 'На весь экран'}</span>
-            </button>
-          )}
-
           {/* Settings Button */}
           <button
             onClick={() => {
@@ -858,32 +846,10 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column (7 cols) */}
         <div className="lg:col-span-7 space-y-5">
-          {/* Theater Mode: Fullscreen Video Screen if active */}
-          {hasRemoteVideo && isTheaterMode ? (
-            <div className="rounded-2xl overflow-hidden border border-[#3a3a3a] bg-black aspect-video max-h-[520px] w-full flex items-center justify-center relative shadow-2xl">
-              <video
-                ref={remoteVideoRef as any}
-                autoPlay
-                playsInline
-                className="w-full h-full object-contain"
-              />
-              <div className="absolute top-3 left-3 bg-[#171717]/90 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-[#ededed] border border-[#3a3a3a] flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#ed2b3b] animate-pulse" />
-                <span>Демонстрация экрана собеседника</span>
-              </div>
-              <button
-                onClick={() => setIsTheaterMode(false)}
-                className="absolute top-3 right-3 px-3 py-1.5 rounded-lg bg-[#171717]/90 hover:bg-[#252525] text-xs font-bold text-[#ededed] border border-[#3a3a3a] flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <Minimize2 className="w-3.5 h-3.5" />
-                <span>Вернуться в комнату</span>
-              </button>
-            </div>
-          ) : (
-            /* ============================================================== */
-            /* FULL-BLEED LIVING ROOM (DISCORD LIVING ROOM CONCEPT - NO VOID) */
-            /* ============================================================== */
-            <div className="relative rounded-3xl border-2 border-[#33333e] bg-[#0c0c12] shadow-2xl overflow-hidden flex flex-col items-center justify-center">
+          {/* ============================================================== */}
+          {/* FULL-BLEED LIVING ROOM (DISCORD LIVING ROOM CONCEPT - NO VOID) */}
+          {/* ============================================================== */}
+          <div className="relative rounded-3xl border-2 border-[#33333e] bg-[#0c0c12] shadow-2xl overflow-hidden flex flex-col items-center justify-center">
               {/* Room Top Minimal Bar */}
               <div className="absolute top-3 left-3 right-3 z-20 flex items-center justify-between gap-2 pointer-events-none">
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#0c0c14]/90 border border-white/10 shadow-lg backdrop-blur-xs pointer-events-auto">
@@ -982,25 +948,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                     </div>
                   );
                 })}
-
-                {/* Picture-in-Picture Screen Share Overlay in Corner */}
-                {hasRemoteVideo && (
-                  <div className="absolute top-12 right-4 z-20 w-36 sm:w-48 aspect-video rounded-xl overflow-hidden border-2 border-white/30 shadow-2xl bg-black group">
-                    <video
-                      ref={remoteVideoRef as any}
-                      autoPlay
-                      playsInline
-                      className="w-full h-full object-contain"
-                    />
-                    <button
-                      onClick={() => setIsTheaterMode(true)}
-                      className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-xs font-bold text-white transition-opacity cursor-pointer"
-                    >
-                      <Maximize2 className="w-4 h-4 mr-1" />
-                      <span>Развернуть</span>
-                    </button>
-                  </div>
-                )}
               </div>
 
               {/* Floating Bottom Control Dock (HUD - Discord style) */}
@@ -1017,20 +964,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 >
                   {isMicActive ? <Mic className="w-4 h-4 animate-pulse" /> : <MicOff className="w-4 h-4" />}
                   <span>{isMicActive ? 'Микрофон вкл' : 'Микрофон'}</span>
-                </button>
-
-                {/* Screen Share Button */}
-                <button
-                  onClick={onToggleScreen}
-                  className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                    isScreenActive
-                      ? 'bg-[#789d2a] hover:bg-[#8cb632] text-white shadow-[0_0_12px_rgba(120,157,42,0.5)]'
-                      : 'bg-[#25252c] hover:bg-[#303038] text-[#ededed] border border-white/10'
-                  }`}
-                  title="Демонстрация экрана"
-                >
-                  <ScreenShare className="w-4 h-4" />
-                  <span className="hidden sm:inline">{isScreenActive ? 'Трансляция...' : 'Экран'}</span>
                 </button>
 
                 {/* Room Selector Trigger (Host only) */}
@@ -1150,7 +1083,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 </div>
               )}
             </div>
-          )}
 
           {/* Room Files Drawer / Dropzone with Rich Media Previews */}
           <div ref={meetingFilesSectionRef} className="bg-[#1e1e1e] border border-[#353535] rounded-2xl p-4 sm:p-5 shadow-sm scroll-mt-6">

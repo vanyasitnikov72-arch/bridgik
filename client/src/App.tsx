@@ -82,6 +82,7 @@ export function App() {
   const [mySeatIndex, setMySeatIndex] = useState<number>(0);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [remoteAudioStreams, setRemoteAudioStreams] = useState<Record<string, MediaStream>>({});
 
   const webrtcRef = useRef<WebRTCManager | null>(null);
 
@@ -227,7 +228,7 @@ export function App() {
           return [completed, ...prev];
         });
       },
-      onRemoteStream: (_peerId, stream) => {
+      onRemoteStream: (peerId, stream) => {
         const videoTracks = stream.getVideoTracks();
         const audioTracks = stream.getAudioTracks();
 
@@ -239,9 +240,12 @@ export function App() {
           };
         }
 
-        if (audioTracks.length > 0 && remoteAudioRef.current) {
-          remoteAudioRef.current.srcObject = stream;
-          remoteAudioRef.current.play().catch(() => {});
+        if (audioTracks.length > 0) {
+          setRemoteAudioStreams((prev) => ({ ...prev, [peerId]: stream }));
+          if (remoteAudioRef.current) {
+            remoteAudioRef.current.srcObject = stream;
+            remoteAudioRef.current.play().catch(() => {});
+          }
         }
       },
       onPeerConnectionStateChange: (peerId, state) => {
@@ -288,6 +292,11 @@ export function App() {
 
       sound.playDisconnect();
       setPeers((prev) => prev.filter((p) => p.id !== data.peerId));
+      setRemoteAudioStreams((prev) => {
+        const next = { ...prev };
+        delete next[data.peerId];
+        return next;
+      });
 
       // Floating top toast notification (centered)
       setParticipantNotice({ type: 'left', name: peerName });
@@ -665,6 +674,7 @@ export function App() {
     setIsMicActive(false);
     setIsScreenActive(false);
     setHasRemoteVideo(false);
+    setRemoteAudioStreams({});
     setMaxSeats(8);
     setIsLocked(false);
     setPeerSeats({});
@@ -746,18 +756,40 @@ export function App() {
     }
   };
 
-  // Toggle Mic
+  // Toggle Mic with instant responsiveness and clear error feedback
   const handleToggleMic = async () => {
-    if (!webrtcRef.current) return false;
-    const active = await webrtcRef.current.toggleMicrophone();
-    setIsMicActive(active);
-    setPeers((prev) =>
-      prev.map((p) => (p.id === myPeerId ? { ...p, isMicActive: active } : p))
-    );
-    if (socket && roomId) {
-      socket.emit('toggle-mic', { roomId, isMicActive: active });
+    if (!webrtcRef.current) {
+      sound.playClick();
+      setRoomAlertNotice({
+        type: 'general',
+        title: 'Микрофон',
+        message: 'Комната инициализируется, подождите 1-2 секунды и нажмите снова.',
+      });
+      return false;
     }
-    return active;
+
+    try {
+      const active = await webrtcRef.current.toggleMicrophone();
+      setIsMicActive(active);
+      sound.playClick();
+      setPeers((prev) =>
+        prev.map((p) => (p.id === myPeerId ? { ...p, isMicActive: active } : p))
+      );
+      if (socket && roomId) {
+        socket.emit('toggle-mic', { roomId, isMicActive: active });
+      }
+      return active;
+    } catch (err: any) {
+      sound.playClick();
+      console.error('Microphone toggle error:', err);
+      setRoomAlertNotice({
+        type: 'general',
+        title: 'Ошибка микрофона',
+        message: err.message || 'Не удалось получить доступ к микрофону.',
+      });
+      setIsMicActive(false);
+      return false;
+    }
   };
 
   // Toggle Screen
@@ -1100,8 +1132,22 @@ export function App() {
           setActiveTab('legal');
         }}
       />
-      {/* Hidden audio element to play remote peer microphone live */}
+      {/* Hidden audio elements to play remote peer microphones live without collision */}
+      {Object.entries(remoteAudioStreams).map(([peerId, stream]) => (
+        <RemotePeerAudio key={peerId} stream={stream} />
+      ))}
       <audio ref={remoteAudioRef} autoPlay playsInline />
     </div>
   );
+}
+
+function RemotePeerAudio({ stream }: { stream: MediaStream }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  useEffect(() => {
+    if (audioRef.current && stream) {
+      audioRef.current.srcObject = stream;
+      audioRef.current.play().catch(() => {});
+    }
+  }, [stream]);
+  return <audio ref={audioRef} autoPlay playsInline />;
 }

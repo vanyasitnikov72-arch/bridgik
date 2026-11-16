@@ -107,10 +107,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             Условия
           </button>
-          <span className="text-[#999999]/60 hidden md:inline">·</span>
-          <span className="text-sm sm:text-base text-[#9ac43e] font-mono font-bold hidden md:inline">
-            {isConnected ? 'сеть активна' : 'подключение...'}
-          </span>
         </nav>
 
         {/* Right: Sound Toggle & User Identity */}
