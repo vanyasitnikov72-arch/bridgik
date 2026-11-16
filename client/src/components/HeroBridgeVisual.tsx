@@ -1,310 +1,231 @@
 import React, { useState } from 'react';
-import { Monitor, Smartphone, Zap, FileText, ArrowRight, ShieldCheck, Wifi } from 'lucide-react';
+import { sound } from '../utils/sound.js';
 
 export const HeroBridgeVisual: React.FC = () => {
   const [isHovered, setIsHovered] = useState(false);
-  const [activeTransferTab, setActiveTransferTab] = useState<'file' | 'clip' | 'stream'>('file');
+  const [packetCount, setPacketCount] = useState(0);
+
+  const handleClick = () => {
+    sound.playClick();
+    setPacketCount((prev) => prev + 1);
+  };
 
   return (
     <div
+      onClick={handleClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="mb-8 w-full select-none rounded-3xl bg-gradient-to-b from-[#18181c] via-[#131316] to-[#0e0e11] border border-[#2e2e38] hover:border-[#789d2a]/50 shadow-[0_12px_40px_rgba(0,0,0,0.6)] p-4 sm:p-6 transition-all duration-300 relative overflow-hidden group"
+      className="mb-6 w-full select-none cursor-pointer group"
+      title="Нажмите для импульса передачи данных"
     >
-      {/* Background Ambient Grid & Glow */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(120,157,42,0.18),transparent_70%)] pointer-events-none" />
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#1f1f280a_1px,transparent_1px),linear-gradient(to_bottom,#1f1f280a_1px,transparent_1px)] bg-[size:16px_16px] opacity-40 pointer-events-none" />
-
-      {/* Top Status Header */}
-      <div className="relative z-10 flex items-center justify-between mb-4 pb-3 border-b border-white/10 text-xs">
+      {/* Top minimal status line in eblo.id font-mono style */}
+      <div className="flex items-center justify-between text-[11px] font-mono text-[#777777] mb-1.5 px-1">
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-[#789d2a] animate-ping" />
-          <span className="font-mono font-bold text-[#bbf348] uppercase tracking-wider text-[11px] sm:text-xs">
-            WebRTC Direct Bridge · P2P
+          <span className="w-1.5 h-1.5 bg-[#9ac43e] animate-pulse" />
+          <span className="text-[#9ac43e] font-bold tracking-wider uppercase text-[10px] sm:text-[11px]">
+            [ прямой канал связи ]
           </span>
         </div>
-
-        {/* Live Transfer Type Switcher */}
-        <div className="flex items-center gap-1 bg-[#1a1a22] border border-white/10 rounded-xl p-1 text-[11px] font-mono">
-          <button
-            type="button"
-            onClick={() => setActiveTransferTab('file')}
-            className={`px-2 py-0.5 rounded-lg transition-colors cursor-pointer ${
-              activeTransferTab === 'file'
-                ? 'bg-[#789d2a] text-white font-bold'
-                : 'text-[#888888] hover:text-white'
-            }`}
-          >
-            Файлы
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTransferTab('clip')}
-            className={`px-2 py-0.5 rounded-lg transition-colors cursor-pointer ${
-              activeTransferTab === 'clip'
-                ? 'bg-[#789d2a] text-white font-bold'
-                : 'text-[#888888] hover:text-white'
-            }`}
-          >
-            Буфер
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTransferTab('stream')}
-            className={`px-2 py-0.5 rounded-lg transition-colors cursor-pointer ${
-              activeTransferTab === 'stream'
-                ? 'bg-[#789d2a] text-white font-bold'
-                : 'text-[#888888] hover:text-white'
-            }`}
-          >
-            Экран
-          </button>
-        </div>
-
-        <div className="hidden sm:flex items-center gap-1.5 font-mono text-[#888888] text-[11px]">
-          <ShieldCheck className="w-3.5 h-3.5 text-[#9ac43e]" />
-          <span>0 байт на сервере</span>
+        <div className="flex items-center gap-2 text-[10px] sm:text-[11px]">
+          <span className="text-[#888888]">p2p webrtc datachannel</span>
+          <span className="text-[#444444]">/</span>
+          <span className="text-[#9ac43e] hidden sm:inline">0 байт на сервере</span>
         </div>
       </div>
 
-      {/* Main Bridge Architecture: Screen 1 ↔ Suspension Bridge & Laser ↔ Screen 2 */}
-      <div className="relative z-10 flex items-center justify-between gap-2 sm:gap-4 my-2 sm:my-4">
-        {/* ================= LEFT DEVICE: COMPUTER (Экран 1) ================= */}
-        <div className="flex flex-col items-center shrink-0 w-28 sm:w-40 transition-transform duration-300 group-hover:scale-102">
-          {/* Monitor Display */}
-          <div className="w-full aspect-[4/3] rounded-2xl bg-[#141418] border-2 border-[#383844] shadow-xl p-2 sm:p-2.5 flex flex-col justify-between relative overflow-hidden group-hover:border-[#789d2a]/80 transition-colors">
-            {/* Screen Top Bar */}
-            <div className="flex items-center justify-between pb-1 border-b border-white/10 text-[9px] font-mono text-[#777777]">
-              <div className="flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#ef4444]" />
-                <span className="w-1.5 h-1.5 rounded-full bg-[#eab308]" />
-                <span className="w-1.5 h-1.5 rounded-full bg-[#789d2a]" />
-              </div>
-              <span className="text-[#9ac43e] font-bold hidden sm:inline">ПК / Mac</span>
-            </div>
+      {/* Pixel Art Suspension Bridge Container */}
+      <div className="relative w-full h-20 sm:h-24 bg-[#121214] border border-[#26262a] rounded-xl overflow-hidden group-hover:border-[#789d2a]/60 transition-colors">
+        {/* Subtle Pixel Grid Texture */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#1a1a20_1px,transparent_1px),linear-gradient(to_bottom,#1a1a20_1px,transparent_1px)] bg-[size:8px_8px] opacity-40 pointer-events-none" />
 
-            {/* Screen Content: File/Sending Widget */}
-            <div className="flex-1 flex flex-col items-center justify-center p-1 sm:p-2 text-center bg-[#0d120a] rounded-lg my-1 border border-[#789d2a]/30">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#789d2a]/20 border border-[#789d2a]/50 flex items-center justify-center text-[#bbf348] mb-1 shadow-[0_0_12px_rgba(120,157,42,0.3)]">
-                {activeTransferTab === 'file' ? (
-                  <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
-                ) : activeTransferTab === 'clip' ? (
-                  <Zap className="w-4 h-4 sm:w-5 sm:h-5" />
-                ) : (
-                  <Monitor className="w-4 h-4 sm:w-5 sm:h-5" />
-                )}
-              </div>
-              <p className="text-[10px] sm:text-xs font-bold text-white truncate max-w-full">
-                {activeTransferTab === 'file' ? 'archive.zip' : activeTransferTab === 'clip' ? 'Буфер (Ctrl+V)' : '60 FPS Экран'}
-              </p>
-              <p className="text-[8px] sm:text-[9px] text-[#9ac43e] font-mono">
-                {activeTransferTab === 'file' ? '4.8 GB · Отправка' : activeTransferTab === 'clip' ? 'Текст / Скриншот' : 'Full HD 1080p'}
-              </p>
-            </div>
+        {/* Ambient Center Glow */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-12 bg-[#789d2a]/10 rounded-full blur-xl pointer-events-none" />
 
-            {/* Screen Base Glow */}
-            <div className="h-1 w-full bg-gradient-to-r from-transparent via-[#789d2a] to-transparent rounded-full opacity-60" />
-          </div>
+        {/* SVG Pixel Canvas with Crisp Edges */}
+        <svg
+          className="w-full h-full absolute inset-0"
+          viewBox="0 0 600 80"
+          preserveAspectRatio="none"
+          shapeRendering="crispEdges"
+        >
+          {/* ================= LEFT PYLON TOWER (Узел A) ================= */}
+          <g>
+            {/* Tower Base & Legs */}
+            <rect x="52" y="24" width="6" height="42" fill="#222228" />
+            <rect x="68" y="24" width="6" height="42" fill="#222228" />
+            <rect x="58" y="32" width="10" height="3" fill="#303038" />
+            <rect x="58" y="46" width="10" height="3" fill="#303038" />
+            <rect x="58" y="60" width="10" height="3" fill="#2a2a32" />
 
-          {/* Monitor Stand */}
-          <div className="w-5 sm:w-7 h-2.5 sm:h-3 bg-[#2a2a32] border-x border-[#383844]" />
-          <div className="w-12 sm:w-16 h-1.5 sm:h-2 bg-[#22222a] border border-[#383844] rounded-full shadow-md" />
+            {/* Pylon Crown Head */}
+            <rect x="50" y="16" width="26" height="8" fill="#2a2a32" />
+            <rect x="56" y="12" width="14" height="4" fill="#383842" />
 
-          {/* Device Label */}
-          <div className="mt-2 text-center">
-            <span className="text-xs sm:text-sm font-extrabold text-[#ededed] block font-mono">
-              [ Экран 1 ]
-            </span>
-            <span className="text-[10px] sm:text-xs text-[#888888] flex items-center justify-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#789d2a]" />
-              Компьютер
-            </span>
-          </div>
+            {/* Glowing Beacon on Left Tower */}
+            <rect x="61" y="8" width="4" height="4" fill="#9ac43e" />
+            <rect x="62" y="6" width="2" height="2" fill="#bbf348" className="animate-pulse" />
+
+            {/* Radio / P2P Signal Waves emitting left */}
+            <rect x="42" y="6" width="2" height="8" fill="#789d2a" opacity="0.4" />
+            <rect x="36" y="4" width="2" height="12" fill="#789d2a" opacity="0.25" />
+            <rect x="30" y="2" width="2" height="16" fill="#789d2a" opacity="0.15" />
+
+            {/* Pier Foundation below deck */}
+            <rect x="48" y="68" width="30" height="12" fill="#18181e" />
+            <rect x="46" y="76" width="34" height="4" fill="#141418" />
+          </g>
+
+          {/* ================= RIGHT PYLON TOWER (Узел B) ================= */}
+          <g>
+            {/* Tower Base & Legs */}
+            <rect x="526" y="24" width="6" height="42" fill="#222228" />
+            <rect x="542" y="24" width="6" height="42" fill="#222228" />
+            <rect x="532" y="32" width="10" height="3" fill="#303038" />
+            <rect x="532" y="46" width="10" height="3" fill="#303038" />
+            <rect x="532" y="60" width="10" height="3" fill="#2a2a32" />
+
+            {/* Pylon Crown Head */}
+            <rect x="524" y="16" width="26" height="8" fill="#2a2a32" />
+            <rect x="530" y="12" width="14" height="4" fill="#383842" />
+
+            {/* Glowing Beacon on Right Tower */}
+            <rect x="535" y="8" width="4" height="4" fill="#9ac43e" />
+            <rect x="536" y="6" width="2" height="2" fill="#bbf348" className="animate-pulse" />
+
+            {/* Radio / P2P Signal Waves emitting right */}
+            <rect x="556" y="6" width="2" height="8" fill="#789d2a" opacity="0.4" />
+            <rect x="562" y="4" width="2" height="12" fill="#789d2a" opacity="0.25" />
+            <rect x="568" y="2" width="2" height="16" fill="#789d2a" opacity="0.15" />
+
+            {/* Pier Foundation below deck */}
+            <rect x="522" y="68" width="30" height="12" fill="#18181e" />
+            <rect x="520" y="76" width="34" height="4" fill="#141418" />
+          </g>
+
+          {/* ================= PIXEL SUSPENSION CABLE ARC ================= */}
+          {/* Stepped Pixel Arc from Left Tower (63, 14) to Center (300, 52) to Right Tower (537, 14) */}
+          <g fill="#4a523a">
+            {/* Left to Center stepped blocks */}
+            <rect x="63" y="14" width="12" height="2" fill="#789d2a" />
+            <rect x="75" y="16" width="12" height="2" fill="#789d2a" />
+            <rect x="87" y="18" width="14" height="2" />
+            <rect x="101" y="21" width="14" height="2" />
+            <rect x="115" y="24" width="16" height="2" />
+            <rect x="131" y="28" width="16" height="2" />
+            <rect x="147" y="32" width="18" height="2" />
+            <rect x="165" y="36" width="18" height="2" />
+            <rect x="183" y="40" width="20" height="2" />
+            <rect x="203" y="44" width="22" height="2" />
+            <rect x="225" y="47" width="24" height="2" />
+            <rect x="249" y="50" width="26" height="2" />
+            {/* Lowest center sag */}
+            <rect x="275" y="52" width="50" height="2" fill="#9ac43e" />
+            {/* Center to Right stepped blocks */}
+            <rect x="325" y="50" width="26" height="2" />
+            <rect x="351" y="47" width="24" height="2" />
+            <rect x="375" y="44" width="22" height="2" />
+            <rect x="397" y="40" width="20" height="2" />
+            <rect x="417" y="36" width="18" height="2" />
+            <rect x="435" y="32" width="18" height="2" />
+            <rect x="453" y="28" width="16" height="2" />
+            <rect x="469" y="24" width="16" height="2" />
+            <rect x="485" y="21" width="14" height="2" />
+            <rect x="499" y="18" width="14" height="2" />
+            <rect x="513" y="16" width="12" height="2" fill="#789d2a" />
+            <rect x="525" y="14" width="12" height="2" fill="#789d2a" />
+
+            {/* Backstay cables to edges */}
+            <rect x="0" y="52" width="18" height="2" fill="#303038" />
+            <rect x="18" y="42" width="16" height="2" fill="#303038" />
+            <rect x="34" y="28" width="16" height="2" fill="#303038" />
+            <rect x="50" y="16" width="14" height="2" fill="#303038" />
+
+            <rect x="536" y="16" width="14" height="2" fill="#303038" />
+            <rect x="550" y="28" width="16" height="2" fill="#303038" />
+            <rect x="566" y="42" width="16" height="2" fill="#303038" />
+            <rect x="582" y="52" width="18" height="2" fill="#303038" />
+          </g>
+
+          {/* Vertical Suspenders (Pixel Drop Hangers) */}
+          {[100, 130, 160, 190, 220, 250, 350, 380, 410, 440, 470, 500].map((x) => {
+            const norm = (x - 300) / 237;
+            const yTop = 52 - 38 * (1 - norm * norm);
+            return (
+              <rect
+                key={x}
+                x={x}
+                y={Math.max(16, yTop)}
+                width="2"
+                height={66 - Math.max(16, yTop)}
+                fill="#24242c"
+              />
+            );
+          })}
+
+          {/* ================= BRIDGE ROAD DECK ================= */}
+          {/* Main Road Deck Bar */}
+          <rect x="0" y="66" width="600" height="3" fill="#2a2a32" />
+          <rect x="0" y="67" width="600" height="1" fill="#789d2a" opacity="0.6" />
+
+          {/* Dotted Pixel Road Markings */}
+          {Array.from({ length: 30 }).map((_, i) => (
+            <rect
+              key={i}
+              x={i * 20 + 4}
+              y="66"
+              width="8"
+              height="1"
+              fill="#9ac43e"
+              opacity="0.9"
+            />
+          ))}
+        </svg>
+
+        {/* ================= LIVE MOVING PIXEL PACKETS ================= */}
+        {/* Packet 1: Gliding along the deck Left to Right */}
+        <div
+          className="animate-bridge-flow absolute bottom-[9px] pointer-events-none flex items-center gap-1 z-10"
+          style={{ animationDuration: isHovered ? '2.0s' : '3.4s' }}
+        >
+          <div className="w-2.5 h-2 bg-[#bbf348] shadow-[0_0_8px_#9ac43e]" />
+          <div className="w-1.5 h-1.5 bg-[#789d2a] opacity-80" />
+          <div className="w-1 h-1 bg-[#789d2a] opacity-50" />
         </div>
 
-        {/* ================= CENTER: CYBER SUSPENSION BRIDGE & DATA BEAM ================= */}
-        <div className="flex-1 flex flex-col items-center justify-center relative min-w-0 px-1 sm:px-3">
-          {/* Top Suspension Cables & Pylons (SVG) */}
-          <div className="w-full h-16 sm:h-24 relative overflow-visible">
-            <svg
-              className="w-full h-full overflow-visible"
-              viewBox="0 0 300 80"
-              preserveAspectRatio="none"
-            >
-              <defs>
-                <linearGradient id="bridgeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#789d2a" stopOpacity="0.4" />
-                  <stop offset="50%" stopColor="#bbf348" stopOpacity="1" />
-                  <stop offset="100%" stopColor="#789d2a" stopOpacity="0.4" />
-                </linearGradient>
-                <filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="3" result="blur" />
-                  <feMerge>
-                    <feMergeNode in="blur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-              </defs>
-
-              {/* Left Pylon Tower (Вантовый пилон 1) */}
-              <g className="opacity-90">
-                <line x1="45" y1="5" x2="35" y2="78" stroke="#484856" strokeWidth="2.5" />
-                <line x1="45" y1="5" x2="55" y2="78" stroke="#484856" strokeWidth="2.5" />
-                <line x1="38" y1="40" x2="52" y2="40" stroke="#789d2a" strokeWidth="1.5" />
-                <line x1="40" y1="60" x2="50" y2="60" stroke="#383842" strokeWidth="1.5" />
-                <circle cx="45" cy="5" r="3.5" fill="#bbf348" filter="url(#neonGlow)" />
-              </g>
-
-              {/* Right Pylon Tower (Вантовый пилон 2) */}
-              <g className="opacity-90">
-                <line x1="255" y1="5" x2="245" y2="78" stroke="#484856" strokeWidth="2.5" />
-                <line x1="255" y1="5" x2="265" y2="78" stroke="#484856" strokeWidth="2.5" />
-                <line x1="248" y1="40" x2="262" y2="40" stroke="#789d2a" strokeWidth="1.5" />
-                <line x1="250" y1="60" x2="260" y2="60" stroke="#383842" strokeWidth="1.5" />
-                <circle cx="255" cy="5" r="3.5" fill="#bbf348" filter="url(#neonGlow)" />
-              </g>
-
-              {/* Main Suspension Cables (Ванты) */}
-              {/* Center Hanging Arc */}
-              <path
-                d="M 45 5 Q 150 68 255 5"
-                fill="none"
-                stroke="url(#bridgeGradient)"
-                strokeWidth="2.5"
-                filter="url(#neonGlow)"
-              />
-              <path
-                d="M 45 8 Q 150 72 255 8"
-                fill="none"
-                stroke="#3a3a46"
-                strokeWidth="1"
-                strokeDasharray="3 3"
-              />
-
-              {/* Left Backstay Cable */}
-              <path d="M 0 55 L 45 5" fill="none" stroke="#444452" strokeWidth="1.5" />
-              {/* Right Backstay Cable */}
-              <path d="M 255 5 L 300 55" fill="none" stroke="#444452" strokeWidth="1.5" />
-
-              {/* Vertical Suspenders across bridge span */}
-              {[70, 95, 120, 150, 180, 205, 230].map((x) => {
-                const norm = (x - 150) / 105;
-                const yTop = 5 + 63 * (1 - Math.cos(norm * 1.3));
-                return (
-                  <line
-                    key={x}
-                    x1={x}
-                    y1={Math.min(yTop, 75)}
-                    x2={x}
-                    y2={78}
-                    stroke="#2e2e38"
-                    strokeWidth="1"
-                    strokeDasharray="2 2"
-                  />
-                );
-              })}
-
-              {/* Road Deck Beam / Truss Foundation */}
-              <line x1="0" y1="78" x2="300" y2="78" stroke="#33333f" strokeWidth="3" />
-              <line
-                x1="0"
-                y1="78"
-                x2="300"
-                y2="78"
-                stroke="#789d2a"
-                strokeWidth="1.5"
-                strokeDasharray="6 4"
-                className="animate-pulse"
-              />
-            </svg>
-
-            {/* Glowing Flowing Data Stream along the bridge road */}
-            <div className="absolute bottom-0 left-0 right-0 h-4 pointer-events-none overflow-hidden">
-              {/* Laser Core */}
-              <div className="w-full h-1 bg-gradient-to-r from-[#789d2a]/20 via-[#bbf348] to-[#789d2a]/20 shadow-[0_0_12px_#9ac43e] mt-1" />
-
-              {/* Continuous animated flying packets */}
-              <div
-                className="animate-bridge-flow flex items-center gap-1.5"
-                style={{ animationDuration: isHovered ? '1.8s' : '2.8s' }}
-              >
-                <div className="px-2 py-0.5 rounded-full bg-[#1b2413] border border-[#789d2a] text-[#bbf348] text-[9px] font-mono font-bold flex items-center gap-1 shadow-[0_0_12px_rgba(187,243,72,0.6)]">
-                  <span>⚡ 82 MB/s</span>
-                  <ArrowRight className="w-2.5 h-2.5" />
-                </div>
-              </div>
-
-              {/* Second Packet Staggered */}
-              <div
-                className="animate-bridge-flow flex items-center gap-1.5"
-                style={{
-                  animationDuration: isHovered ? '1.8s' : '2.8s',
-                  animationDelay: isHovered ? '0.9s' : '1.4s',
-                }}
-              >
-                <div className="px-1.5 py-0.5 rounded-md bg-[#789d2a] text-white text-[8px] font-mono font-extrabold shadow-[0_0_10px_#9ac43e]">
-                  P2P Chunk
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Central Bridge Pillar Badge */}
-          <div className="mt-2 px-3 py-1 rounded-full bg-[#16161c]/90 border border-[#789d2a]/60 text-[#bbf348] text-[10px] sm:text-xs font-mono font-bold shadow-lg flex items-center gap-1.5 hover:border-[#bbf348] transition-colors cursor-default backdrop-blur-md">
-            <Wifi className="w-3.5 h-3.5 text-[#9ac43e] animate-pulse" />
-            <span className="truncate">bridgik · Прямой радиомост</span>
-          </div>
+        {/* Packet 2: Staggered packet */}
+        <div
+          className="animate-bridge-flow absolute bottom-[9px] pointer-events-none flex items-center gap-1 z-10"
+          style={{
+            animationDuration: isHovered ? '2.0s' : '3.4s',
+            animationDelay: isHovered ? '1.0s' : '1.7s',
+          }}
+        >
+          <div className="w-2.5 h-2 bg-[#9ac43e] shadow-[0_0_8px_#789d2a]" />
+          <div className="w-1.5 h-1.5 bg-[#789d2a] opacity-70" />
         </div>
 
-        {/* ================= RIGHT DEVICE: SMARTPHONE (Экран 2) ================= */}
-        <div className="flex flex-col items-center shrink-0 w-20 sm:w-28 transition-transform duration-300 group-hover:scale-102">
-          {/* Smartphone Chassis */}
-          <div className="w-full aspect-[9/17] rounded-2xl bg-[#141418] border-2 border-[#383844] shadow-xl p-1.5 sm:p-2 flex flex-col justify-between relative overflow-hidden group-hover:border-[#789d2a]/80 transition-colors">
-            {/* Top Speaker / Dynamic Island */}
-            <div className="flex items-center justify-center mb-1">
-              <div className="w-6 sm:w-8 h-1.5 rounded-full bg-[#25252e] border border-white/10" />
-            </div>
-
-            {/* Phone Screen Glass */}
-            <div className="flex-1 flex flex-col items-center justify-center p-1 text-center bg-[#0d120a] rounded-xl my-0.5 border border-[#789d2a]/30">
-              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-[#789d2a] text-white flex items-center justify-center mb-1 shadow-[0_0_12px_rgba(120,157,42,0.4)]">
-                <Smartphone className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              </div>
-              <p className="text-[9px] sm:text-[10px] font-bold text-white leading-tight">
-                Получено!
-              </p>
-              <span className="text-[8px] sm:text-[9px] font-mono text-[#bbf348] font-bold">
-                100% · Direct
-              </span>
-            </div>
-
-            {/* Home Indicator Bar */}
-            <div className="flex justify-center mt-1">
-              <div className="w-7 sm:w-10 h-0.8 bg-white/30 rounded-full" />
-            </div>
-          </div>
-
-          {/* Device Label */}
-          <div className="mt-2 text-center">
-            <span className="text-xs sm:text-sm font-extrabold text-[#ededed] block font-mono">
-              [ Экран 2 ]
-            </span>
-            <span className="text-[10px] sm:text-xs text-[#888888] flex items-center justify-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#789d2a]" />
-              Смартфон
-            </span>
-          </div>
+        {/* Center Minimalist Pixel Pill */}
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-[#101014]/90 border border-[#303038] group-hover:border-[#789d2a] transition-colors text-[10px] font-mono text-[#aaaaaa]">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#789d2a] animate-ping" />
+          <span className="text-[#ededed] font-bold">bridgik</span>
+          <span className="text-[#666666]">::</span>
+          <span className="text-[#9ac43e]">мост</span>
+          {packetCount > 0 && (
+            <span className="text-[9px] text-[#bbf348] font-bold ml-1">+{packetCount}</span>
+          )}
         </div>
-      </div>
 
-      {/* Footer Feature Pills */}
-      <div className="mt-3 pt-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#888888] font-mono">
-        <span className="text-[#9ac43e] font-semibold flex items-center gap-1">
-          <span>⚡</span> Без проводов, проволочек и облачных хранилищ
-        </span>
-        <span className="text-[#aaaaaa] hidden sm:inline">
-          Прямое соединение: Браузер ↔ Браузер
-        </span>
+        {/* Left Node Indicator */}
+        <div className="absolute bottom-1.5 left-2 z-20 text-[9px] font-mono text-[#777777] flex items-center gap-1">
+          <span className="w-1.5 h-1.5 bg-[#9ac43e]" />
+          <span>[ узел 1 ]</span>
+        </div>
+
+        {/* Right Node Indicator */}
+        <div className="absolute bottom-1.5 right-2 z-20 text-[9px] font-mono text-[#777777] flex items-center gap-1">
+          <span>[ узел 2 ]</span>
+          <span className="w-1.5 h-1.5 bg-[#9ac43e]" />
+        </div>
       </div>
     </div>
   );
