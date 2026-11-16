@@ -186,3 +186,18 @@
   animation: hub-ripple 2.2s infinite cubic-bezier(0.1, 0.7, 0.3, 1) 1.1s;
 }
 
+/* Footer Pixel Mascot Idle Float */
+@keyframes ghost-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.animate-ghost {
+  animation: ghost-float 2.6s infinite ease-in-out;
+}
+
+

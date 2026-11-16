@@ -11,6 +11,8 @@ type ModalType = 'rules' | 'privacy' | 'terms' | null;
 export const Footer: React.FC<FooterProps> = ({ onOpenAbout: _onOpenAbout }) => {
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const [copiedEmail, setCopiedEmail] = useState(false);
+  const [ghostBounced, setGhostBounced] = useState(false);
+  const [dinoBounced, setDinoBounced] = useState(false);
 
   const handleCopyEmail = () => {
     navigator.clipboard.writeText('support@bridgik.ru').catch(() => {});
@@ -24,11 +26,64 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAbout: _onOpenAbout }) => 
     sound.playClick();
   };
 
+  const handleGhostClick = () => {
+    sound.playMessage();
+    setGhostBounced(true);
+    setTimeout(() => setGhostBounced(false), 600);
+  };
+
+  const handleDinoClick = () => {
+    sound.playConnect();
+    setDinoBounced(true);
+    setTimeout(() => setDinoBounced(false), 600);
+  };
+
   return (
-    <footer className="mt-auto border-t border-white/[0.08] bg-[#141414] py-8 relative overflow-hidden select-none">
-      <div className="max-w-5xl mx-auto px-4 flex flex-col items-center justify-center text-center relative z-10">
+    <footer className="mt-auto border-t border-white/[0.08] bg-[#141414] pt-8 pb-7 relative overflow-hidden select-none">
+      {/* Scalloped Pixel Ground Terrain / Clouds along bottom (matching eblo.id style) */}
+      <div className="absolute inset-x-0 bottom-0 h-8 sm:h-10 flex items-end overflow-hidden pointer-events-none opacity-40">
+        <svg
+          className="w-full h-10"
+          preserveAspectRatio="none"
+          viewBox="0 0 1200 36"
+          shapeRendering="crispEdges"
+        >
+          {/* Back darker cloud mounds */}
+          <path
+            d="M0 36 V 18 Q 30 6 60 18 Q 90 4 120 18 Q 150 8 180 18 Q 210 4 240 18 Q 270 10 300 18 Q 330 4 360 18 Q 390 8 420 18 Q 450 4 480 18 Q 510 8 540 18 Q 570 4 600 18 Q 630 8 660 18 Q 690 4 720 18 Q 750 8 780 18 Q 810 4 840 18 Q 870 8 900 18 Q 930 4 960 18 Q 990 8 1020 18 Q 1050 4 1080 18 Q 1110 8 1140 18 Q 1170 4 1200 18 V 36 Z"
+            fill="#1c1c1c"
+          />
+          {/* Foreground cloud mounds */}
+          <path
+            d="M0 36 V 22 Q 40 10 80 22 Q 120 12 160 22 Q 200 10 240 22 Q 280 12 320 22 Q 360 10 400 22 Q 440 12 480 22 Q 520 10 560 22 Q 600 12 640 22 Q 680 10 720 22 Q 760 12 800 22 Q 840 10 880 22 Q 920 12 960 22 Q 1000 10 1040 22 Q 1080 12 1120 22 Q 1160 10 1200 22 V 36 Z"
+            fill="#232323"
+          />
+        </svg>
+      </div>
+
+      <div className="max-w-6xl mx-auto px-4 flex flex-col items-center justify-center text-center relative z-10">
+        {/* Credits in eblo.id style: Поддержка / Разработка */}
+        <div className="flex items-center justify-center gap-12 sm:gap-24 mb-5 text-center">
+          <div>
+            <p className="text-xs sm:text-sm text-[#888888] font-bold uppercase tracking-wider mb-0.5">
+              Архитектура
+            </p>
+            <p className="font-extrabold text-xl sm:text-2xl text-[#ededed]">
+              Zero-Storage
+            </p>
+          </div>
+          <div>
+            <p className="text-xs sm:text-sm text-[#888888] font-bold uppercase tracking-wider mb-0.5">
+              Протокол
+            </p>
+            <p className="font-extrabold text-xl sm:text-2xl text-[#9ac43e]">
+              WebRTC Direct P2P
+            </p>
+          </div>
+        </div>
+
         {/* Horizontal tabs matching eblo.id style: Правила сайта · Конфиденциальность · Оферта · support@bridgik.ru */}
-        <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-10 md:gap-12 text-base sm:text-xl text-[#999999] mb-3 font-semibold">
+        <div className="flex flex-wrap items-center justify-center gap-5 sm:gap-9 md:gap-11 text-base sm:text-xl text-[#999999] mb-3 font-semibold">
           <button
             onClick={() => {
               setActiveModal('rules');
@@ -72,19 +127,59 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAbout: _onOpenAbout }) => 
           </button>
         </div>
 
-        {/* Minimal Sub-tagline */}
+        {/* Sub-tagline */}
         <p className="text-sm sm:text-base text-[#666666] font-mono">
-          bridgik — мост между вашими экранами · WebRTC Pure P2P · 0 байт на сервере
+          bridgik — мост между вашими экранами · 0 байт на сервере
         </p>
       </div>
 
-      {/* Thematic Pixel Art: Detailed Retro PC ↔ Floating Packet Bridge ↔ Detailed Retro Phone */}
-      <div className="max-w-5xl mx-auto px-4 hidden sm:flex items-end justify-between absolute inset-x-0 bottom-1 pointer-events-none opacity-80">
-        {/* Left Detailed Retro PC */}
-        <div className="flex items-end gap-3 translate-y-0.5">
+      {/* Left Mascot Group: Purple Pac-Man Ghost + Retro PC Terminal */}
+      <div className="hidden lg:flex items-end gap-3 absolute left-6 bottom-2 z-10 select-none">
+        {/* Purple Pac-Man Ghost (GhostRoom Mascot) */}
+        <div
+          onClick={handleGhostClick}
+          className={`cursor-pointer transition-transform group animate-ghost ${
+            ghostBounced ? '-translate-y-3 scale-110' : 'hover:-translate-y-1'
+          }`}
+          title="P2P Ghost (кликните меня!)"
+        >
           <svg
-            width="68"
-            height="62"
+            width="56"
+            height="58"
+            viewBox="0 0 16 16"
+            shapeRendering="crispEdges"
+            className="drop-shadow-md"
+          >
+            {/* Ghost Body (Purple #9333ea / #a855f7) */}
+            <rect x="5" y="1" width="6" height="1" fill="#9333ea" />
+            <rect x="3" y="2" width="10" height="1" fill="#a855f7" />
+            <rect x="2" y="3" width="12" height="1" fill="#a855f7" />
+            <rect x="1" y="4" width="14" height="7" fill="#a855f7" />
+            {/* Bottom wavy skirts */}
+            <rect x="1" y="11" width="14" height="2" fill="#9333ea" />
+            <rect x="1" y="13" width="2" height="1" fill="#9333ea" />
+            <rect x="5" y="13" width="2" height="1" fill="#9333ea" />
+            <rect x="9" y="13" width="2" height="1" fill="#9333ea" />
+            <rect x="13" y="13" width="2" height="1" fill="#9333ea" />
+            <rect x="1" y="14" width="1" height="1" fill="#9333ea" />
+            <rect x="6" y="14" width="1" height="1" fill="#9333ea" />
+            <rect x="10" y="14" width="1" height="1" fill="#9333ea" />
+            <rect x="14" y="14" width="1" height="1" fill="#9333ea" />
+
+            {/* Eyes White */}
+            <rect x="3" y="5" width="3" height="4" fill="#ffffff" />
+            <rect x="9" y="5" width="3" height="4" fill="#ffffff" />
+            {/* Pupils Looking right/center */}
+            <rect x="4" y="6" width="2" height="3" fill="#1e1b4b" />
+            <rect x="10" y="6" width="2" height="3" fill="#1e1b4b" />
+          </svg>
+        </div>
+
+        {/* Retro PC Terminal */}
+        <div className="opacity-80">
+          <svg
+            width="58"
+            height="52"
             viewBox="0 0 34 31"
             shapeRendering="crispEdges"
             className="shrink-0 drop-shadow-sm"
@@ -124,12 +219,15 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAbout: _onOpenAbout }) => 
             <rect x="19" y="28" width="3" height="2" fill="#242424" />
           </svg>
         </div>
+      </div>
 
-        {/* Right Detailed Retro Smartphone */}
-        <div className="flex items-end gap-3 translate-y-0.5">
+      {/* Right Mascot Group: Green Chrome Pixel Dino + Retro Smartphone */}
+      <div className="hidden lg:flex items-end gap-3.5 absolute right-6 bottom-2 z-10 select-none">
+        {/* Retro Smartphone */}
+        <div className="opacity-80">
           <svg
-            width="36"
-            height="62"
+            width="32"
+            height="52"
             viewBox="0 0 18 31"
             shapeRendering="crispEdges"
             className="shrink-0 drop-shadow-sm"
@@ -152,6 +250,53 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAbout: _onOpenAbout }) => 
             <rect x="6" y="21" width="6" height="3" fill="#182613" />
             <rect x="7" y="22" width="4" height="1" fill="#9ac43e" className="animate-pulse" />
             <rect x="7" y="28" width="4" height="1" fill="#222222" />
+          </svg>
+        </div>
+
+        {/* Green Chrome Pixel Dinosaur (T-Rex) */}
+        <div
+          onClick={handleDinoClick}
+          className={`cursor-pointer transition-transform group ${
+            dinoBounced ? '-translate-y-3 scale-110' : 'hover:-translate-y-1'
+          }`}
+          title="Offline Dino (кликните меня!)"
+        >
+          <svg
+            width="56"
+            height="58"
+            viewBox="0 0 20 20"
+            shapeRendering="crispEdges"
+            className="drop-shadow-md"
+          >
+            {/* Dino Head & Jaw */}
+            <rect x="10" y="2" width="8" height="6" fill="#789d2a" />
+            <rect x="10" y="2" width="7" height="1" fill="#9ac43e" />
+            {/* Dino Eye */}
+            <rect x="12" y="3" width="1" height="1" fill="#141414" />
+            {/* Open mouth slit */}
+            <rect x="14" y="6" width="4" height="1" fill="#141414" />
+            <rect x="11" y="7" width="5" height="1" fill="#789d2a" />
+
+            {/* Neck & Body */}
+            <rect x="8" y="5" width="3" height="4" fill="#789d2a" />
+            <rect x="6" y="8" width="5" height="6" fill="#789d2a" />
+            <rect x="5" y="9" width="1" height="4" fill="#789d2a" />
+            <rect x="4" y="10" width="1" height="2" fill="#789d2a" />
+
+            {/* Tail */}
+            <rect x="2" y="9" width="2" height="2" fill="#789d2a" />
+            <rect x="1" y="8" width="2" height="1" fill="#789d2a" />
+            <rect x="3" y="11" width="2" height="1" fill="#789d2a" />
+
+            {/* Tiny Dino Arms */}
+            <rect x="11" y="9" width="2" height="1" fill="#9ac43e" />
+            <rect x="12" y="10" width="1" height="1" fill="#9ac43e" />
+
+            {/* Legs & Feet */}
+            <rect x="7" y="14" width="2" height="3" fill="#789d2a" />
+            <rect x="7" y="17" width="3" height="1" fill="#9ac43e" />
+            <rect x="10" y="14" width="2" height="2" fill="#789d2a" />
+            <rect x="10" y="16" width="3" height="1" fill="#9ac43e" />
           </svg>
         </div>
       </div>
