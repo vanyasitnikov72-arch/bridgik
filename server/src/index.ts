@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
@@ -47,6 +48,7 @@ interface LobbyPeer {
   deviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown';
   subnet: string;
   ip: string;
+  isAdmin?: boolean;
 }
 const lobbyPeers: Map<string, LobbyPeer> = new Map();
 
@@ -70,6 +72,24 @@ function getClientIp(socket: any): string {
     ip = ip.slice(7);
   }
   return ip;
+}
+
+const ADMIN_IPS = (process.env.ADMIN_IPS || '127.0.0.1,::1,localhost')
+  .split(',')
+  .map((ip) => ip.trim().toLowerCase())
+  .filter(Boolean);
+
+const ADMIN_SECRET_KEY = process.env.ADMIN_SECRET_KEY || 'bridgik_creator_root_2026';
+
+function isSocketAdmin(socket: any, providedKey?: string): boolean {
+  if (providedKey && providedKey === ADMIN_SECRET_KEY) {
+    return true;
+  }
+  const ip = getClientIp(socket).toLowerCase();
+  if (ADMIN_IPS.includes(ip) || ip === '127.0.0.1' || ip === '::1' || ip === 'localhost') {
+    return true;
+  }
+  return false;
 }
 
 function getClientNetworkSubnet(socket: any): string {
@@ -120,6 +140,7 @@ function broadcastNearbyPeers(subnet: string) {
         socketId: p.socketId,
         name: p.name,
         deviceType: p.deviceType,
+        isAdmin: p.isAdmin,
       }));
     io.to(peer.socketId).emit('nearby-peers', others);
   });
@@ -174,6 +195,30 @@ io.on('connection', (socket) => {
   const clientIp = getClientIp(socket);
   const clientSubnet = getClientNetworkSubnet(socket);
 
+  const handshakeAdminKey = (socket.handshake.query?.adminKey as string) || (socket.handshake.auth?.adminKey as string);
+  const initialAdmin = isSocketAdmin(socket, handshakeAdminKey);
+  socket.data.isAdmin = initialAdmin;
+
+  // Immediately notify client of their IP and admin status
+  socket.emit('admin-status', {
+    isAdmin: socket.data.isAdmin,
+    clientIp,
+  });
+
+  socket.on('verify-admin-key', (data: { key: string }, callback?: (res: any) => void) => {
+    const verified = isSocketAdmin(socket, data?.key);
+    if (verified) {
+      socket.data.isAdmin = true;
+    }
+    socket.emit('admin-status', {
+      isAdmin: socket.data.isAdmin,
+      clientIp,
+    });
+    if (typeof callback === 'function') {
+      callback({ success: verified, isAdmin: socket.data.isAdmin });
+    }
+  });
+
   // 0. Local Network Discovery (Snapdrop / AirDrop radar)
   socket.on('lobby-join', (data: { name: string; deviceType: any }) => {
     const currentSubnet = getClientNetworkSubnet(socket);
@@ -183,6 +228,7 @@ io.on('connection', (socket) => {
       deviceType: data.deviceType || 'unknown',
       subnet: currentSubnet,
       ip: clientIp,
+      isAdmin: socket.data.isAdmin,
     });
     broadcastNearbyPeers(currentSubnet);
   });
@@ -206,6 +252,7 @@ io.on('connection', (socket) => {
         socketId: p.socketId,
         name: p.name,
         deviceType: p.deviceType,
+        isAdmin: p.isAdmin,
       }))
     );
   });
@@ -235,6 +282,7 @@ io.on('connection', (socket) => {
       fromDevice: data.myDevice,
       roomId: room.id,
       pin: room.pin,
+      isAdmin: socket.data.isAdmin,
     });
   });
 
@@ -262,6 +310,7 @@ io.on('connection', (socket) => {
         customId?: string;
         peerName: string;
         avatar?: string;
+        adminFrame?: any;
         deviceType: any;
         mode?: 'bridge' | 'meeting';
         maxSeats?: number;
@@ -284,10 +333,12 @@ io.on('connection', (socket) => {
           socketId: socket.id,
           name: data.peerName || 'Гость',
           avatar: data.avatar,
+          adminFrame: data.adminFrame,
           deviceType: data.deviceType || 'desktop',
           joinedAt: Date.now(),
           isHost: true,
           browserId: data.browserId,
+          isAdmin: socket.data.isAdmin,
         };
 
         roomManager.addPeer(room.id, peer);
@@ -325,6 +376,7 @@ io.on('connection', (socket) => {
         roomIdOrPin: string;
         peerName: string;
         avatar?: string;
+        adminFrame?: any;
         deviceType: any;
         preferredSeat?: number;
         browserId?: string;
@@ -428,10 +480,12 @@ io.on('connection', (socket) => {
           socketId: socket.id,
           name: data.peerName || 'Гость',
           avatar: data.avatar,
+          adminFrame: data.adminFrame,
           deviceType: data.deviceType || 'unknown',
           joinedAt: Date.now(),
           isHost,
           browserId: data.browserId,
+          isAdmin: socket.data.isAdmin,
         };
 
         // Assign free seat
@@ -491,13 +545,16 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Update peer avatar
-  socket.on('update-peer-avatar', (data: { roomId: string; avatar: string }) => {
+  // Update peer avatar & flair
+  socket.on('update-peer-avatar', (data: { roomId: string; avatar: string; adminFrame?: any }) => {
     const room = roomManager.getRoom(data.roomId);
     if (!room) return;
     const peer = room.peers.get(socket.id);
     if (peer) {
       peer.avatar = data.avatar;
+      if (data.adminFrame !== undefined) {
+        peer.adminFrame = data.adminFrame;
+      }
       io.to(room.id).to(room.pin).emit('peer-updated', peer);
     }
   });

@@ -80,6 +80,8 @@ export class WebRTCManager {
   private myPeerId: string;
   private myName: string;
   private myAvatar: string = '/mascots/dino_avatar.jpg';
+  private myIsAdmin: boolean = false;
+  private myAdminFrame: 'gold' | 'rgb' | 'plasma' | 'none' = 'gold';
   private callbacks: WebRTCCallbacks;
   private connections: Map<string, PeerConnectionBundle> = new Map();
   private localStream: MediaStream | null = null;
@@ -155,6 +157,11 @@ export class WebRTCManager {
 
   public updateMyName(name: string) {
     this.myName = name;
+  }
+
+  public updateAdminStatus(isAdmin: boolean, frame?: 'gold' | 'rgb' | 'plasma' | 'none') {
+    this.myIsAdmin = isAdmin;
+    if (frame !== undefined) this.myAdminFrame = frame;
   }
 
   public async connectToPeer(targetPeerId: string, isInitiator: boolean) {
@@ -289,6 +296,8 @@ export class WebRTCManager {
             senderId: msg.senderId,
             senderName: msg.senderName,
             senderAvatar: msg.senderAvatar,
+            isAdmin: msg.isAdmin,
+            adminFrame: msg.adminFrame,
             text: msg.text,
             timestamp: msg.timestamp,
             isClipboard: msg.isClipboard,
@@ -550,6 +559,8 @@ export class WebRTCManager {
       senderId: this.myPeerId,
       senderName: this.myName,
       senderAvatar: this.myAvatar,
+      isAdmin: this.myIsAdmin,
+      adminFrame: this.myAdminFrame,
       text,
       timestamp: Date.now(),
       isClipboard,
@@ -568,6 +579,8 @@ export class WebRTCManager {
       senderId: this.myPeerId,
       senderName: this.myName,
       senderAvatar: this.myAvatar,
+      isAdmin: this.myIsAdmin,
+      adminFrame: this.myAdminFrame,
       text,
       timestamp: msg.timestamp,
       isClipboard,

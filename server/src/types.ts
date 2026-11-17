@@ -3,9 +3,11 @@ export interface PeerInfo {
   socketId: string;
   name: string;
   avatar?: string;
+  adminFrame?: 'gold' | 'rgb' | 'plasma' | 'none';
   deviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown';
   joinedAt: number;
   isHost: boolean;
+  isAdmin?: boolean;
   isMicActive?: boolean;
   browserId?: string;
 }

@@ -264,4 +264,77 @@
   animation: speech-pulse-ring 1.8s infinite cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* ========================================================
+   Admin / Creator Exclusive Flair & Animated Frames
+   ======================================================== */
+
+/* 1. Golden Creator Halo & Pulse */
+@keyframes admin-gold-glow {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.75), inset 0 0 6px rgba(251, 191, 36, 0.4);
+    border-color: #f59e0b;
+  }
+  50% {
+    box-shadow: 0 0 24px rgba(251, 191, 36, 0.95), 0 0 36px rgba(245, 158, 11, 0.4), inset 0 0 10px rgba(251, 191, 36, 0.6);
+    border-color: #fbbf24;
+  }
+}
+
+.animate-admin-gold {
+  animation: admin-gold-glow 2.2s infinite ease-in-out;
+}
+
+/* 2. Cyber RGB Rainbow Hue Rotation */
+@keyframes admin-rgb-spin {
+  0% {
+    filter: hue-rotate(0deg);
+  }
+  100% {
+    filter: hue-rotate(360deg);
+  }
+}
+
+.animate-admin-rgb {
+  animation: admin-rgb-spin 4s linear infinite;
+  box-shadow: 0 0 15px rgba(56, 189, 248, 0.7), 0 0 25px rgba(168, 85, 247, 0.5);
+  border-color: #38bdf8;
+}
+
+/* 3. Neon Plasma / Hologram Pulse */
+@keyframes admin-plasma-pulse {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(168, 85, 247, 0.7), inset 0 0 6px rgba(192, 132, 252, 0.4);
+    border-color: #a855f7;
+  }
+  50% {
+    box-shadow: 0 0 22px rgba(216, 180, 254, 0.95), 0 0 35px rgba(147, 51, 234, 0.5), inset 0 0 12px rgba(216, 180, 254, 0.7);
+    border-color: #c084fc;
+  }
+}
+
+.animate-admin-plasma {
+  animation: admin-plasma-pulse 2s infinite ease-in-out;
+}
+
+/* Admin Nickname Shimmer Text */
+@keyframes admin-shimmer-wave {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.admin-name-shimmer {
+  background: linear-gradient(90deg, #f59e0b, #fef08a, #10b981, #38bdf8, #f59e0b);
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: admin-shimmer-wave 5s ease infinite;
+}
+
 

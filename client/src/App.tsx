@@ -36,6 +36,23 @@ export function App() {
     return (localStorage.getItem('airbridge_theme') as ThemeMode) || 'swiss';
   });
 
+  // Admin & Creator State
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [clientIp, setClientIp] = useState<string>('');
+  const [adminFrame, setAdminFrame] = useState<'gold' | 'rgb' | 'plasma' | 'none'>(() => {
+    return (localStorage.getItem('bridgik_admin_frame') as any) || 'gold';
+  });
+
+  // Check URL param ?admin=... or stored key on load
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlAdminKey = params.get('admin');
+    if (urlAdminKey) {
+      localStorage.setItem('bridgik_admin_key', urlAdminKey);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [roomId, setRoomId] = useState<string | null>(null);
@@ -177,7 +194,19 @@ export function App() {
       prev.map((m) => (m.senderId === myPeerId ? { ...m, senderAvatar: avatar } : m))
     );
     if (socket && roomId) {
-      socket.emit('update-peer-avatar', { roomId, avatar });
+      socket.emit('update-peer-avatar', { roomId, avatar, adminFrame });
+    }
+  };
+
+  const handleUpdateAdminFrame = (frame: 'gold' | 'rgb' | 'plasma' | 'none') => {
+    setAdminFrame(frame);
+    localStorage.setItem('bridgik_admin_frame', frame);
+    webrtcRef.current?.updateAdminStatus(isAdmin, frame);
+    setPeers((prev) =>
+      prev.map((p) => (p.id === myPeerId ? { ...p, adminFrame: frame } : p))
+    );
+    if (socket && roomId) {
+      socket.emit('update-peer-avatar', { roomId, avatar: userAvatar, adminFrame: frame });
     }
   };
 
@@ -284,6 +313,7 @@ export function App() {
       manager.setDestinationDirectory(destinationDirHandleRef.current);
     }
 
+    manager.updateAdminStatus(isAdmin, adminFrame);
     webrtcRef.current = manager;
     return manager;
   };
@@ -291,6 +321,17 @@ export function App() {
   // Listen to socket room events
   useEffect(() => {
     if (!socket) return;
+
+    socket.on('admin-status', (data: { isAdmin: boolean; clientIp: string }) => {
+      setIsAdmin(data.isAdmin);
+      setClientIp(data.clientIp);
+      webrtcRef.current?.updateAdminStatus(data.isAdmin, adminFrame);
+    });
+
+    const storedAdminKey = localStorage.getItem('bridgik_admin_key');
+    if (storedAdminKey) {
+      socket.emit('verify-admin-key', { key: storedAdminKey });
+    }
 
     socket.on('peer-joined', (newPeer: Peer) => {
       sound.playConnect();
@@ -478,6 +519,7 @@ export function App() {
       {
         peerName: userName,
         avatar: userAvatar,
+        adminFrame,
         deviceType,
         mode,
         maxSeats: 8,
@@ -590,6 +632,7 @@ export function App() {
         roomIdOrPin: pinOrId,
         peerName: userName,
         avatar: userAvatar,
+        adminFrame,
         deviceType,
         browserId: getBrowserDeviceId(),
       },
@@ -860,6 +903,10 @@ export function App() {
         onUpdateUserName={handleUpdateUserName}
         userAvatar={userAvatar}
         onUpdateUserAvatar={handleUpdateUserAvatar}
+        isAdmin={isAdmin}
+        adminFrame={adminFrame}
+        onUpdateAdminFrame={handleUpdateAdminFrame}
+        clientIp={clientIp}
         deviceType={deviceType}
         theme={theme}
         onToggleTheme={handleToggleTheme}
@@ -905,6 +952,10 @@ export function App() {
             onUpdateUserName={handleUpdateUserName}
             userAvatar={userAvatar}
             onUpdateUserAvatar={handleUpdateUserAvatar}
+            isAdmin={isAdmin}
+            adminFrame={adminFrame}
+            onUpdateAdminFrame={handleUpdateAdminFrame}
+            clientIp={clientIp}
             roomTheme={roomTheme}
             onRoomThemeChange={(theme) => setRoomTheme(theme)}
             maxSeats={maxSeats}
@@ -938,6 +989,8 @@ export function App() {
             pin={pin}
             myPeerId={myPeerId}
             userAvatar={userAvatar}
+            isAdmin={isAdmin}
+            adminFrame={adminFrame}
             roomUrl={roomUrl}
             peers={peers}
             transfers={transfers}

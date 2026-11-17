@@ -163,6 +163,8 @@ interface PixelAvatarSeatProps {
   spotName: string;
   accentColor: string;
   isHost?: boolean;
+  isAdmin?: boolean;
+  adminFrame?: 'gold' | 'rgb' | 'plasma' | 'none';
   onToggleMic?: () => void;
   onKick?: () => void;
 }
@@ -176,10 +178,25 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
   spotName,
   accentColor,
   isHost,
+  isAdmin,
+  adminFrame = 'gold',
   onToggleMic,
   onKick,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
+
+  const getSeatFrameClass = () => {
+    if (!isAdmin || adminFrame === 'none') {
+      return '';
+    }
+    if (adminFrame === 'rgb') {
+      return 'animate-admin-rgb border-sky-400';
+    }
+    if (adminFrame === 'plasma') {
+      return 'animate-admin-plasma border-purple-400';
+    }
+    return 'animate-admin-gold border-amber-400';
+  };
 
   return (
     <div
@@ -201,7 +218,12 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
             className={`w-2 h-2 rounded-full ${isMicActive ? 'animate-pulse' : ''}`}
             style={{ backgroundColor: isMicActive ? accentColor : '#666677' }}
           />
-          <span className="text-xs font-bold text-[#ededed] font-mono">
+          {isAdmin && (
+            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-400/20 text-amber-300 font-bold border border-amber-400/30 flex items-center gap-0.5">
+              👑 DEV
+            </span>
+          )}
+          <span className={`text-xs font-bold font-mono ${isAdmin ? 'admin-name-shimmer' : 'text-[#ededed]'}`}>
             {name} {isMe ? '(Вы)' : ''}
           </span>
           <span className="text-[10px] text-[#aaaaaa] font-mono flex items-center gap-1">
@@ -265,10 +287,14 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
         <div
           className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 flex items-center justify-center transition-all duration-200 shadow-2xl relative cursor-pointer drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)] overflow-hidden ${
             isHovered ? 'scale-115 ring-2 ring-white/50' : 'hover:scale-105'
-          } ${isMicActive ? 'bg-[#152414]' : 'bg-[#191922]'}`}
+          } ${isMicActive ? 'bg-[#152414]' : 'bg-[#191922]'} ${getSeatFrameClass()}`}
           style={{
-            borderColor: isMicActive ? accentColor : isHovered ? '#ffffff' : '#444455',
-            boxShadow: isMicActive ? `0 0 16px ${accentColor}80` : '0 4px 12px rgba(0,0,0,0.7)',
+            borderColor: isAdmin && adminFrame !== 'none'
+              ? undefined
+              : (isMicActive ? accentColor : isHovered ? '#ffffff' : '#444455'),
+            boxShadow: isAdmin && adminFrame !== 'none'
+              ? undefined
+              : (isMicActive ? `0 0 16px ${accentColor}80` : '0 4px 12px rgba(0,0,0,0.7)'),
           }}
         >
           <img
@@ -277,6 +303,12 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
             className="w-full h-full object-cover pointer-events-none select-none drop-shadow-sm"
             style={{ imageRendering: 'pixelated' }}
           />
+
+          {isAdmin && adminFrame !== 'none' && (
+            <span className="absolute -top-1 -right-0.5 text-[10px] select-none filter drop-shadow-[0_0_4px_rgba(245,158,11,0.8)] z-20">
+              👑
+            </span>
+          )}
 
           {/* Corner Mic Indicator */}
           <div
@@ -360,6 +392,10 @@ interface MeetingRoomViewProps {
   onUpdateUserName?: (name: string) => void;
   userAvatar?: string;
   onUpdateUserAvatar?: (avatar: string) => void;
+  isAdmin?: boolean;
+  adminFrame?: 'gold' | 'rgb' | 'plasma' | 'none';
+  onUpdateAdminFrame?: (frame: 'gold' | 'rgb' | 'plasma' | 'none') => void;
+  clientIp?: string;
   roomTheme?: string;
   onRoomThemeChange?: (theme: string) => void;
   maxSeats: number;
@@ -397,6 +433,10 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   onUpdateUserName,
   userAvatar,
   onUpdateUserAvatar,
+  isAdmin,
+  adminFrame = 'gold',
+  onUpdateAdminFrame: _onUpdateAdminFrame,
+  clientIp: _clientIp,
   roomTheme,
   onRoomThemeChange,
   maxSeats,
@@ -918,6 +958,8 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                         accentColor={currentRoom.accent}
                         onToggleMic={onToggleMic}
                         isHost={isHost}
+                        isAdmin={isAdmin}
+                        adminFrame={adminFrame}
                       />
                     );
                   } else if (occupant?.type === 'peer') {
@@ -933,6 +975,8 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                         spotName={seat.spotName}
                         accentColor={currentRoom.accent}
                         isHost={peer.isHost}
+                        isAdmin={peer.isAdmin}
+                        adminFrame={peer.adminFrame}
                         onKick={isHost ? () => handleKickPeer(peer.id) : undefined}
                       />
                     );
@@ -1388,6 +1432,8 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                     const currentAvatar = isMe
                       ? (userAvatar || getAvatarForName(activeMyName))
                       : (peer?.avatar || m.senderAvatar || getAvatarForName(m.senderName));
+                    const messageIsAdmin = isMe ? isAdmin : Boolean(peer?.isAdmin || m.isAdmin);
+                    const messageAdminFrame = isMe ? adminFrame : (peer?.adminFrame || m.adminFrame || 'gold');
                     return (
                       <ChatMessageBubble
                         key={m.id}
@@ -1396,6 +1442,8 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                         isMe={isMe}
                         isSystem={m.isSystem || m.senderId === 'system'}
                         avatar={currentAvatar}
+                        isAdmin={messageIsAdmin}
+                        adminFrame={messageAdminFrame}
                         time={new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       />
                     );
@@ -1417,13 +1465,26 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
 
                 <form onSubmit={handleSendChat} className="p-3 flex items-center gap-2">
                   {/* Current User's Round Mascot Avatar (visual indicator) */}
-                  <div className="relative shrink-0 select-none" title={`Ваш аватар: ${activeMyName}`}>
+                  <div className="relative shrink-0 select-none" title={isAdmin ? `Создатель: ${activeMyName}` : `Ваш аватар: ${activeMyName}`}>
                     <img
                       src={userAvatar || getAvatarForName(activeMyName)}
                       alt={activeMyName}
-                      className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border-2 border-[#789d2a] shadow-[0_0_8px_rgba(120,157,42,0.35)] bg-[#171717]"
+                      className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover bg-[#171717] ${
+                        isAdmin && adminFrame !== 'none'
+                          ? adminFrame === 'rgb'
+                            ? 'border-2 border-sky-400 animate-admin-rgb'
+                            : adminFrame === 'plasma'
+                            ? 'border-2 border-purple-400 animate-admin-plasma'
+                            : 'border-2 border-amber-400 animate-admin-gold'
+                          : 'border-2 border-[#789d2a] shadow-[0_0_8px_rgba(120,157,42,0.35)]'
+                      }`}
                       style={{ imageRendering: 'pixelated' }}
                     />
+                    {isAdmin && adminFrame !== 'none' && (
+                      <span className="absolute -top-1.5 -right-1 text-[11px] select-none filter drop-shadow-[0_0_4px_rgba(245,158,11,0.8)]">
+                        👑
+                      </span>
+                    )}
                     <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-[#789d2a] rounded-full border-2 border-[#171717]" />
                   </div>
 

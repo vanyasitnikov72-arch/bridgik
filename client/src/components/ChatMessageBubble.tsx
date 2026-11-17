@@ -31,6 +31,8 @@ interface ChatMessageBubbleProps {
   time?: string;
   isSystem?: boolean;
   avatar?: string;
+  isAdmin?: boolean;
+  adminFrame?: 'gold' | 'rgb' | 'plasma' | 'none';
 }
 
 export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
@@ -40,6 +42,8 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
   time,
   isSystem,
   avatar,
+  isAdmin,
+  adminFrame = 'gold',
 }) => {
   if (isSystem || senderName === 'Система') {
     const isJoin = text.includes('присоединился');
@@ -138,6 +142,21 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
 
   const avatarSrc = avatar || getAvatarForName(senderName);
 
+  const getAvatarFrameClass = () => {
+    if (!isAdmin || adminFrame === 'none') {
+      return isMe
+        ? 'border-2 border-[#789d2a]/80 shadow-[0_0_10px_rgba(120,157,42,0.35)]'
+        : 'border border-[#444444] shadow-md';
+    }
+    if (adminFrame === 'rgb') {
+      return 'border-2 border-sky-400 animate-admin-rgb';
+    }
+    if (adminFrame === 'plasma') {
+      return 'border-2 border-purple-400 animate-admin-plasma';
+    }
+    return 'border-2 border-amber-400 animate-admin-gold';
+  };
+
   return (
     <div
       className={`flex items-end gap-2.5 max-w-full my-1.5 animate-in fade-in duration-150 ${
@@ -146,13 +165,18 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
     >
       {/* Peer's Round Avatar on Left */}
       {!isMe && (
-        <div className="shrink-0 mb-1 select-none" title={senderName}>
+        <div className="relative shrink-0 mb-1 select-none" title={isAdmin ? `${senderName} (Создатель)` : senderName}>
           <img
             src={avatarSrc}
             alt={senderName}
-            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border border-[#444444] bg-[#1a1a1a] shadow-md transition-transform hover:scale-105"
+            className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover bg-[#1a1a1a] transition-transform hover:scale-105 ${getAvatarFrameClass()}`}
             style={{ imageRendering: 'pixelated' }}
           />
+          {isAdmin && adminFrame !== 'none' && (
+            <span className="absolute -top-1.5 -right-1 text-[11px] select-none filter drop-shadow-[0_0_4px_rgba(245,158,11,0.8)]">
+              👑
+            </span>
+          )}
         </div>
       )}
 
@@ -162,11 +186,29 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
           {isMe ? (
             <>
               {time && <span className="text-[10px] text-[#666666] font-mono">{time}</span>}
-              <span className="text-xs font-bold text-[#aaaaaa]">{senderName}</span>
+              <div className="flex items-center gap-1.5">
+                {isAdmin && (
+                  <span className="px-1 py-0.2 rounded text-[9px] font-mono font-black bg-amber-400/20 text-amber-300 border border-amber-400/40 uppercase tracking-wider select-none shadow-[0_0_6px_rgba(245,158,11,0.3)]">
+                    DEV
+                  </span>
+                )}
+                <span className={`text-xs font-bold ${isAdmin ? 'admin-name-shimmer font-black' : 'text-[#aaaaaa]'}`}>
+                  {senderName}
+                </span>
+              </div>
             </>
           ) : (
             <>
-              <span className="text-xs font-bold text-[#aaaaaa]">{senderName}</span>
+              <div className="flex items-center gap-1.5">
+                {isAdmin && (
+                  <span className="px-1 py-0.2 rounded text-[9px] font-mono font-black bg-amber-400/20 text-amber-300 border border-amber-400/40 uppercase tracking-wider select-none shadow-[0_0_6px_rgba(245,158,11,0.3)]">
+                    DEV
+                  </span>
+                )}
+                <span className={`text-xs font-bold ${isAdmin ? 'admin-name-shimmer font-black' : 'text-[#aaaaaa]'}`}>
+                  {senderName}
+                </span>
+              </div>
               {time && <span className="text-[10px] text-[#666666] font-mono">{time}</span>}
             </>
           )}
@@ -178,6 +220,8 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
               ? 'bg-transparent border-0 p-1'
               : isPureLink
               ? 'p-1.5 bg-transparent border-0'
+              : isAdmin
+              ? 'p-3.5 bg-gradient-to-br from-[#22180b] to-[#161616] border border-amber-500/50 text-[#fef08a] shadow-[0_0_12px_rgba(245,158,11,0.18)]'
               : isMe
               ? 'p-3.5 bg-[#1b2413] border border-[#789d2a]/50 text-[#d4e8a8]'
               : 'p-3.5 bg-[#252525] border border-[#383838] text-[#ededed]'
@@ -519,13 +563,18 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
 
       {/* My Round Avatar on Right */}
       {isMe && (
-        <div className="shrink-0 mb-1 select-none" title={`${senderName} (Вы)`}>
+        <div className="relative shrink-0 mb-1 select-none" title={isAdmin ? `${senderName} (Создатель)` : `${senderName} (Вы)`}>
           <img
             src={avatarSrc}
             alt={senderName}
-            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border-2 border-[#789d2a]/80 shadow-[0_0_10px_rgba(120,157,42,0.35)] bg-[#1a1a1a] transition-transform hover:scale-105"
+            className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover bg-[#1a1a1a] transition-transform hover:scale-105 ${getAvatarFrameClass()}`}
             style={{ imageRendering: 'pixelated' }}
           />
+          {isAdmin && adminFrame !== 'none' && (
+            <span className="absolute -top-1.5 -right-1 text-[11px] select-none filter drop-shadow-[0_0_4px_rgba(245,158,11,0.8)]">
+              👑
+            </span>
+          )}
         </div>
       )}
     </div>

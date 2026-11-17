@@ -6,9 +6,11 @@ export interface Peer {
   id: string;
   name: string;
   avatar?: string;
+  adminFrame?: 'gold' | 'rgb' | 'plasma' | 'none';
   deviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown';
   joinedAt: number;
   isHost: boolean;
+  isAdmin?: boolean;
   isMicActive?: boolean;
 }
 
@@ -16,6 +18,7 @@ export interface NearbyPeer {
   socketId: string;
   name: string;
   deviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown';
+  isAdmin?: boolean;
 }
 
 export interface PairRequest {
@@ -24,6 +27,7 @@ export interface PairRequest {
   fromDevice: 'desktop' | 'mobile' | 'tablet' | 'unknown';
   roomId: string;
   pin: string;
+  isAdmin?: boolean;
 }
 
 export interface TextMessage {
@@ -31,6 +35,8 @@ export interface TextMessage {
   senderId: string;
   senderName: string;
   senderAvatar?: string;
+  adminFrame?: 'gold' | 'rgb' | 'plasma' | 'none';
+  isAdmin?: boolean;
   text: string;
   timestamp: number;
   isClipboard?: boolean;
@@ -67,6 +73,8 @@ export type WebRTCMessage =
       senderId: string;
       senderName: string;
       senderAvatar?: string;
+      adminFrame?: 'gold' | 'rgb' | 'plasma' | 'none';
+      isAdmin?: boolean;
       text: string;
       timestamp: number;
       isClipboard?: boolean;

@@ -10,6 +10,10 @@ interface NavbarProps {
   onUpdateUserName: (name: string) => void;
   userAvatar?: string;
   onUpdateUserAvatar?: (avatar: string) => void;
+  isAdmin?: boolean;
+  adminFrame?: 'gold' | 'rgb' | 'plasma' | 'none';
+  onUpdateAdminFrame?: (frame: 'gold' | 'rgb' | 'plasma' | 'none') => void;
+  clientIp?: string;
   deviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown';
   theme: ThemeMode;
   onToggleTheme: () => void;
@@ -24,6 +28,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   onUpdateUserName,
   userAvatar,
   onUpdateUserAvatar,
+  isAdmin,
+  adminFrame = 'gold',
+  onUpdateAdminFrame,
+  clientIp,
   theme: _theme,
   onToggleTheme: _onToggleTheme,
   isConnected,
@@ -35,6 +43,19 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
   const [tempName, setTempName] = useState(userName);
   const [soundEnabled, setSoundEnabled] = useState(() => sound.isEnabled());
+
+  const getAdminFrameClass = () => {
+    if (!isAdmin || adminFrame === 'none') {
+      return 'border-2 border-[#789d2a] shadow-[0_0_8px_rgba(120,157,42,0.35)]';
+    }
+    if (adminFrame === 'rgb') {
+      return 'border-2 border-sky-400 animate-admin-rgb';
+    }
+    if (adminFrame === 'plasma') {
+      return 'border-2 border-purple-400 animate-admin-plasma';
+    }
+    return 'border-2 border-amber-400 animate-admin-gold';
+  };
 
   const handleToggleSound = () => {
     const nextState = sound.toggle();
@@ -139,26 +160,42 @@ export const Navbar: React.FC<NavbarProps> = ({
                     onUpdateUserAvatar?.(src);
                     setIsAvatarPickerOpen(false);
                   }}
+                  isAdmin={isAdmin}
+                  adminFrame={adminFrame}
+                  onSelectAdminFrame={onUpdateAdminFrame}
+                  clientIp={clientIp}
                   onClose={() => setIsAvatarPickerOpen(false)}
                 />
               </div>
             )}
 
-            <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-[#222222] border border-[#3a3a3a] text-base text-[#ededed]">
+            <div className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl border text-base text-[#ededed] transition-all ${
+              isAdmin
+                ? 'bg-gradient-to-r from-[#241c10] via-[#1c1c1c] to-[#171717] border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.2)]'
+                : 'bg-[#222222] border-[#3a3a3a]'
+            }`}>
               <button
                 type="button"
                 onClick={() => setIsAvatarPickerOpen(!isAvatarPickerOpen)}
                 className={`relative cursor-pointer hover:scale-105 active:scale-95 transition-transform shrink-0 ${
-                  isAvatarPickerOpen ? 'ring-2 ring-[#789d2a] rounded-full scale-105' : ''
+                  isAvatarPickerOpen ? 'ring-2 ring-amber-400 rounded-full scale-105' : ''
                 }`}
-                title="Кликните, чтобы сменить маскота"
+                title={isAdmin ? 'Кликните, чтобы выбрать маскота или рамку Создателя' : 'Кликните, чтобы сменить маскота'}
               >
                 <img
                   src={userAvatar || getAvatarForName(userName)}
                   alt={userName}
-                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border-2 border-[#789d2a] shadow-[0_0_8px_rgba(120,157,42,0.35)] bg-[#171717]"
+                  className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover bg-[#171717] ${getAdminFrameClass()}`}
                   style={{ imageRendering: 'pixelated' }}
                 />
+                {isAdmin && adminFrame !== 'none' && (
+                  <span
+                    className="absolute -top-2 -right-1 text-xs select-none filter drop-shadow-[0_0_6px_rgba(245,158,11,0.8)]"
+                    title="Создатель сервиса"
+                  >
+                    👑
+                  </span>
+                )}
                 <span
                   className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#222222] ${
                     isConnected ? 'bg-[#789d2a]' : 'bg-[#e8b33c]'
@@ -189,11 +226,23 @@ export const Navbar: React.FC<NavbarProps> = ({
                     setTempName(userName);
                     setIsEditing(true);
                   }}
-                  className="flex items-center gap-2 hover:text-white transition-colors cursor-pointer"
+                  className="flex items-center gap-2 hover:text-white transition-colors cursor-pointer min-w-0"
                   title="Кликните, чтобы изменить имя"
                 >
-                  <span className="font-extrabold max-w-[140px] truncate">{userName}</span>
-                  <Edit2 className="w-3.5 h-3.5 text-[#aaaaaa] hover:text-[#9ac43e]" />
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    {isAdmin && (
+                      <span
+                        className="px-1.5 py-0.2 rounded text-[10px] font-mono font-black bg-amber-400/20 text-amber-300 border border-amber-400/40 uppercase tracking-wider select-none shadow-[0_0_6px_rgba(245,158,11,0.3)] shrink-0"
+                        title="Статус: Создатель сервиса (Root)"
+                      >
+                        DEV
+                      </span>
+                    )}
+                    <span className={`font-extrabold max-w-[140px] truncate ${isAdmin ? 'admin-name-shimmer' : ''}`}>
+                      {userName}
+                    </span>
+                    <Edit2 className="w-3.5 h-3.5 text-[#aaaaaa] hover:text-[#9ac43e] shrink-0" />
+                  </div>
                 </button>
               )}
             </div>

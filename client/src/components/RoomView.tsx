@@ -34,6 +34,8 @@ interface RoomViewProps {
   pin: string;
   myPeerId: string;
   userAvatar?: string;
+  isAdmin?: boolean;
+  adminFrame?: 'gold' | 'rgb' | 'plasma' | 'none';
   roomUrl: string;
   peers: Peer[];
   transfers: FileTransfer[];
@@ -63,6 +65,8 @@ export const RoomView: React.FC<RoomViewProps> = ({
   pin,
   myPeerId,
   userAvatar,
+  isAdmin,
+  adminFrame: _adminFrame = 'gold',
   roomUrl,
   peers,
   transfers,
@@ -722,20 +726,36 @@ export const RoomView: React.FC<RoomViewProps> = ({
                 const currentAvatar = isMe
                   ? (userAvatar || getAvatarForName(m.senderName))
                   : (peer?.avatar || m.senderAvatar || getAvatarForName(m.senderName));
+                const messageIsAdmin = isMe ? isAdmin : Boolean(peer?.isAdmin || m.isAdmin);
                 return (
                   <div
                     key={m.id}
-                    className="p-3.5 rounded-lg bg-[#171717] border border-[#3a3a3a] group"
+                    className={`p-3.5 rounded-lg border group ${
+                      messageIsAdmin
+                        ? 'bg-gradient-to-br from-[#22180b] to-[#161616] border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.15)]'
+                        : 'bg-[#171717] border-[#3a3a3a]'
+                    }`}
                   >
                     <div className="flex items-center justify-between text-xs text-[#aaaaaa] mb-2 font-semibold">
                       <div className="flex items-center gap-2">
                         <img
                           src={currentAvatar}
                           alt={m.senderName}
-                          className="w-5 h-5 rounded-full object-cover border border-[#789d2a]/50 bg-[#222]"
+                          className={`w-5 h-5 rounded-full object-cover bg-[#222] ${
+                            messageIsAdmin ? 'border border-amber-400' : 'border border-[#789d2a]/50'
+                          }`}
                           style={{ imageRendering: 'pixelated' }}
                         />
-                        <span className="font-bold text-[#ededed]">{m.senderName}</span>
+                        <div className="flex items-center gap-1.5">
+                          {messageIsAdmin && (
+                            <span className="px-1 py-0.2 rounded text-[9px] font-mono font-black bg-amber-400/20 text-amber-300 border border-amber-400/40 uppercase tracking-wider select-none">
+                              DEV
+                            </span>
+                          )}
+                          <span className={`font-bold ${messageIsAdmin ? 'admin-name-shimmer text-amber-300' : 'text-[#ededed]'}`}>
+                            {m.senderName}
+                          </span>
+                        </div>
                       </div>
                       <span>{new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
