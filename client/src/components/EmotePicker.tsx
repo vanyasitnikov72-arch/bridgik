@@ -6,12 +6,16 @@ interface EmotePickerProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectEmote: (emote: EmoteItem) => void;
+  positionClass?: string;
+  title?: string;
 }
 
 export const EmotePicker: React.FC<EmotePickerProps> = ({
   isOpen,
   onClose,
   onSelectEmote,
+  positionClass,
+  title: _title,
 }) => {
   const [search, setSearch] = useState('');
   const [hoveredEmote, setHoveredEmote] = useState<EmoteItem | null>(null);
@@ -65,7 +69,9 @@ export const EmotePicker: React.FC<EmotePickerProps> = ({
   return (
     <div
       ref={pickerRef}
-      className="absolute bottom-14 right-2 z-50 w-80 sm:w-96 bg-[#141416]/95 border border-[#353535] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.9)] p-3.5 flex flex-col gap-2.5 animate-in slide-in-from-bottom-2 duration-150 backdrop-blur-xl"
+      className={`absolute z-50 w-80 sm:w-96 bg-[#141416]/95 border border-[#353535] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.9)] p-3.5 flex flex-col gap-2.5 animate-in slide-in-from-bottom-2 duration-150 backdrop-blur-xl select-none ${
+        positionClass || 'bottom-14 right-2'
+      }`}
     >
       {/* Header with Search */}
       <div className="relative flex items-center">

@@ -7,6 +7,7 @@ export interface Peer {
   name: string;
   avatar?: string;
   adminFrame?: 'gold' | 'rgb' | 'plasma' | 'none';
+  statusEmote?: string;
   deviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown';
   joinedAt: number;
   isHost: boolean;
@@ -19,6 +20,7 @@ export interface NearbyPeer {
   name: string;
   deviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown';
   isAdmin?: boolean;
+  statusEmote?: string;
 }
 
 export interface PairRequest {
@@ -28,6 +30,7 @@ export interface PairRequest {
   roomId: string;
   pin: string;
   isAdmin?: boolean;
+  statusEmote?: string;
 }
 
 export interface TextMessage {
@@ -37,6 +40,7 @@ export interface TextMessage {
   senderAvatar?: string;
   adminFrame?: 'gold' | 'rgb' | 'plasma' | 'none';
   isAdmin?: boolean;
+  senderStatusEmote?: string;
   text: string;
   timestamp: number;
   isClipboard?: boolean;
@@ -75,6 +79,7 @@ export type WebRTCMessage =
       senderAvatar?: string;
       adminFrame?: 'gold' | 'rgb' | 'plasma' | 'none';
       isAdmin?: boolean;
+      senderStatusEmote?: string;
       text: string;
       timestamp: number;
       isClipboard?: boolean;
@@ -117,6 +122,11 @@ export type WebRTCMessage =
   | {
       type: 'SCRATCHPAD_SYNC';
       text: string;
+      updatedBy: string;
+      timestamp: number;
+    }
+  | {
+      type: 'SCRATCHPAD_TYPING';
       updatedBy: string;
       timestamp: number;
     };

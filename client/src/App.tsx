@@ -42,6 +42,9 @@ export function App() {
   const [adminFrame, setAdminFrame] = useState<'gold' | 'rgb' | 'plasma' | 'none'>(() => {
     return (localStorage.getItem('bridgik_admin_frame') as any) || 'gold';
   });
+  const [statusEmote, setStatusEmote] = useState<string | null>(() => {
+    return localStorage.getItem('bridgik_user_status_emote') || null;
+  });
 
   // Check URL param ?admin=... or stored key on load
   useEffect(() => {
@@ -107,6 +110,9 @@ export function App() {
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const [remoteAudioStreams, setRemoteAudioStreams] = useState<Record<string, MediaStream>>({});
+  const [scratchpadTypingUser, setScratchpadTypingUser] = useState<string | null>(null);
+  const scratchpadTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [peerConnectionTypes, setPeerConnectionTypes] = useState<Record<string, 'direct' | 'relay'>>({});
 
   const webrtcRef = useRef<WebRTCManager | null>(null);
 
@@ -210,6 +216,30 @@ export function App() {
     }
   };
 
+  const handleUpdateStatusEmote = (emote: string | null) => {
+    setStatusEmote(emote);
+    if (emote) {
+      localStorage.setItem('bridgik_user_status_emote', emote);
+    } else {
+      localStorage.removeItem('bridgik_user_status_emote');
+    }
+    if (webrtcRef.current) {
+      webrtcRef.current.updateStatusEmote(emote || undefined);
+    }
+    setPeers((prev) =>
+      prev.map((p) => (p.id === myPeerId ? { ...p, statusEmote: emote || undefined } : p))
+    );
+    setMessages((prev) =>
+      prev.map((m) => (m.senderId === myPeerId ? { ...m, senderStatusEmote: emote || undefined } : m))
+    );
+    if (socket && roomId) {
+      socket.emit('update-peer-status-emote', { roomId, statusEmote: emote || undefined });
+    }
+    if (socket && !roomId) {
+      socket.emit('lobby-update-status-emote', { statusEmote: emote || undefined });
+    }
+  };
+
   // Toggle Theme
   const handleToggleTheme = () => {
     const nextTheme: ThemeMode =
@@ -307,6 +337,16 @@ export function App() {
       onScratchpadSync: (text) => {
         setScratchpadText(text);
       },
+      onScratchpadTyping: (updatedBy) => {
+        setScratchpadTypingUser(updatedBy);
+        if (scratchpadTypingTimerRef.current) clearTimeout(scratchpadTypingTimerRef.current);
+        scratchpadTypingTimerRef.current = setTimeout(() => {
+          setScratchpadTypingUser(null);
+        }, 2500);
+      },
+      onConnectionTypeChange: (peerId, type) => {
+        setPeerConnectionTypes((prev) => ({ ...prev, [peerId]: type }));
+      },
     }, userAvatar);
 
     if (destinationDirHandleRef.current) {
@@ -314,6 +354,9 @@ export function App() {
     }
 
     manager.updateAdminStatus(isAdmin, adminFrame);
+    if (statusEmote) {
+      manager.updateStatusEmote(statusEmote);
+    }
     webrtcRef.current = manager;
     return manager;
   };
@@ -380,6 +423,11 @@ export function App() {
       if (updatedPeer.avatar) {
         setMessages((prev) =>
           prev.map((m) => (m.senderId === updatedPeer.id ? { ...m, senderAvatar: updatedPeer.avatar } : m))
+        );
+      }
+      if (updatedPeer.statusEmote !== undefined) {
+        setMessages((prev) =>
+          prev.map((m) => (m.senderId === updatedPeer.id ? { ...m, senderStatusEmote: updatedPeer.statusEmote } : m))
         );
       }
     });
@@ -451,6 +499,7 @@ export function App() {
     socket.emit('lobby-join', {
       name: userName,
       deviceType,
+      statusEmote: statusEmote || undefined,
     });
     socket.emit('lobby-query');
 
@@ -520,6 +569,7 @@ export function App() {
         peerName: userName,
         avatar: userAvatar,
         adminFrame,
+        statusEmote: statusEmote || undefined,
         deviceType,
         mode,
         maxSeats: 8,
@@ -633,6 +683,7 @@ export function App() {
         peerName: userName,
         avatar: userAvatar,
         adminFrame,
+        statusEmote: statusEmote || undefined,
         deviceType,
         browserId: getBrowserDeviceId(),
       },
@@ -807,6 +858,7 @@ export function App() {
     setScratchpadText(text);
     if (webrtcRef.current) {
       webrtcRef.current.sendScratchpadUpdate(text);
+      webrtcRef.current.sendScratchpadTyping();
     }
   };
 
@@ -906,6 +958,8 @@ export function App() {
         isAdmin={isAdmin}
         adminFrame={adminFrame}
         onUpdateAdminFrame={handleUpdateAdminFrame}
+        statusEmote={statusEmote}
+        onUpdateStatusEmote={handleUpdateStatusEmote}
         clientIp={clientIp}
         deviceType={deviceType}
         theme={theme}
@@ -955,6 +1009,8 @@ export function App() {
             isAdmin={isAdmin}
             adminFrame={adminFrame}
             onUpdateAdminFrame={handleUpdateAdminFrame}
+            statusEmote={statusEmote}
+            onUpdateStatusEmote={handleUpdateStatusEmote}
             clientIp={clientIp}
             roomTheme={roomTheme}
             onRoomThemeChange={(theme) => setRoomTheme(theme)}
@@ -967,9 +1023,11 @@ export function App() {
             onSwitchSeat={handleSwitchSeat}
             roomUrl={roomUrl}
             peers={peers}
+            peerConnectionTypes={peerConnectionTypes}
             transfers={transfers}
             messages={messages}
             scratchpadText={scratchpadText}
+            scratchpadTypingUser={scratchpadTypingUser}
             onUpdateScratchpad={handleUpdateScratchpad}
             onSendFiles={handleSendFiles}
             onSendText={handleSendText}
@@ -991,8 +1049,10 @@ export function App() {
             userAvatar={userAvatar}
             isAdmin={isAdmin}
             adminFrame={adminFrame}
+            statusEmote={statusEmote}
             roomUrl={roomUrl}
             peers={peers}
+            peerConnectionTypes={peerConnectionTypes}
             transfers={transfers}
             messages={messages}
             onSendFiles={handleSendFiles}

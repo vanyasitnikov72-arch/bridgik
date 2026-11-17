@@ -267,7 +267,16 @@ export const HomeView: React.FC<HomeViewProps> = ({
                           )}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-base sm:text-lg font-bold text-[#ededed] truncate">{peer.name}</p>
+                          <p className="text-base sm:text-lg font-bold text-[#ededed] truncate flex items-center gap-1.5">
+                            <span className="truncate">{peer.name}</span>
+                            {peer.statusEmote && (
+                              <img
+                                src={peer.statusEmote}
+                                alt="status"
+                                className="w-4 h-4 object-contain shrink-0 filter drop-shadow-[0_0_4px_rgba(255,255,255,0.3)]"
+                              />
+                            )}
+                          </p>
                           <p className="text-sm text-[#9ac43e] flex items-center gap-1.5 font-semibold">
                             <span className="w-2 h-2 rounded-full bg-[#789d2a]" />
                             <span>Готов к приему</span>

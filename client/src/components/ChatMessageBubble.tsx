@@ -33,6 +33,7 @@ interface ChatMessageBubbleProps {
   avatar?: string;
   isAdmin?: boolean;
   adminFrame?: 'gold' | 'rgb' | 'plasma' | 'none';
+  senderStatusEmote?: string;
 }
 
 export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
@@ -44,6 +45,7 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
   avatar,
   isAdmin,
   adminFrame = 'gold',
+  senderStatusEmote,
 }) => {
   if (isSystem || senderName === 'Система') {
     const isJoin = text.includes('присоединился');
@@ -195,6 +197,13 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
                 <span className={`text-xs font-bold ${isAdmin ? 'admin-name-shimmer font-black' : 'text-[#aaaaaa]'}`}>
                   {senderName}
                 </span>
+                {senderStatusEmote && (
+                  <img
+                    src={senderStatusEmote}
+                    alt="status"
+                    className="w-4 h-4 object-contain inline-block select-none filter drop-shadow-sm"
+                  />
+                )}
               </div>
             </>
           ) : (
@@ -208,6 +217,13 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
                 <span className={`text-xs font-bold ${isAdmin ? 'admin-name-shimmer font-black' : 'text-[#aaaaaa]'}`}>
                   {senderName}
                 </span>
+                {senderStatusEmote && (
+                  <img
+                    src={senderStatusEmote}
+                    alt="status"
+                    className="w-4 h-4 object-contain inline-block select-none filter drop-shadow-sm"
+                  />
+                )}
               </div>
               {time && <span className="text-[10px] text-[#666666] font-mono">{time}</span>}
             </>

@@ -4,6 +4,7 @@ export interface PeerInfo {
   name: string;
   avatar?: string;
   adminFrame?: 'gold' | 'rgb' | 'plasma' | 'none';
+  statusEmote?: string;
   deviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown';
   joinedAt: number;
   isHost: boolean;

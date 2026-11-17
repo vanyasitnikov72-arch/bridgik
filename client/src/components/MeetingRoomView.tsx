@@ -165,6 +165,8 @@ interface PixelAvatarSeatProps {
   isHost?: boolean;
   isAdmin?: boolean;
   adminFrame?: 'gold' | 'rgb' | 'plasma' | 'none';
+  statusEmote?: string;
+  connectionType?: 'direct' | 'relay';
   onToggleMic?: () => void;
   onKick?: () => void;
 }
@@ -180,6 +182,8 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
   isHost,
   isAdmin,
   adminFrame = 'gold',
+  statusEmote,
+  connectionType,
   onToggleMic,
   onKick,
 }) => {
@@ -223,8 +227,15 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
               👑 DEV
             </span>
           )}
-          <span className={`text-xs font-bold font-mono ${isAdmin ? 'admin-name-shimmer' : 'text-[#ededed]'}`}>
-            {name} {isMe ? '(Вы)' : ''}
+          <span className={`text-xs font-bold font-mono flex items-center gap-1 ${isAdmin ? 'admin-name-shimmer' : 'text-[#ededed]'}`}>
+            <span>{name} {isMe ? '(Вы)' : ''}</span>
+            {statusEmote && (
+              <img
+                src={statusEmote}
+                alt="status"
+                className="w-4 h-4 object-contain inline-block select-none filter drop-shadow-[0_0_4px_rgba(255,255,255,0.3)]"
+              />
+            )}
           </span>
           <span className="text-[10px] text-[#aaaaaa] font-mono flex items-center gap-1">
             {deviceType === 'mobile' ? (
@@ -234,6 +245,18 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
             )}
             · {spotName}
           </span>
+          {!isMe && connectionType && (
+            <span
+              className={`text-[9px] px-1 py-0.2 rounded font-mono border ${
+                connectionType === 'relay'
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                  : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+              }`}
+              title={connectionType === 'relay' ? 'Соединение через защищенный ретранслятор TURN (Симметричный NAT)' : 'Прямой P2P WebRTC'}
+            >
+              {connectionType === 'relay' ? '🛡️ TURN' : '⚡ P2P'}
+            </span>
+          )}
           {isMe && (
             <span
               className="text-[10px] text-[#9ac43e] font-mono border-l border-white/10 pl-1.5 cursor-pointer hover:underline"
@@ -281,6 +304,16 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
             <span className="w-0.5 rounded-xs animate-eq-3" style={{ backgroundColor: accentColor }} />
             <span className="w-0.5 rounded-xs animate-eq-4" style={{ backgroundColor: accentColor }} />
           </div>
+        )}
+
+        {/* Animated 7TV / Telegram Status Emote Badge */}
+        {statusEmote && (
+          <img
+            src={statusEmote}
+            alt="status"
+            className="absolute -top-2 -left-1.5 w-5 h-5 object-contain select-none z-20 pointer-events-none filter drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)]"
+            title="Эмодзи-статус"
+          />
         )}
 
         {/* Avatar Token sitting cleanly on the furniture */}
@@ -346,37 +379,39 @@ const EmptyPixelSeat: React.FC<EmptyPixelSeatProps> = ({
     >
       {/* Tooltip on hover: just displays the spot name */}
       <div
-        className={`absolute -top-9 z-30 transition-all duration-200 flex flex-col items-center pointer-events-none ${
+        className={`absolute -top-10 z-30 transition-all duration-200 flex flex-col items-center pointer-events-none ${
           isHovered
             ? 'opacity-100 -translate-y-1 scale-100'
             : 'opacity-0 translate-y-1 scale-95'
         }`}
       >
-        <div className="px-2.5 py-1 rounded-xl bg-[#0e0e14]/95 border border-white/20 shadow-2xl backdrop-blur-md flex items-center whitespace-nowrap">
-          <span className="text-xs font-semibold text-[#ededed] font-mono">
+        <div className="px-3 py-1.5 rounded-xl bg-[#0b120a]/95 border border-[#9ac43e]/50 shadow-[0_0_15px_rgba(0,0,0,0.9)] backdrop-blur-md flex items-center gap-1.5 whitespace-nowrap">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#9ac43e] animate-ping" />
+          <span className="text-xs font-bold text-[#bbf348] font-mono">
             {spotName}
           </span>
+          <span className="text-[10px] text-[#88aa55] font-sans">· занять место</span>
         </div>
-        <div className="w-2 h-1 bg-[#0e0e14] border-r border-b border-white/20 rotate-45 -mt-0.5" />
+        <div className="w-2 h-1 bg-[#0b120a] border-r border-b border-[#9ac43e]/50 rotate-45 -mt-0.5" />
       </div>
 
-      {/* Clean dashed circular seat marker directly on the furniture */}
+      {/* Luminous circular seat marker on furniture with distinct contrast & subtle neon glow */}
       <div
-        className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full border-2 border-dashed flex items-center justify-center cursor-pointer transition-all duration-200 drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)] ${
+        className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 border-dashed flex items-center justify-center cursor-pointer transition-all duration-200 drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)] ${
           isHovered
-            ? 'scale-120 border-white bg-[#1e1e28]/95 shadow-2xl ring-2 ring-white/40'
-            : 'border-white/30 bg-[#121218]/50 hover:border-white/60'
+            ? 'scale-125 border-[#bbf348] bg-[#1a2e16] shadow-[0_0_22px_rgba(154,196,62,0.8)] ring-2 ring-[#bbf348]/70'
+            : 'border-[#9ac43e]/70 bg-[#0e140d]/85 shadow-[0_0_10px_rgba(154,196,62,0.3)] ring-1 ring-white/20 hover:border-[#bbf348]'
         }`}
         style={{
           borderColor: isHovered ? accentColor : undefined,
         }}
-        title="Кликните, чтобы пересесть на это место"
+        title={`Свободное место: ${spotName}. Кликните, чтобы пересесть.`}
       >
         <Plus
-          className={`w-3.5 h-3.5 transition-colors ${
-            isHovered ? 'text-white' : 'text-white/50'
+          className={`w-4 h-4 transition-transform duration-200 ${
+            isHovered ? 'text-white scale-110' : 'text-[#bbf348]'
           }`}
-          style={{ color: isHovered ? accentColor : undefined }}
+          style={{ color: isHovered ? '#ffffff' : accentColor }}
         />
       </div>
     </div>
@@ -395,6 +430,8 @@ interface MeetingRoomViewProps {
   isAdmin?: boolean;
   adminFrame?: 'gold' | 'rgb' | 'plasma' | 'none';
   onUpdateAdminFrame?: (frame: 'gold' | 'rgb' | 'plasma' | 'none') => void;
+  statusEmote?: string | null;
+  onUpdateStatusEmote?: (emote: string | null) => void;
   clientIp?: string;
   roomTheme?: string;
   onRoomThemeChange?: (theme: string) => void;
@@ -410,6 +447,8 @@ interface MeetingRoomViewProps {
   transfers: FileTransfer[];
   messages: TextMessage[];
   scratchpadText: string;
+  scratchpadTypingUser?: string | null;
+  peerConnectionTypes?: Record<string, 'direct' | 'relay'>;
   onUpdateScratchpad: (text: string) => void;
   onSendFiles: (files: FileList | File[]) => void;
   onSendText: (text: string) => void;
@@ -436,6 +475,8 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   isAdmin,
   adminFrame = 'gold',
   onUpdateAdminFrame: _onUpdateAdminFrame,
+  statusEmote,
+  onUpdateStatusEmote: _onUpdateStatusEmote,
   clientIp: _clientIp,
   roomTheme,
   onRoomThemeChange,
@@ -451,6 +492,8 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   transfers,
   messages,
   scratchpadText,
+  scratchpadTypingUser,
+  peerConnectionTypes,
   onUpdateScratchpad,
   onSendFiles,
   onSendText,
@@ -533,6 +576,17 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   const prevMessagesLength = useRef(messages.length);
   const [newChatToast, setNewChatToast] = useState<{ sender: string; text: string; count: number } | null>(null);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Scratchpad cursor preservation during concurrent remote edits
+  const scratchpadTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const scratchpadSelectionRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 });
+
+  useEffect(() => {
+    if (scratchpadTextareaRef.current && document.activeElement === scratchpadTextareaRef.current) {
+      const { start, end } = scratchpadSelectionRef.current;
+      scratchpadTextareaRef.current.setSelectionRange(start, end);
+    }
+  }, [scratchpadText]);
 
   useEffect(() => {
     if (messages.length > prevMessagesLength.current) {
@@ -960,6 +1014,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                         isHost={isHost}
                         isAdmin={isAdmin}
                         adminFrame={adminFrame}
+                        statusEmote={statusEmote || undefined}
                       />
                     );
                   } else if (occupant?.type === 'peer') {
@@ -977,6 +1032,8 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                         isHost={peer.isHost}
                         isAdmin={peer.isAdmin}
                         adminFrame={peer.adminFrame}
+                        statusEmote={peer.statusEmote}
+                        connectionType={peerConnectionTypes?.[peer.id]}
                         onKick={isHost ? () => handleKickPeer(peer.id) : undefined}
                       />
                     );
@@ -1405,9 +1462,25 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 </div>
               </div>
 
+              {scratchpadTypingUser && (
+                <div className="flex items-center gap-1.5 text-xs text-[#9ac43e] font-mono animate-pulse mb-1.5 px-1">
+                  <span>✏️</span>
+                  <span>{scratchpadTypingUser} печатает в Канвасе...</span>
+                </div>
+              )}
+
               <textarea
+                ref={scratchpadTextareaRef}
                 value={scratchpadText}
-                onChange={(e) => onUpdateScratchpad(e.target.value)}
+                onChange={(e) => {
+                  const target = e.target;
+                  scratchpadSelectionRef.current = { start: target.selectionStart, end: target.selectionEnd };
+                  onUpdateScratchpad(target.value);
+                }}
+                onSelect={(e) => {
+                  const target = e.target as HTMLTextAreaElement;
+                  scratchpadSelectionRef.current = { start: target.selectionStart, end: target.selectionEnd };
+                }}
                 placeholder="Канвас комнаты... Набросайте план, тезисы, ссылки или код. Все изменения моментально видны собеседникам."
                 className="flex-1 w-full bg-[#141414] border border-[#333333] rounded-xl p-3.5 text-base sm:text-lg text-[#ededed] placeholder-[#666666] outline-none focus:border-[#789d2a] resize-none font-mono leading-relaxed transition-colors"
               />
@@ -1444,6 +1517,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                         avatar={currentAvatar}
                         isAdmin={messageIsAdmin}
                         adminFrame={messageAdminFrame}
+                        senderStatusEmote={m.senderStatusEmote || (isMe ? (statusEmote || undefined) : peer?.statusEmote)}
                         time={new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       />
                     );

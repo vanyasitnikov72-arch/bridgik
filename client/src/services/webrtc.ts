@@ -42,13 +42,33 @@ export function createMediaBlobUrl(file: File): string {
   return URL.createObjectURL(file);
 }
 
-const ICE_SERVERS: RTCConfiguration = {
-  iceServers: [
+export function getIceServers(): RTCConfiguration {
+  const baseServers: RTCIceServer[] = [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun.cloudflare.com:3478' },
-  ],
-};
+  ];
+
+  // Optional custom TURN config via window or localStorage (for corporate firewalls / Symmetric NAT)
+  if (typeof window !== 'undefined') {
+    const customTurn = (window as any).__AIRBRIDGE_TURN_CONFIG || localStorage.getItem('bridgik_turn_config');
+    if (customTurn) {
+      try {
+        const parsed = typeof customTurn === 'string' ? JSON.parse(customTurn) : customTurn;
+        if (Array.isArray(parsed)) {
+          baseServers.push(...parsed);
+        } else if (parsed.urls) {
+          baseServers.push(parsed);
+        }
+      } catch {}
+    }
+  }
+
+  return {
+    iceServers: baseServers,
+    iceCandidatePoolSize: 2,
+  };
+}
 
 async function getFileHandleFromPath(dirHandle: any, relativePath: string): Promise<any> {
   const parts = relativePath.split('/').filter(Boolean);
@@ -64,6 +84,7 @@ interface PeerConnectionBundle {
   pc: RTCPeerConnection;
   controlChannel: RTCDataChannel | null;
   fileChannel: RTCDataChannel | null;
+  connectionType?: 'direct' | 'relay';
 }
 
 export interface WebRTCCallbacks {
@@ -72,7 +93,9 @@ export interface WebRTCCallbacks {
   onTransferComplete: (transfer: FileTransfer) => void;
   onRemoteStream: (peerId: string, stream: MediaStream) => void;
   onPeerConnectionStateChange: (peerId: string, state: RTCPeerConnectionState) => void;
+  onConnectionTypeChange?: (peerId: string, connectionType: 'direct' | 'relay') => void;
   onScratchpadSync?: (text: string, updatedBy: string) => void;
+  onScratchpadTyping?: (updatedBy: string) => void;
 }
 
 export class WebRTCManager {
@@ -82,6 +105,7 @@ export class WebRTCManager {
   private myAvatar: string = '/mascots/dino_avatar.jpg';
   private myIsAdmin: boolean = false;
   private myAdminFrame: 'gold' | 'rgb' | 'plasma' | 'none' = 'gold';
+  private myStatusEmote?: string;
   private callbacks: WebRTCCallbacks;
   private connections: Map<string, PeerConnectionBundle> = new Map();
   private localStream: MediaStream | null = null;
@@ -164,16 +188,21 @@ export class WebRTCManager {
     if (frame !== undefined) this.myAdminFrame = frame;
   }
 
+  public updateStatusEmote(emote?: string) {
+    this.myStatusEmote = emote;
+  }
+
   public async connectToPeer(targetPeerId: string, isInitiator: boolean) {
     if (this.connections.has(targetPeerId)) {
       return;
     }
 
-    const pc = new RTCPeerConnection(ICE_SERVERS);
+    const pc = new RTCPeerConnection(getIceServers());
     const bundle: PeerConnectionBundle = {
       pc,
       controlChannel: null,
       fileChannel: null,
+      connectionType: 'direct',
     };
     this.connections.set(targetPeerId, bundle);
 
@@ -191,6 +220,15 @@ export class WebRTCManager {
       this.callbacks.onPeerConnectionStateChange(targetPeerId, pc.connectionState);
     };
 
+    // Detect direct P2P vs TURN Relay connection
+    pc.oniceconnectionstatechange = async () => {
+      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        const type = await this.checkConnectionType(targetPeerId);
+        bundle.connectionType = type;
+        this.callbacks.onConnectionTypeChange?.(targetPeerId, type);
+      }
+    };
+
     // Remote Audio/Video Track handling
     pc.ontrack = (event) => {
       if (event.streams && event.streams[0]) {
@@ -201,18 +239,30 @@ export class WebRTCManager {
       }
     };
 
-    // Add local tracks if active
+    // Add local tracks if active with voice priority
     if (this.localStream) {
-      this.localStream.getTracks().forEach((track) => pc.addTrack(track, this.localStream!));
+      this.localStream.getTracks().forEach((track) => {
+        const sender = pc.addTrack(track, this.localStream!);
+        if (track.kind === 'audio') {
+          try {
+            const params = sender.getParameters();
+            if (params.encodings && params.encodings[0]) {
+              (params.encodings[0] as any).priority = 'high';
+              (params.encodings[0] as any).networkPriority = 'high';
+              sender.setParameters(params).catch(() => {});
+            }
+          } catch {}
+        }
+      });
     }
     if (this.screenStream) {
       this.screenStream.getTracks().forEach((track) => pc.addTrack(track, this.screenStream!));
     }
 
     if (isInitiator) {
-      // Create Data Channels
-      const controlChannel = pc.createDataChannel('airbridge-control', { ordered: true });
-      const fileChannel = pc.createDataChannel('airbridge-files', { ordered: true });
+      // Create Data Channels with explicit SCTP priority: control=high, files=low (protects Opus audio)
+      const controlChannel = pc.createDataChannel('airbridge-control', { ordered: true, priority: 'high' } as any);
+      const fileChannel = pc.createDataChannel('airbridge-files', { ordered: true, priority: 'low' } as any);
       fileChannel.binaryType = 'arraybuffer';
 
       bundle.controlChannel = controlChannel;
@@ -298,12 +348,15 @@ export class WebRTCManager {
             senderAvatar: msg.senderAvatar,
             isAdmin: msg.isAdmin,
             adminFrame: msg.adminFrame,
+            senderStatusEmote: msg.senderStatusEmote,
             text: msg.text,
             timestamp: msg.timestamp,
             isClipboard: msg.isClipboard,
           });
         } else if (msg.type === 'SCRATCHPAD_SYNC') {
           this.callbacks.onScratchpadSync?.(msg.text, msg.updatedBy);
+        } else if (msg.type === 'SCRATCHPAD_TYPING') {
+          this.callbacks.onScratchpadTyping?.(msg.updatedBy);
         } else if (msg.type === 'FILE_OFFER') {
           // Large file offer from peer
           this.pendingOffers.set(msg.fileId, { meta: msg, peerId });
@@ -561,6 +614,7 @@ export class WebRTCManager {
       senderAvatar: this.myAvatar,
       isAdmin: this.myIsAdmin,
       adminFrame: this.myAdminFrame,
+      senderStatusEmote: this.myStatusEmote,
       text,
       timestamp: Date.now(),
       isClipboard,
@@ -581,6 +635,7 @@ export class WebRTCManager {
       senderAvatar: this.myAvatar,
       isAdmin: this.myIsAdmin,
       adminFrame: this.myAdminFrame,
+      senderStatusEmote: this.myStatusEmote,
       text,
       timestamp: msg.timestamp,
       isClipboard,
@@ -603,6 +658,44 @@ export class WebRTCManager {
         controlChannel.send(payload);
       }
     });
+  }
+
+  /**
+   * Broadcast typing status in Canvas
+   */
+  public sendScratchpadTyping() {
+    const msg: WebRTCMessage = {
+      type: 'SCRATCHPAD_TYPING',
+      updatedBy: this.myName,
+      timestamp: Date.now(),
+    };
+    const payload = JSON.stringify(msg);
+    this.connections.forEach(({ controlChannel }) => {
+      if (controlChannel && controlChannel.readyState === 'open') {
+        controlChannel.send(payload);
+      }
+    });
+  }
+
+  /**
+   * Determine whether connection with peer is direct P2P (host/srflx) or relayed via TURN
+   */
+  public async checkConnectionType(peerId: string): Promise<'direct' | 'relay'> {
+    const bundle = this.connections.get(peerId);
+    if (!bundle?.pc) return 'direct';
+    try {
+      const stats = await bundle.pc.getStats();
+      for (const report of stats.values()) {
+        if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+          const local = stats.get(report.localCandidateId);
+          const remote = stats.get(report.remoteCandidateId);
+          if (local?.candidateType === 'relay' || remote?.candidateType === 'relay') {
+            return 'relay';
+          }
+        }
+      }
+    } catch {}
+    return 'direct';
   }
 
   /**
@@ -777,18 +870,28 @@ export class WebRTCManager {
           return;
         }
 
-        // Check backpressure across channels: pause only when buffer exceeds 4MB
+        // Voice Priority: throttle file transfer buffer when microphone or call is active to eliminate Opus audio lag
+        const isVoiceCallActive = Boolean(this.localStream && !this.isMicMuted);
+        const dynamicBufferHigh = isVoiceCallActive ? 512 * 1024 : BUFFER_HIGH;
+        const dynamicBufferLow = isVoiceCallActive ? 128 * 1024 : BUFFER_LOW;
+
+        // Check backpressure across channels: pause when buffer exceeds threshold
         for (const b of activeBundles) {
-          if (b.fileChannel && b.fileChannel.bufferedAmount > BUFFER_HIGH) {
+          if (b.fileChannel && b.fileChannel.bufferedAmount > dynamicBufferHigh) {
             await new Promise<void>((resolve) => {
               if (!b.fileChannel) return resolve();
-              b.fileChannel.bufferedAmountLowThreshold = BUFFER_LOW;
+              b.fileChannel.bufferedAmountLowThreshold = dynamicBufferLow;
               b.fileChannel.onbufferedamountlow = () => {
                 if (b.fileChannel) b.fileChannel.onbufferedamountlow = null;
                 resolve();
               };
             });
           }
+        }
+
+        // When voice is active, yield event loop every 16 chunks (~1MB) to ensure zero Opus audio packet jitter
+        if (isVoiceCallActive && chunkIndex % 16 === 0) {
+          await new Promise<void>((r) => setTimeout(r, 2));
         }
 
         const currentChunkSize = Math.min(CHUNK_SIZE, blockBuffer.byteLength - blockOffset);

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Edit2, Check, Volume2, VolumeX } from 'lucide-react';
+import { Edit2, Check, Volume2, VolumeX, Smile, X } from 'lucide-react';
 import { ThemeMode, AppTab } from '../types/index.js';
 import { sound } from '../utils/sound.js';
 import { AvatarPicker } from './AvatarPicker.js';
+import { EmotePicker } from './EmotePicker.js';
 import { getAvatarForName } from '../utils/device.js';
 
 interface NavbarProps {
@@ -10,6 +11,8 @@ interface NavbarProps {
   onUpdateUserName: (name: string) => void;
   userAvatar?: string;
   onUpdateUserAvatar?: (avatar: string) => void;
+  statusEmote?: string | null;
+  onUpdateStatusEmote?: (emoteUrl: string | null) => void;
   isAdmin?: boolean;
   adminFrame?: 'gold' | 'rgb' | 'plasma' | 'none';
   onUpdateAdminFrame?: (frame: 'gold' | 'rgb' | 'plasma' | 'none') => void;
@@ -28,6 +31,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onUpdateUserName,
   userAvatar,
   onUpdateUserAvatar,
+  statusEmote,
+  onUpdateStatusEmote,
   isAdmin,
   adminFrame = 'gold',
   onUpdateAdminFrame,
@@ -41,6 +46,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
+  const [isStatusPickerOpen, setIsStatusPickerOpen] = useState(false);
   const [tempName, setTempName] = useState(userName);
   const [soundEnabled, setSoundEnabled] = useState(() => sound.isEnabled());
 
@@ -245,6 +251,60 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </div>
                 </button>
               )}
+
+              {/* Animated Status Emote next to username (Telegram / 7TV style) */}
+              <div className="relative flex items-center shrink-0">
+                {statusEmote ? (
+                  <div className="relative group/status flex items-center">
+                    <button
+                      type="button"
+                      onClick={() => setIsStatusPickerOpen(!isStatusPickerOpen)}
+                      className="p-1 rounded-lg hover:bg-white/10 transition-transform active:scale-95 cursor-pointer shrink-0"
+                      title="Анимированный статус (кликните, чтобы сменить)"
+                    >
+                      <img
+                        src={statusEmote}
+                        alt="Статус"
+                        className="w-5 h-5 object-contain select-none filter drop-shadow-[0_0_6px_rgba(255,255,255,0.4)]"
+                      />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        sound.playClick();
+                        onUpdateStatusEmote?.(null);
+                      }}
+                      className="opacity-0 group-hover/status:opacity-100 p-0.5 rounded text-[#888888] hover:text-red-400 hover:bg-white/10 transition-all -ml-1 cursor-pointer"
+                      title="Убрать эмодзи-статус"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsStatusPickerOpen(!isStatusPickerOpen)}
+                    className="p-1 rounded-lg text-[#666677] hover:text-amber-300 hover:bg-white/5 transition-colors cursor-pointer shrink-0"
+                    title="Установить анимированный эмодзи-статус (7TV / Telegram)"
+                  >
+                    <Smile className="w-4 h-4" />
+                  </button>
+                )}
+
+                {isStatusPickerOpen && (
+                  <EmotePicker
+                    isOpen={isStatusPickerOpen}
+                    onClose={() => setIsStatusPickerOpen(false)}
+                    positionClass="top-14 right-0"
+                    onSelectEmote={(emote) => {
+                      sound.playClick();
+                      onUpdateStatusEmote?.(emote.url);
+                      setIsStatusPickerOpen(false);
+                    }}
+                  />
+                )}
+              </div>
             </div>
           </div>
         </div>

@@ -49,6 +49,7 @@ interface LobbyPeer {
   subnet: string;
   ip: string;
   isAdmin?: boolean;
+  statusEmote?: string;
 }
 const lobbyPeers: Map<string, LobbyPeer> = new Map();
 
@@ -141,6 +142,7 @@ function broadcastNearbyPeers(subnet: string) {
         name: p.name,
         deviceType: p.deviceType,
         isAdmin: p.isAdmin,
+        statusEmote: p.statusEmote,
       }));
     io.to(peer.socketId).emit('nearby-peers', others);
   });
@@ -158,6 +160,44 @@ app.use(cors());
 app.use(express.json());
 
 // API Endpoints
+const emoteCache: Map<string, { buffer: Buffer; contentType: string }> = new Map();
+
+app.get('/api/emotes/:id.webp', async (req, res) => {
+  const emoteId = req.params.id;
+  if (!emoteId || !/^[\w-]+$/.test(emoteId)) {
+    return res.status(400).send('Invalid emote id');
+  }
+
+  const cached = emoteCache.get(emoteId);
+  if (cached) {
+    res.setHeader('Content-Type', cached.contentType);
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    return res.send(cached.buffer);
+  }
+
+  try {
+    const upstreamUrl = `https://cdn.7tv.app/emote/${emoteId}/2x.webp`;
+    const resp = await fetch(upstreamUrl);
+    if (!resp.ok) {
+      return res.status(resp.status).send('Emote not found');
+    }
+    const contentType = resp.headers.get('content-type') || 'image/webp';
+    const arrayBuffer = await resp.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    if (emoteCache.size > 500) {
+      const firstKey = emoteCache.keys().next().value;
+      if (firstKey) emoteCache.delete(firstKey);
+    }
+    emoteCache.set(emoteId, { buffer, contentType });
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    return res.send(buffer);
+  } catch (err) {
+    console.error('Failed to proxy emote:', emoteId, err);
+    return res.status(502).send('Error fetching emote');
+  }
+});
+
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
@@ -220,7 +260,7 @@ io.on('connection', (socket) => {
   });
 
   // 0. Local Network Discovery (Snapdrop / AirDrop radar)
-  socket.on('lobby-join', (data: { name: string; deviceType: any }) => {
+  socket.on('lobby-join', (data: { name: string; deviceType: any; statusEmote?: string }) => {
     const currentSubnet = getClientNetworkSubnet(socket);
     lobbyPeers.set(socket.id, {
       socketId: socket.id,
@@ -229,6 +269,7 @@ io.on('connection', (socket) => {
       subnet: currentSubnet,
       ip: clientIp,
       isAdmin: socket.data.isAdmin,
+      statusEmote: data.statusEmote,
     });
     broadcastNearbyPeers(currentSubnet);
   });
@@ -237,6 +278,14 @@ io.on('connection', (socket) => {
     const peer = lobbyPeers.get(socket.id);
     if (peer) {
       peer.name = data.name || 'Устройство';
+      broadcastNearbyPeers(peer.subnet);
+    }
+  });
+
+  socket.on('lobby-update-status-emote', (data: { statusEmote?: string }) => {
+    const peer = lobbyPeers.get(socket.id);
+    if (peer) {
+      peer.statusEmote = data.statusEmote || undefined;
       broadcastNearbyPeers(peer.subnet);
     }
   });
@@ -253,6 +302,7 @@ io.on('connection', (socket) => {
         name: p.name,
         deviceType: p.deviceType,
         isAdmin: p.isAdmin,
+        statusEmote: p.statusEmote,
       }))
     );
   });
@@ -311,6 +361,7 @@ io.on('connection', (socket) => {
         peerName: string;
         avatar?: string;
         adminFrame?: any;
+        statusEmote?: string;
         deviceType: any;
         mode?: 'bridge' | 'meeting';
         maxSeats?: number;
@@ -334,6 +385,7 @@ io.on('connection', (socket) => {
           name: data.peerName || 'Гость',
           avatar: data.avatar,
           adminFrame: data.adminFrame,
+          statusEmote: data.statusEmote,
           deviceType: data.deviceType || 'desktop',
           joinedAt: Date.now(),
           isHost: true,
@@ -377,6 +429,7 @@ io.on('connection', (socket) => {
         peerName: string;
         avatar?: string;
         adminFrame?: any;
+        statusEmote?: string;
         deviceType: any;
         preferredSeat?: number;
         browserId?: string;
@@ -481,6 +534,7 @@ io.on('connection', (socket) => {
           name: data.peerName || 'Гость',
           avatar: data.avatar,
           adminFrame: data.adminFrame,
+          statusEmote: data.statusEmote,
           deviceType: data.deviceType || 'unknown',
           joinedAt: Date.now(),
           isHost,
@@ -546,7 +600,7 @@ io.on('connection', (socket) => {
   });
 
   // Update peer avatar & flair
-  socket.on('update-peer-avatar', (data: { roomId: string; avatar: string; adminFrame?: any }) => {
+  socket.on('update-peer-avatar', (data: { roomId: string; avatar: string; adminFrame?: any; statusEmote?: string }) => {
     const room = roomManager.getRoom(data.roomId);
     if (!room) return;
     const peer = room.peers.get(socket.id);
@@ -555,6 +609,20 @@ io.on('connection', (socket) => {
       if (data.adminFrame !== undefined) {
         peer.adminFrame = data.adminFrame;
       }
+      if (data.statusEmote !== undefined) {
+        peer.statusEmote = data.statusEmote;
+      }
+      io.to(room.id).to(room.pin).emit('peer-updated', peer);
+    }
+  });
+
+  // Update peer status emote
+  socket.on('update-peer-status-emote', (data: { roomId: string; statusEmote?: string }) => {
+    const room = roomManager.getRoom(data.roomId);
+    if (!room) return;
+    const peer = room.peers.get(socket.id);
+    if (peer) {
+      peer.statusEmote = data.statusEmote || undefined;
       io.to(room.id).to(room.pin).emit('peer-updated', peer);
     }
   });
