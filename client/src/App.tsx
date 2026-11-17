@@ -108,8 +108,38 @@ export function App() {
   const [peerSeats, setPeerSeats] = useState<Record<string, number>>({});
   const [mySeatIndex, setMySeatIndex] = useState<number>(0);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
-  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const [remoteAudioStreams, setRemoteAudioStreams] = useState<Record<string, MediaStream>>({});
+  const [audioAutoplayBlocked, setAudioAutoplayBlocked] = useState(false);
+  const autoDownloadRef = useRef<boolean>(autoDownload);
+  useEffect(() => {
+    autoDownloadRef.current = autoDownload;
+  }, [autoDownload]);
+  const isMicActiveRef = useRef<boolean>(isMicActive);
+  useEffect(() => {
+    isMicActiveRef.current = isMicActive;
+  }, [isMicActive]);
+  const toggleMicRef = useRef<() => Promise<boolean>>(async () => false);
+  useEffect(() => {
+    if (!audioAutoplayBlocked) return;
+    const unlockAudio = async () => {
+      const els = Array.from(
+        document.querySelectorAll('audio[data-peer-audio="true"]')
+      ) as HTMLAudioElement[];
+      const results = await Promise.allSettled(
+        els.map((audio) => (audio.paused ? audio.play() : Promise.resolve()))
+      );
+      const hasRejected = results.some((r) => r.status === 'rejected');
+      if (!hasRejected) {
+        setAudioAutoplayBlocked(false);
+      }
+    };
+    window.addEventListener('pointerdown', unlockAudio);
+    window.addEventListener('keydown', unlockAudio);
+    return () => {
+      window.removeEventListener('pointerdown', unlockAudio);
+      window.removeEventListener('keydown', unlockAudio);
+    };
+  }, [audioAutoplayBlocked]);
   const [scratchpadTypingUser, setScratchpadTypingUser] = useState<string | null>(null);
   const scratchpadTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [peerConnectionTypes, setPeerConnectionTypes] = useState<Record<string, 'direct' | 'relay'>>({});
@@ -283,8 +313,7 @@ export function App() {
 
         // Auto-download for completed in-memory downloads if enabled
         if (completed.type === 'download' && completed.blobUrl && !completed.savedToDisk) {
-          const isAuto = localStorage.getItem('bridgik_auto_download') !== 'false';
-          if (isAuto) {
+          if (autoDownloadRef.current) {
             try {
               const a = document.createElement('a');
               a.href = completed.blobUrl;
@@ -325,11 +354,24 @@ export function App() {
 
         if (audioTracks.length > 0) {
           setRemoteAudioStreams((prev) => ({ ...prev, [peerId]: stream }));
-          if (remoteAudioRef.current) {
-            remoteAudioRef.current.srcObject = stream;
-            remoteAudioRef.current.play().catch(() => {});
-          }
         }
+      },
+      onConnectionFailed: (_peerId, reason) => {
+        if (reason === 'NAT_BLOCKED') {
+          setRoomAlertNotice({
+            type: 'general',
+            title: 'Прямое соединение заблокировано сетью',
+            message: 'Файрвол или мобильный оператор блокирует прямой P2P-канал между устройствами.',
+          });
+        }
+      },
+      onMemoryLimitWarning: (fileName, size) => {
+        const mb = Math.round(size / (1024 * 1024));
+        setRoomAlertNotice({
+          type: 'general',
+          title: 'Крупный файл для мобильного браузера',
+          message: `Файл «${fileName}» (${mb} МБ) загружается в оперативную память, так как браузер не поддерживает прямую запись на диск.`,
+        });
       },
       onPeerConnectionStateChange: (peerId, state) => {
         console.log(`Peer ${peerId} state changed to ${state}`);
@@ -467,8 +509,8 @@ export function App() {
     });
 
     socket.on('remote-mute', (_data: { from: string }) => {
-      if (isMicActive) {
-        handleToggleMic();
+      if (isMicActiveRef.current) {
+        toggleMicRef.current();
       }
     });
 
@@ -479,6 +521,7 @@ export function App() {
     });
 
     return () => {
+      socket.off('admin-status');
       socket.off('peer-joined');
       socket.off('peer-left');
       socket.off('peer-updated');
@@ -794,8 +837,14 @@ export function App() {
     setPin('');
     setMyPeerId('');
     setPeers([]);
-    setTransfers([]);
+    setTransfers((prev) => {
+      prev.forEach((t) => {
+        if (t.blobUrl) URL.revokeObjectURL(t.blobUrl);
+      });
+      return [];
+    });
     setMessages([]);
+    setAudioAutoplayBlocked(false);
     setIsMicActive(false);
     setIsScreenActive(false);
     setHasRemoteVideo(false);
@@ -917,6 +966,7 @@ export function App() {
       return false;
     }
   };
+  toggleMicRef.current = handleToggleMic;
 
   // Toggle Screen
   const handleToggleScreen = async () => {
@@ -938,18 +988,11 @@ export function App() {
 
   // Theme Classes
   const getThemeWrapperClass = () => {
-    switch (theme) {
-      case 'cyberpunk':
-        return 'bg-black text-emerald-400 font-mono selection:bg-emerald-500 selection:text-black';
-      case 'lofi':
-        return 'bg-[#181412] text-[#f2e9e4] font-sans selection:bg-amber-600 selection:text-white';
-      default:
-        return 'bg-[#171717] text-[#ededed] font-sans selection:bg-[#789d2a] selection:text-white';
-    }
+    return 'bg-[#171717] text-[#f2f2f2] selection:bg-[#789d2a] selection:text-white';
   };
 
   return (
-    <div className={`min-h-screen flex flex-col transition-colors ${getThemeWrapperClass()}`}>
+    <div className={`min-h-screen flex flex-col overflow-x-hidden transition-colors ${getThemeWrapperClass()}`}>
       <Navbar
         userName={userName}
         onUpdateUserName={handleUpdateUserName}
@@ -1281,22 +1324,60 @@ export function App() {
           setActiveTab('legal');
         }}
       />
+
+      {audioAutoplayBlocked && Object.keys(remoteAudioStreams).length > 0 && (
+        <button
+          onClick={() => {
+            document.querySelectorAll('audio[data-peer-audio="true"]').forEach((el) => {
+              (el as HTMLAudioElement).play().catch(() => {});
+            });
+            setAudioAutoplayBlocked(false);
+          }}
+          className="fixed bottom-5 right-5 z-[160] px-4 py-2.5 rounded-xl bg-[#789d2a] hover:bg-[#8cb632] text-white font-bold shadow-lg cursor-pointer animate-bounce"
+        >
+          🔊 Включить звук участников
+        </button>
+      )}
+
       {/* Hidden audio elements to play remote peer microphones live without collision */}
       {Object.entries(remoteAudioStreams).map(([peerId, stream]) => (
-        <RemotePeerAudio key={peerId} stream={stream} />
+        <RemotePeerAudio
+          key={peerId}
+          stream={stream}
+          onAutoplayBlocked={() => setAudioAutoplayBlocked(true)}
+        />
       ))}
-      <audio ref={remoteAudioRef} autoPlay playsInline />
     </div>
   );
 }
 
-function RemotePeerAudio({ stream }: { stream: MediaStream }) {
+function RemotePeerAudio({
+  stream,
+  onAutoplayBlocked,
+}: {
+  stream: MediaStream;
+  onAutoplayBlocked?: () => void;
+}) {
   const audioRef = useRef<HTMLAudioElement>(null);
   useEffect(() => {
-    if (audioRef.current && stream) {
-      audioRef.current.srcObject = stream;
-      audioRef.current.play().catch(() => {});
-    }
+    const audio = audioRef.current;
+    if (!audio || !stream) return;
+
+    audio.srcObject = stream;
+    audio.play().catch((err) => {
+      if (err?.name !== 'AbortError') {
+        onAutoplayBlocked?.();
+      }
+    });
+
+    const timer = setTimeout(() => {
+      if (audio.paused) {
+        onAutoplayBlocked?.();
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
   }, [stream]);
-  return <audio ref={audioRef} autoPlay playsInline />;
+
+  return <audio ref={audioRef} data-peer-audio="true" autoPlay playsInline />;
 }
