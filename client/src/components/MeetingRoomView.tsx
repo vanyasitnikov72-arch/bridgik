@@ -318,7 +318,7 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
 
         {/* Avatar Token sitting cleanly on the furniture */}
         <div
-          className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 flex items-center justify-center transition-all duration-200 shadow-2xl relative cursor-pointer drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)] overflow-hidden ${
+          className={`w-8 h-8 sm:w-12 sm:h-12 rounded-full border-2 flex items-center justify-center transition-all duration-200 shadow-2xl relative cursor-pointer drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)] overflow-hidden ${
             isHovered ? 'scale-115 ring-2 ring-white/50' : 'hover:scale-105'
           } ${isMicActive ? 'bg-[#152414]' : 'bg-[#191922]'} ${getSeatFrameClass()}`}
           style={{
@@ -397,7 +397,7 @@ const EmptyPixelSeat: React.FC<EmptyPixelSeatProps> = ({
 
       {/* Luminous circular seat marker on furniture with distinct contrast & subtle neon glow */}
       <div
-        className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 border-dashed flex items-center justify-center cursor-pointer transition-all duration-200 drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)] ${
+        className={`w-7 h-7 sm:w-10 sm:h-10 rounded-full border-2 border-dashed flex items-center justify-center cursor-pointer transition-all duration-200 drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)] ${
           isHovered
             ? 'scale-125 border-[#bbf348] bg-[#1a2e16] shadow-[0_0_22px_rgba(154,196,62,0.8)] ring-2 ring-[#bbf348]/70'
             : 'border-[#9ac43e]/70 bg-[#0e140d]/85 shadow-[0_0_10px_rgba(154,196,62,0.3)] ring-1 ring-white/20 hover:border-[#bbf348]'
@@ -1063,8 +1063,8 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 })}
               </div>
 
-              {/* Floating Bottom Control Dock (HUD - Discord style) */}
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 sm:gap-2 px-3 py-2 rounded-2xl bg-[#121218]/95 border border-white/15 shadow-2xl backdrop-blur-md max-w-[95%]">
+              {/* Floating Bottom Control Dock (below image on mobile, floating HUD on desktop) */}
+           <div className="relative sm:absolute sm:bottom-3 sm:left-1/2 sm:-translate-x-1/2 z-30 flex flex-wrap sm:flex-nowrap items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 w-full sm:w-auto sm:max-w-[95%] bg-[#121218]/95 border-t sm:border border-white/15 sm:rounded-2xl shadow-2xl backdrop-blur-md">
                 {/* Mic Button */}
                 <button
                   onClick={onToggleMic}
@@ -1378,15 +1378,19 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 })}
               </div>
             ) : (
-              <div className="py-4 text-center text-xs sm:text-sm text-[#888888] border border-dashed border-[#333333] rounded-xl">
-                Перетащите сюда документы или файлы для участников комнаты
-              </div>
+              <div
+             onClick={() => fileInputRef.current?.click()}
+             className="py-4 px-3 text-center text-xs sm:text-sm text-[#888888] border border-dashed border-[#333333] hover:border-[#789d2a]/60 rounded-xl cursor-pointer transition-colors"
+           >
+             <span className="hidden sm:inline">Перетащите сюда документы или файлы для участников комнаты</span>
+             <span className="sm:hidden">Нажмите сюда или на «Прикрепить файл», чтобы отправить участникам</span>
+           </div>
             )}
           </div>
         </div>
 
         {/* Right Column: Scratchpad & Chat (5 cols) */}
-        <div className="lg:col-span-5 bg-[#1e1e1e] border border-[#353535] rounded-2xl flex flex-col h-[560px] shadow-md overflow-hidden">
+        <div className="lg:col-span-5 bg-[#1e1e1e] border border-[#353535] rounded-2xl flex flex-col h-[460px] lg:h-[560px] shadow-md overflow-hidden">
           {/* Tab Header: Notes / Chat */}
           <div className="flex items-center border-b border-[#353535] bg-[#171717]">
             <button
@@ -1567,7 +1571,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
                     placeholder="Сообщение или ссылка..."
-                    className="flex-1 bg-[#141414] border border-[#333333] rounded-xl px-3.5 py-2 text-base text-[#ededed] placeholder-[#666666] outline-none focus:border-[#789d2a] transition-colors"
+                    className="flex-1 min-w-0 w-full bg-[#141414] border border-[#333333] rounded-xl px-3.5 py-2 text-base text-[#ededed] placeholder-[#666666] outline-none focus:border-[#789d2a] transition-colors"
                   />
                   <button
                     type="button"
