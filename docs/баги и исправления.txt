@@ -1,0 +1,499 @@
+# Технический и UX-аудит Bridgik: найденные баги и решения
+
+Документ составлен по результатам анализа `server/src/index.ts`, `server/src/roomManager.ts`, `server/src/types.ts`, `client/src/services/webrtc.ts`, `client/src/App.tsx`, `client/index.html`, `client/src/index.css`, `README.md`, а также десктопных и мобильных скриншотов интерфейса.
+
+---
+
+## 🔴 Критические баги безопасности и сервера (`server/src/`)
+
+### Баг 1. Подделка прав администратора через заголовок `X-Forwarded-For` и хардкод ключа
+**Где:** `server/src/index.ts` (`getClientIp`, `isSocketAdmin`, `ADMIN_SECRET_KEY`).
+
+**Проблема:**
+1. Код берёт первый элемент из заголовка `x-forwarded-for`: `forwarded.split(',')[0].trim()`. Если Nginx/балансировщик дописывает IP клиента через `$proxy_add_x_forwarded_for`, самый левый IP может подставить сам клиент.
+2. В `isSocketAdmin` любой запрос с IP `127.0.0.1` / `::1` автоматически получает `isAdmin = true`. Злоумышленник отправляет заголовок `X-Forwarded-For: 127.0.0.1` и становится админом (а заодно обходит лимит перебора PIN).
+3. Дефолтный секрет `|| 'bridgik_creator_root_2026'` в коде — если `.env` не подхватится при деплое, ключ известен всем.
+
+**Решение:**
+```ts
+// 1. В продакшне не задаём дефолтный пароль
+const ADMIN_SECRET_KEY = process.env.ADMIN_SECRET_KEY;
+
+// 2. Берём реальный IP, который жёстко перезаписывает прокси (X-Real-IP),
+// либо самый правый клиентский IP, а не левый (спуфинг).
+function getClientIp(socket: any): string {
+  const realIp = socket.handshake.headers['x-real-ip'];
+  let ip = '';
+
+  if (typeof realIp === 'string' && realIp.trim()) {
+    ip = realIp.trim();
+  } else {
+    const forwarded = socket.handshake.headers['x-forwarded-for'];
+    if (typeof forwarded === 'string' && forwarded.trim()) {
+      const ips = forwarded.split(',').map((s) => s.trim()).filter(Boolean);
+      ip = ips[ips.length - 1] || '';
+    } else {
+      ip = socket.handshake.address || '127.0.0.1';
+    }
+  }
+
+  if (ip.startsWith('::ffff:')) {
+    ip = ip.slice(7);
+  }
+  return ip;
+}
+
+// 3. В продакшне права админа даём ТОЛЬКО по секретному ключу
+function isSocketAdmin(socket: any, providedKey?: string): boolean {
+  if (ADMIN_SECRET_KEY && providedKey && providedKey === ADMIN_SECRET_KEY) {
+    return true;
+  }
+  if (process.env.NODE_ENV !== 'production') {
+    const ip = getClientIp(socket).toLowerCase();
+    if (ADMIN_IPS.includes(ip) || ip === '127.0.0.1' || ip === '::1' || ip === 'localhost') {
+      return true;
+    }
+  }
+  return false;
+}
+```
+*Настройка Nginx для Yandex Cloud (обязательно):*
+```nginx
+proxy_set_header X-Real-IP $remote_addr;
+proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+```
+
+---
+
+### Баг 2. Поломка Wi-Fi Радара в продакшне за прокси и на IPv6
+**Где:** `server/src/index.ts` (`getClientNetworkSubnet`).
+
+**Проблема:**
+1. Если на сервере за Nginx не проброшен реальный IP клиента, `getClientIp` вернёт `127.0.0.1`. Код подставит `lanIp`, и **все незнакомые пользователи интернета попадут в один «Wi-Fi Радар»** (утечка приватности!).
+2. На iPhone и современных роутерах используется IPv6. У каждого устройства в одной Wi-Fi сети разный `/128` IPv6-адрес (совпадает только префикс `/64`). Сейчас код возвращает `pub-${ip}` (весь адрес целиком), поэтому телефон на IPv6 и ПК на IPv6/IPv4 не видят друг друга в радаре.
+
+**Решение:**
+```ts
+function getIpv6Prefix64(ip: string): string | null {
+  if (!ip.includes(':')) return null;
+  const clean = ip.split('%')[0].toLowerCase();
+  const halves = clean.split('::');
+  if (halves.length > 2) return null;
+  const left = halves[0] ? halves[0].split(':') : [];
+  const right = halves[1] ? halves[1].split(':') : [];
+  const missing = 8 - (left.length + right.length);
+  if (missing < 0) return null;
+  const full = [...left, ...Array(missing).fill('0'), ...right].map((g) => g.padStart(4, '0'));
+  return `pub6-${full.slice(0, 4).join(':')}`;
+}
+
+function getClientNetworkSubnet(socket: any): string {
+  let ip = getClientIp(socket);
+  const lanIp = getLocalLanIp();
+
+  if (ip === '127.0.0.1' || ip === '::1' || ip === 'localhost') {
+    if (process.env.NODE_ENV === 'production') {
+      return `isolated-${socket.id}`;
+    }
+    ip = lanIp;
+  }
+
+  const ipv6Prefix = getIpv6Prefix64(ip);
+  if (ipv6Prefix) return ipv6Prefix;
+
+  // ...далее текущая логика IPv4...
+```
+
+---
+
+### Баг 3. Обход защиты от брутфорса PIN-кодов и утечка памяти в Map
+**Где:** `server/src/index.ts` (`join-room`, `failedPinAttempts`).
+
+**Проблема:**
+`const attemptKey = `${clientIp}_${socket.id}`;`
+При переподключении Socket.io клиент получает новый `socket.id`. Атакующий может скриптом переподключаться и за 30 секунд перебрать все 9 000 комбинаций 4-значного PIN-кода. Плюс `failedPinAttempts` никогда не очищается.
+
+**Решение:**
+```ts
+const attemptKey = clientIp;
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, info] of failedPinAttempts.entries()) {
+    if (now - info.lastAttempt > 10 * 60 * 1000 && (!info.blockedUntil || info.blockedUntil < now)) {
+      failedPinAttempts.delete(key);
+    }
+  }
+}, 5 * 60 * 1000);
+```
+
+---
+
+### Баг 4. Утечка комнат и исчерпание PIN-кодов в Wi-Fi Радаре
+**Где:** `server/src/index.ts` (`direct-pair-request`, `direct-pair-response`) и `server/src/roomManager.ts`.
+
+**Проблема:**
+В `direct-pair-request` создаётся комната (`roomManager.createRoom()`), но пиры в неё ещё не добавлены. Если получатель отклонил запрос или закрыл браузер, `removePeerBySocket` никогда не вызывается — пустая комната и её 4-значный PIN навсегда остаются в памяти сервера.
+
+**Решение:**
+```ts
+// В roomManager.ts:
+public createRoom(requestedId?: string): Room {
+  // ...создание комнаты...
+  this.rooms.set(id, room);
+  this.pinToRoomId.set(pin, id);
+  if (id !== pin) this.pinToRoomId.set(id, id);
+
+  // Страховка: если за 2 минуты в комнату никто не зайдёт, удаляем её
+  this.scheduleRoomCleanup(id, pin, 120 * 1000);
+  return room;
+}
+
+public forceDeleteRoom(roomId: string) {
+  const room = this.rooms.get(roomId);
+  if (!room) return;
+  this.rooms.delete(roomId);
+  this.pinToRoomId.delete(room.pin);
+  this.pinToRoomId.delete(room.id);
+}
+```
+А в `direct-pair-response` при `data.accepted === false` вызывать `roomManager.forceDeleteRoom(data.roomId)`.
+
+---
+
+### Баг 5 (новый). Сервер доверяет клиентским правам на рамки, темы и места
+**Где:** `server/src/index.ts` (`create-room`, `join-room`, `update-peer-avatar`, `change-room-theme`, `update-room-config`).
+
+**Проблема:**
+Сейчас клиент сам передаёт в сокетах `adminFrame`, `statusEmote`, `roomTheme` и `maxSeats`, и сервер доверяет этим данным без проверки. Любой пользователь через DevTools может выставить себе эксклюзивную рамку, сменить тему или увеличить лимит мест.
+
+**Решение:**
+При внедрении авторизации проверять права и покупки пользователя на сервере (из `socket.data.user`, полученного по JWT):
+```ts
+const user = socket.data.user;
+const isPro = Boolean(user?.pro_until && new Date(user.pro_until) > new Date());
+const allowedFrame =
+  user && (user.is_admin || isPro || user.unlockedFrames.includes(data.adminFrame))
+    ? data.adminFrame
+    : 'none';
+```
+
+---
+
+## 🟠 Критические баги передачи файлов и WebRTC (`client/src/services/webrtc.ts`)
+
+### Баг 6. Зависание при отправке 2+ файлов или целой папки (гонка `onbufferedamountlow`)
+**Где:** `webrtc.ts` (`sendFile`, `startStreamingFile`) и `client/src/App.tsx` (`handleSendFiles`).
+
+**Проблема:**
+1. В `App.tsx` функция `handleSendFiles` вызывает `webrtcRef.current?.sendFile(file)` в цикле `forEach` без ожидания. Несколько `startStreamingFile` запускаются параллельно на одном `fileChannel`, перезаписывают друг другу `b.fileChannel.onbufferedamountlow = ...` — промисы предыдущих файлов **не разрешаются никогда**, передача зависает.
+2. Если канал закроется во время ожидания `onbufferedamountlow`, промис также зависнет навсегда.
+
+**Решение:**
+Добавить последовательную очередь в `WebRTCManager` и безопасное ожидание буфера:
+```ts
+private uploadQueue: Promise<void> = Promise.resolve();
+
+private enqueueFileStream(task: () => Promise<void>) {
+  this.uploadQueue = this.uploadQueue
+    .then(() => task())
+    .catch((err) => console.error('File stream queue error:', err));
+}
+```
+Внутри цикла стриминга проверять закрытие канала и слушать `close`/`error`:
+```ts
+for (const b of activeBundles) {
+  const ch = b.fileChannel;
+  if (ch && ch.readyState === 'open' && ch.bufferedAmount > dynamicBufferHigh) {
+    await new Promise<void>((resolve) => {
+      ch.bufferedAmountLowThreshold = dynamicBufferLow;
+      if (ch.bufferedAmount <= dynamicBufferLow || ch.readyState !== 'open') {
+        return resolve();
+      }
+      const cleanup = () => {
+        ch.removeEventListener('bufferedamountlow', onLow);
+        ch.removeEventListener('close', cleanup);
+        ch.removeEventListener('error', cleanup);
+        resolve();
+      };
+      const onLow = () => {
+        if (ch.bufferedAmount <= dynamicBufferLow || ch.readyState !== 'open') cleanup();
+      };
+      ch.addEventListener('bufferedamountlow', onLow);
+      ch.addEventListener('close', cleanup);
+      ch.addEventListener('error', cleanup);
+    });
+  }
+}
+```
+
+---
+
+### Баг 7. Пустые файлы (0 байт) вешают приёмник навсегда
+**Где:** `webrtc.ts` (`startStreamingFile`, `setupControlChannel`).
+
+**Проблема:**
+При отправке файла размером `0` байт (`.gitkeep`, пустой `.txt` в папке) `totalChunks = 0`. Цикл отправки чанков не запускается, приёмник ждёт первый чанк в `fileChannel.onmessage` и остаётся в `transferring` навсегда.
+
+**Решение:**
+1. В `startStreamingFile` после отправки `FILE_META` проверить `if (file.size === 0)` — сразу завершить передачу (`progress: 100, status: 'completed'`) и сделать `return`.
+2. В `setupControlChannel` (`FILE_META`) при `msg.size === 0 || msg.totalChunks === 0` сразу закрывать `writableStream` (если `streamToDisk`) или создавать пустой `Blob([])` и вызывать `onTransferComplete`.
+
+---
+
+### Баг 8. Гонка `initPromise` и падение на Windows из-за двоеточия `:` с macOS
+**Где:** `webrtc.ts` (`getFileHandleFromPath`, `FILE_META`, `setupFileChannel`).
+
+**Проблема:**
+1. Скриншоты с macOS содержат `:` (`Screenshot at 10:30:00.png`). На Windows `:` запрещён в путях — `getFileHandle` упадёт. Также не фильтруются сегменты `.` и `..`.
+2. Первые чанки могут прилететь раньше завершения `initPromise`. Если `initPromise` упадёт и откатится в память (`streamToDisk = false`), первые чанки из `writeQueue` пропадут без записи в `receivedChunks`.
+
+**Решение:**
+```ts
+function sanitizeSegment(segment: string): string {
+  return segment.replace(/[<>:"\\|?*\x00-\x1f]/g, '_').trim() || 'file';
+}
+
+async function getFileHandleFromPath(dirHandle: any, relativePath: string): Promise<any> {
+  const parts = relativePath
+    .split('/')
+    .map((p) => p.trim())
+    .filter((p) => p && p !== '.' && p !== '..')
+    .map(sanitizeSegment);
+
+  if (parts.length === 0) parts.push('file');
+
+  let currentDir = dirHandle;
+  for (let i = 0; i < parts.length - 1; i++) {
+    currentDir = await currentDir.getDirectoryHandle(parts[i], { create: true });
+  }
+  return await currentDir.getFileHandle(parts[parts.length - 1], { create: true });
+}
+```
+И в `setupFileChannel` при отсутствии `incoming.writableStream` после `await incoming.initPromise` складывать `chunkData` в `incoming.receivedChunks[chunkIndex]`.
+
+---
+
+### Баг 9. Вылеты по памяти на iPhone / Safari / Firefox и обрывы без `restartIce`
+**Где:** `webrtc.ts` (`acceptIncomingFile`, `connectToPeer`, `getIceServers`).
+
+**Проблема:**
+1. На мобильных, Safari и Firefox нет `showSaveFilePicker`. Файлы >400–700 МБ копятся в RAM (`receivedChunks`) и крашат вкладку.
+2. При смене сети (Wi-Fi → LTE) не вызывается `pc.restartIce()`.
+3. Нет резервного TURN-сервера и диагностики причины сбоя (`NAT_BLOCKED`).
+
+**Решение:**
+* Проверять `'showSaveFilePicker' in window` и при передаче >400 МБ на неподдерживаемых браузерах выводить предупреждение.
+* В `oniceconnectionstatechange` при `'failed'` вызывать `pc.restartIce()` и оповещать UI при неуспехе.
+
+---
+
+### Баг 10. Конфликт пересогласования (SDP Glare) в «Комнате»
+**Где:** `webrtc.ts` (`handleSignal`, `renegotiate`).
+
+**Проблема:**
+При одновременном включении микрофона/экрана двумя участниками оба шлют `offer`, возникающий `InvalidStateError` (`have-local-offer`) игнорируется, и поток у одного из них не поднимается.
+
+**Решение:**
+Использовать паттерн **Polite Peer** (`const isPolite = this.myPeerId < fromPeerId;`): при коллизии невежливый пир игнорирует встречный `offer`, а вежливый делает `rollback` и принимает входящий `offer`.
+
+---
+
+## 🟣 Баги клиентского состояния и звука (`client/src/App.tsx`)
+
+### Баг 11 (новый). Опечатка `bridgit_auto_download` ломает кнопку «Автосохранение»
+**Где:** `client/src/App.tsx` (строка 261 в `onTransferComplete` vs строка 474 в `handleToggleAutoDownload`).
+
+**Проблема:**
+Кнопка переключения пишет значение в `localStorage.setItem('bridgik_auto_download', ...)`, а при завершении скачивания `onTransferComplete` проверяет старый ключ с опечаткой:
+```ts
+const isAuto = localStorage.getItem('bridgit_auto_download') !== 'false';
+```
+Из-за этого настройка `Автосохранение: ВЫКЛ / ВКЛ` в интерфейсе «Моста» работает некорректно (игнорируется).
+
+**Решение:**
+Использовать `autoDownloadRef` (синхронизированный со стейтом `autoDownload`) или читать правильный ключ `'bridgik_auto_download'`:
+```ts
+const isAuto = localStorage.getItem('bridgik_auto_download') !== 'false';
+```
+
+---
+
+### Баг 12 (новый). Двойное воспроизведение голоса (эхо) в «Комнате» + сбой автоплея на iOS
+**Где:** `client/src/App.tsx` (`onRemoteStream`, строки 291–296 и 759–763).
+
+**Проблема:**
+1. Поток собеседника сохраняется в `remoteAudioStreams` (рендерится через `<RemotePeerAudio />`) **и одновременно** записывается в `remoteAudioRef.current.srcObject` (`<audio ref={remoteAudioRef} />`). В итоге голос последнего участника играет **дважды одновременно** (двойная громкость / фазовое эхо).
+2. `play().catch(() => {})` молча скрывает блокировку автоплея в Safari/iOS, если звук пришёл без недавнего клика пользователя.
+
+**Решение:**
+Удалить `remoteAudioRef` и `<audio ref={remoteAudioRef} />`, оставив только `RemotePeerAudio`, и обрабатывать отказ автоплея показом кнопки «Включить звук»:
+```tsx
+function RemotePeerAudio({
+  stream,
+  onAutoplayBlocked,
+}: {
+  stream: MediaStream;
+  onAutoplayBlocked?: () => void;
+}) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  useEffect(() => {
+    if (audioRef.current && stream) {
+      audioRef.current.srcObject = stream;
+      audioRef.current.play().catch((err) => {
+        if (err?.name === 'NotAllowedError') onAutoplayBlocked?.();
+      });
+    }
+  }, [stream]);
+  return <audio ref={audioRef} autoPlay playsInline />;
+}
+```
+
+---
+
+### Баг 13 (новый). Не работает кнопка «Замьютить всех» (`remote-mute`) и утекает слушатель `admin-status`
+**Где:** `client/src/App.tsx` (`useEffect` сокет-событий, строки 318–428).
+
+**Проблема:**
+1. `socket.on('remote-mute', ...)` находится внутри `useEffect(..., [socket])`. Переменная `isMicActive` в замыкании **всегда равна `false`** (начальному значению), поэтому организатор не может выключить микрофоны участникам. Та же проблема с устаревшим `myPeerId` внутри `handleToggleMic`.
+2. В `return () => { ... }` этого же `useEffect` забыли `socket.off('admin-status')`.
+
+**Решение:**
+Вынести актуальные ссылки в `useRef`:
+```ts
+const isMicActiveRef = useRef(isMicActive);
+useEffect(() => { isMicActiveRef.current = isMicActive; }, [isMicActive]);
+
+const toggleMicRef = useRef(handleToggleMic);
+useEffect(() => { toggleMicRef.current = handleToggleMic; });
+
+// В обработчике:
+socket.on('remote-mute', () => {
+  if (isMicActiveRef.current) {
+    toggleMicRef.current();
+  }
+});
+
+// В cleanup:
+return () => {
+  socket.off('admin-status');
+  // ...остальные socket.off...
+};
+```
+
+---
+
+### Баг 14 (новый). Утечка оперативной памяти из-за неочищенных Blob URL (`URL.revokeObjectURL`)
+**Где:** `client/src/App.tsx` (`handleLeaveRoom` и размонтирование).
+
+**Проблема:**
+Для каждого переданного/принятого файла в `webrtc.ts` создаётся `URL.createObjectURL(...)`. При выходе из комнаты `setTransfers([])` просто очищает массив в React, но никогда не вызывает `URL.revokeObjectURL(t.blobUrl)`. После нескольких крупных передач память вкладки остаётся забитой.
+
+**Решение:**
+```ts
+// В handleLeaveRoom:
+setTransfers((prev) => {
+  prev.forEach((t) => {
+    if (t.blobUrl) URL.revokeObjectURL(t.blobUrl);
+  });
+  return [];
+});
+```
+
+---
+
+### Баг 15 (новый). Конфликт старых тем (`swiss` / `cyberpunk` / `lofi`) со стилями `index.css`
+**Где:** `client/src/App.tsx` (`getThemeWrapperClass`) и `client/src/index.css`.
+
+**Проблема:**
+Переключатель `handleToggleTheme` меняет классы вроде `font-mono` / `font-sans` и фон на обёртке в `App.tsx`, но `index.css` жёстко перебивает их правилами `* { font-family: 'Handjet' ... !important; }` и `body { background-color: var(--bg); }`.
+
+**Решение:**
+Либо удалить неработающее переключение `theme` (оставив единый фирменный стиль `bridgik`), либо переключать `data-theme="..."` на `<html>` через CSS-переменные `--bg`, `--surface`, `--accent` в `index.css`.
+
+---
+
+## 🟡 UX/UI-баги (найдены на скриншотах десктопа, мобильной версии и в CSS)
+
+### Баг 16. Мобильная шапка обрезается по правому краю и рвёт меню
+**Где:** `client/src/components/Navbar.tsx`.
+* На ширине ~390px пункт `О сервисе` переносится на две строки (`О` сверху похоже на `0`), логотип `bridgik` исчезает, а блок профиля справа (`Slle... ✏️ 🙂`) срезается краем экрана.
+* **Решение:** На `< 768px` переводить шапку в 2 компактных ряда (ряд 1: мини-логотип + звук + профиль с `truncate`; ряд 2: меню `Главная | О сервисе | Условия` с `whitespace-nowrap`) и добавить `overflow-x-hidden` на корневой контейнер.
+
+### Баг 17. Плохая читаемость шрифта `Handjet` в мелких текстах и описаниях
+**Где:** `client/src/index.css` (`@theme`, `:root`, `@layer base`), компоненты в `client/src/`.
+
+**Проблема:**
+1. `body { font-size: 1.3rem; }` не влияет на классы Tailwind (`text-xs`, `text-sm`, `text-base`), так как `rem` считается от `<html>` (`16px`). Узкий и низкий `Handjet` в `12–14px` выглядит как `8–10px` и размывается.
+2. `letter-spacing: 0.02em` мал для кириллицы (`и`, `п`, `н`, `т`, `ш` сливаются в «забор»).
+3. Вес `400` + тусклые цвета `--ink-2: #aaaaaa` и `--ink-3: #999999` на фоне `#171717` теряют контраст, а `text-rendering: optimizeLegibility` может искажать края пикселей на Windows.
+
+**Решение (оставляем `Handjet`, но делаем его чётким):**
+```css
+@import "tailwindcss";
+
+@theme {
+  --text-xs: 0.9375rem;   /* ~15px вместо 12px */
+  --text-xs--line-height: 1.35;
+  --text-sm: 1.0625rem;   /* ~17px вместо 14px */
+  --text-sm--line-height: 1.4;
+  --text-base: 1.25rem;   /* 20px вместо 16px */
+  --text-base--line-height: 1.45;
+  --text-lg: 1.4375rem;   /* ~23px вместо 18px */
+  --text-lg--line-height: 1.4;
+}
+
+:root {
+  --ink: #f2f2f2;
+  --ink-2: #c4c4c4;
+  --ink-3: #a8a8a8;
+}
+
+@layer base {
+  *, *::before, *::after {
+    font-family: 'Handjet', monospace, system-ui, sans-serif !important;
+    letter-spacing: 0.045em;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--ink);
+    font-size: 1.25rem;
+    font-weight: 500;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: auto;
+  }
+}
+```
+Также заменить в TSX жёсткие `text-[11px]` / `text-[12px]` на `text-xs`/`text-sm`, ограничить ширину длинных текстовых колонок (`max-w-2xl`) и проверить в DevTools, что `.woff2` содержит вес `500` и вариативные оси `ELGR`/`ELSH`.
+
+### Баг 18. На мобильном первом экране нет кнопок действия (Above the fold)
+**Где:** `client/src/components/HomeView.tsx` (мобильная версия).
+* Весь первый экран смартфона занимают теги, большая зелёная инфо-коробка и описание карточки «Мост». Кнопки «Создать мост» / «Ввести код» уходят вниз за прокрутку.
+* **Решение:** На мобильных устройствах свернуть зелёный инфо-блок в компактную строку/аккордеон, а блок быстрого действия (**Создать Мост / Ввести PIN / Войти в Комнату**) поднять сразу в верхнюю часть экрана.
+
+### Баг 19. Неадаптированные десктопные тексты и перекрытия на мобилке
+**Где:** `RoomView.tsx` и `MeetingRoomView.tsx`.
+* На телефоне в «Мосте» написано *«Наведите камеру смартфона на QR справа»* (когда QR снизу), кнопка `Увеличить QR` дублирует уже показанный QR-код, а иконка автосохранения без подписи непонятна.
+* В «Комнате» на мобилке кружки `+` налезают на панель управления внизу, а блок файлов предлагает *«Перетащите сюда документы...»* (на тачскринах нет Drag & Drop), как и *«Нажмите Ctrl + V»*.
+* **Решение:** Подменять тексты и контролы под тачскрины (кнопка *«Вставить из буфера»*, *«Нажмите, чтобы выбрать файлы»*, убрать дубль `Увеличить QR`), уменьшить кружки `+` и вынести панель управления «Кибер-гостиной» под иллюстрацию на узких экранах.
+
+### Баг 20. Блокировка масштабирования экрана на мобильных устройствах
+**Где:** `client/index.html` (строка 7).
+* **Проблема:** `maximum-scale=1.0, user-scalable=no` запрещает зум щипком на смартфонах.
+* **Решение:** Оставить `<meta name="viewport" content="width=device-width, initial-scale=1.0" />`.
+
+---
+
+## 🧹 Мелкие технические правки в репозитории
+
+1. **Два разных lock-файла в корне:** удалить лишний (`pnpm-lock.yaml` или `package-lock.json`), оставив один пакетный менеджер (`npm`), чтобы сборки в CI/Yandex Cloud не расходились.
+2. **Бейдж в `README.md`:** заменить неформальную ссылку/бейдж `style-eblo.id` на нейтральный перед публичным продвижением и B2B-продажами.
+3. **Разделение `client/src/App.tsx` (49 КБ):** вынести сокет-обработчики (`useRoomSocket`, `useLobbyRadar`) и всплывающие тосты (`ToastNotifications`) в отдельные файлы/хуки, чтобы легко добавлять авторизацию и новые фичи.
+4. **Юридическое согласование («Условия и регламент»):** при добавлении авторизации (Telegram/Twitch) и/или S3-шлюза обновить `Политика конфиденциальности` и `Оферта`, разделив «Прямой P2P = 0 байт» и «Аккаунт / Шлюз».
+
+---
+
+
+

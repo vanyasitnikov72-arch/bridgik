@@ -283,7 +283,7 @@ export function App() {
 
         // Auto-download for completed in-memory downloads if enabled
         if (completed.type === 'download' && completed.blobUrl && !completed.savedToDisk) {
-          const isAuto = localStorage.getItem('bridgit_auto_download') !== 'false';
+          const isAuto = localStorage.getItem('bridgik_auto_download') !== 'false';
           if (isAuto) {
             try {
               const a = document.createElement('a');
