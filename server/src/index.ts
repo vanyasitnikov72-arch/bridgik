@@ -13,7 +13,11 @@ import { PeerInfo } from './types.js';
 export function getLocalLanIp(): string {
   const interfaces = os.networkInterfaces();
   for (const name of Object.keys(interfaces)) {
-    if (name.toLowerCase().includes('vethernet') || name.toLowerCase().includes('virtual') || name.toLowerCase().includes('loopback')) {
+    if (
+      name.toLowerCase().includes('vethernet') ||
+      name.toLowerCase().includes('virtual') ||
+      name.toLowerCase().includes('loopback')
+    ) {
       continue;
     }
     for (const iface of interfaces[name] || []) {
@@ -29,6 +33,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+app.set('trust proxy', 1);
+
 const httpServer = createServer(app);
 
 const io = new Server(httpServer, {
@@ -36,12 +42,11 @@ const io = new Server(httpServer, {
     origin: '*',
     methods: ['GET', 'POST'],
   },
-  maxHttpBufferSize: 1e6, // 1MB max for signaling messages
+  maxHttpBufferSize: 1e6,
 });
 
 const roomManager = new RoomManager();
 
-// Local Wi-Fi Discovery (Snapdrop / AirDrop style radar)
 interface LobbyPeer {
   socketId: string;
   name: string;
@@ -53,7 +58,6 @@ interface LobbyPeer {
 }
 const lobbyPeers: Map<string, LobbyPeer> = new Map();
 
-// Rate limiting against brute-force PIN guessing
 interface FailedPinAttempt {
   count: number;
   lastAttempt: number;
@@ -61,14 +65,31 @@ interface FailedPinAttempt {
 }
 const failedPinAttempts: Map<string, FailedPinAttempt> = new Map();
 
-function getClientIp(socket: any): string {
-  const forwarded = socket.handshake.headers['x-forwarded-for'];
-  let ip = '';
-  if (typeof forwarded === 'string') {
-    ip = forwarded.split(',')[0].trim();
-  } else {
-    ip = socket.handshake.address || '127.0.0.1';
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, info] of failedPinAttempts.entries()) {
+    if (now - info.lastAttempt > 10 * 60 * 1000 && (!info.blockedUntil || info.blockedUntil < now)) {
+      failedPinAttempts.delete(key);
+    }
   }
+}, 5 * 60 * 1000);
+
+function getClientIp(socket: any): string {
+  const realIp = socket.handshake.headers['x-real-ip'];
+  let ip = '';
+
+  if (typeof realIp === 'string' && realIp.trim()) {
+    ip = realIp.trim();
+  } else {
+    const forwarded = socket.handshake.headers['x-forwarded-for'];
+    if (typeof forwarded === 'string' && forwarded.trim()) {
+      const ips = forwarded.split(',').map((s) => s.trim()).filter(Boolean);
+      ip = ips[ips.length - 1] || '';
+    } else {
+      ip = socket.handshake.address || '127.0.0.1';
+    }
+  }
+
   if (ip.startsWith('::ffff:')) {
     ip = ip.slice(7);
   }
@@ -80,46 +101,63 @@ const ADMIN_IPS = (process.env.ADMIN_IPS || '127.0.0.1,::1,localhost')
   .map((ip) => ip.trim().toLowerCase())
   .filter(Boolean);
 
-const ADMIN_SECRET_KEY = process.env.ADMIN_SECRET_KEY || 'bridgik_creator_root_2026';
+const ADMIN_SECRET_KEY = process.env.ADMIN_SECRET_KEY;
 
 function isSocketAdmin(socket: any, providedKey?: string): boolean {
-  if (providedKey && providedKey === ADMIN_SECRET_KEY) {
+  if (ADMIN_SECRET_KEY && providedKey && providedKey === ADMIN_SECRET_KEY) {
     return true;
   }
-  const ip = getClientIp(socket).toLowerCase();
-  if (ADMIN_IPS.includes(ip) || ip === '127.0.0.1' || ip === '::1' || ip === 'localhost') {
-    return true;
+  if (process.env.NODE_ENV !== 'production') {
+    const ip = getClientIp(socket).toLowerCase();
+    if (ADMIN_IPS.includes(ip) || ip === '127.0.0.1' || ip === '::1' || ip === 'localhost') {
+      return true;
+    }
   }
   return false;
+}
+
+function getIpv6Prefix64(ip: string): string | null {
+  if (!ip.includes(':')) return null;
+  const clean = ip.split('%')[0].toLowerCase();
+  const halves = clean.split('::');
+  if (halves.length > 2) return null;
+  const left = halves[0] ? halves[0].split(':') : [];
+  const right = halves[1] ? halves[1].split(':') : [];
+  const missing = 8 - (left.length + right.length);
+  if (missing < 0) return null;
+  const full = [...left, ...Array(missing).fill('0'), ...right].map((g) => g.padStart(4, '0'));
+  return `pub6-${full.slice(0, 4).join(':')}`;
 }
 
 function getClientNetworkSubnet(socket: any): string {
   let ip = getClientIp(socket);
   const lanIp = getLocalLanIp();
 
-  // If localhost, it is running on the server host machine, so it shares the server's LAN IP
   if (ip === '127.0.0.1' || ip === '::1' || ip === 'localhost') {
+    if (process.env.NODE_ENV === 'production') {
+      return `isolated-${socket.id}`;
+    }
     ip = lanIp;
   }
 
-  // Parse IPv4 address
+  const ipv6Prefix = getIpv6Prefix64(ip);
+  if (ipv6Prefix) {
+    return ipv6Prefix;
+  }
+
   const parts = ip.split('.').map(Number);
   if (parts.length === 4 && !parts.some(isNaN)) {
-    // 192.168.x.x -> group by /24 subnet (e.g. 192.168.8)
     if (parts[0] === 192 && parts[1] === 168) {
       return `lan-192.168.${parts[2]}`;
     }
-    // 10.x.x.x -> group by /24
     if (parts[0] === 10) {
       return `lan-10.${parts[1]}.${parts[2]}`;
     }
-    // 172.16.x.x - 172.31.x.x
     if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) {
       return `lan-172.${parts[1]}.${parts[2]}`;
     }
   }
 
-  // Check if IP belongs to the same local network as the server
   if (lanIp && lanIp !== '127.0.0.1') {
     const lanParts = lanIp.split('.').map(Number);
     if (lanParts.length === 4 && parts.length === 4) {
@@ -156,10 +194,15 @@ function removeFromLobby(socketId: string) {
   }
 }
 
+function sanitizePeerName(raw: unknown, fallback = 'Гость'): string {
+  if (typeof raw !== 'string') return fallback;
+  const trimmed = raw.trim().slice(0, 32);
+  return trimmed || fallback;
+}
+
 app.use(cors());
 app.use(express.json());
 
-// API Endpoints
 const emoteCache: Map<string, { buffer: Buffer; contentType: string }> = new Map();
 
 app.get('/api/emotes/:id.webp', async (req, res) => {
@@ -221,7 +264,6 @@ app.get('/api/rooms/:idOrPin', (req, res) => {
   });
 });
 
-// Production client static files
 const clientDistPath = path.join(__dirname, '../../client/dist');
 if (fs.existsSync(clientDistPath)) {
   app.use(express.static(clientDistPath));
@@ -230,16 +272,14 @@ if (fs.existsSync(clientDistPath)) {
   });
 }
 
-// Socket.io WebRTC Signaling
 io.on('connection', (socket) => {
   const clientIp = getClientIp(socket);
-  const clientSubnet = getClientNetworkSubnet(socket);
 
-  const handshakeAdminKey = (socket.handshake.query?.adminKey as string) || (socket.handshake.auth?.adminKey as string);
+  const handshakeAdminKey =
+    (socket.handshake.query?.adminKey as string) || (socket.handshake.auth?.adminKey as string);
   const initialAdmin = isSocketAdmin(socket, handshakeAdminKey);
   socket.data.isAdmin = initialAdmin;
 
-  // Immediately notify client of their IP and admin status
   socket.emit('admin-status', {
     isAdmin: socket.data.isAdmin,
     clientIp,
@@ -259,17 +299,17 @@ io.on('connection', (socket) => {
     }
   });
 
-  // 0. Local Network Discovery (Snapdrop / AirDrop radar)
+  // 0. Local Network Discovery
   socket.on('lobby-join', (data: { name: string; deviceType: any; statusEmote?: string }) => {
     const currentSubnet = getClientNetworkSubnet(socket);
     lobbyPeers.set(socket.id, {
       socketId: socket.id,
-      name: data.name || 'Устройство',
-      deviceType: data.deviceType || 'unknown',
+      name: sanitizePeerName(data?.name, 'Устройство'),
+      deviceType: data?.deviceType || 'unknown',
       subnet: currentSubnet,
       ip: clientIp,
       isAdmin: socket.data.isAdmin,
-      statusEmote: data.statusEmote,
+      statusEmote: data?.statusEmote,
     });
     broadcastNearbyPeers(currentSubnet);
   });
@@ -277,7 +317,7 @@ io.on('connection', (socket) => {
   socket.on('lobby-update-name', (data: { name: string }) => {
     const peer = lobbyPeers.get(socket.id);
     if (peer) {
-      peer.name = data.name || 'Устройство';
+      peer.name = sanitizePeerName(data?.name, 'Устройство');
       broadcastNearbyPeers(peer.subnet);
     }
   });
@@ -285,7 +325,7 @@ io.on('connection', (socket) => {
   socket.on('lobby-update-status-emote', (data: { statusEmote?: string }) => {
     const peer = lobbyPeers.get(socket.id);
     if (peer) {
-      peer.statusEmote = data.statusEmote || undefined;
+      peer.statusEmote = data?.statusEmote || undefined;
       broadcastNearbyPeers(peer.subnet);
     }
   });
@@ -311,8 +351,8 @@ io.on('connection', (socket) => {
     removeFromLobby(socket.id);
   });
 
-  // Direct 1-click pair request
   socket.on('direct-pair-request', (data: { toSocketId: string; myName: string; myDevice: any }) => {
+    if (!data?.toSocketId) return;
     const target = lobbyPeers.get(data.toSocketId);
     if (!target) {
       socket.emit('direct-pair-result', {
@@ -326,9 +366,11 @@ io.on('connection', (socket) => {
     room.mode = 'bridge';
     room.maxSeats = 2;
 
+    socket.data.pendingPairRoomId = room.id;
+
     io.to(data.toSocketId).emit('incoming-pair-request', {
       fromSocketId: socket.id,
-      fromName: data.myName,
+      fromName: sanitizePeerName(data.myName, 'Устройство'),
       fromDevice: data.myDevice,
       roomId: room.id,
       pin: room.pin,
@@ -337,18 +379,31 @@ io.on('connection', (socket) => {
   });
 
   socket.on('cancel-pair-request', (data: { toSocketId: string }) => {
-    io.to(data.toSocketId).emit('pair-request-cancelled');
+    if (socket.data.pendingPairRoomId) {
+      roomManager.forceDeleteRoom(socket.data.pendingPairRoomId);
+      socket.data.pendingPairRoomId = undefined;
+    }
+    if (data?.toSocketId) {
+      io.to(data.toSocketId).emit('pair-request-cancelled');
+    }
   });
 
   socket.on(
     'direct-pair-response',
     (data: { toSocketId: string; roomId: string; pin: string; accepted: boolean; reason?: string }) => {
-      io.to(data.toSocketId).emit('direct-pair-result', {
-        roomId: data.roomId,
-        pin: data.pin,
-        accepted: data.accepted,
-        reason: data.reason || (data.accepted ? undefined : 'Устройство отклонило запрос на передачу файлов'),
-      });
+      if (!data?.accepted && data?.roomId) {
+        roomManager.forceDeleteRoom(data.roomId);
+      }
+      if (data?.toSocketId) {
+        io.to(data.toSocketId).emit('direct-pair-result', {
+          roomId: data.roomId,
+          pin: data.pin,
+          accepted: data.accepted,
+          reason:
+            data.reason ||
+            (data.accepted ? undefined : 'Устройство отклонило запрос на передачу файлов'),
+        });
+      }
     }
   );
 
@@ -374,7 +429,7 @@ io.on('connection', (socket) => {
       try {
         const room = roomManager.createRoom(data.customId);
         room.mode = data.mode || 'bridge';
-        room.maxSeats = data.maxSeats || 8;
+        room.maxSeats = Math.max(2, Math.min(Number(data.maxSeats) || 8, 20));
         room.currentRoomTheme = data.roomTheme || 'cyber-lounge';
         room.peerSeats = { [socket.id]: 0 };
 
@@ -382,7 +437,7 @@ io.on('connection', (socket) => {
         const peer: PeerInfo = {
           id: peerId,
           socketId: socket.id,
-          name: data.peerName || 'Гость',
+          name: sanitizePeerName(data.peerName, 'Гость'),
           avatar: data.avatar,
           adminFrame: data.adminFrame,
           statusEmote: data.statusEmote,
@@ -406,6 +461,7 @@ io.on('connection', (socket) => {
             mode: room.mode,
             maxSeats: room.maxSeats,
             isLocked: room.isLocked || false,
+            knockRequired: room.knockRequired || false,
             currentRoomTheme: room.currentRoomTheme,
             peerSeats: room.peerSeats,
             mySeat: 0,
@@ -438,8 +494,7 @@ io.on('connection', (socket) => {
     ) => {
       removeFromLobby(socket.id);
       try {
-        const clientIp = getClientIp(socket);
-        const attemptKey = `${clientIp}_${socket.id}`;
+        const attemptKey = getClientIp(socket);
         const attemptInfo = failedPinAttempts.get(attemptKey);
         const now = Date.now();
 
@@ -455,7 +510,7 @@ io.on('connection', (socket) => {
           return;
         }
 
-        const room = roomManager.getRoom(data.roomIdOrPin);
+        const room = roomManager.getRoom(data.roomIdOrPin || '');
         if (!room) {
           const prevCount =
             attemptInfo && now - attemptInfo.lastAttempt < 60000 ? attemptInfo.count : 0;
@@ -493,7 +548,6 @@ io.on('connection', (socket) => {
           return;
         }
 
-        // Check if this browser already has an active tab inside this room
         if (data.browserId) {
           const existingWithSameBrowser = Array.from(room.peers.values()).find(
             (p) => p.browserId === data.browserId && p.socketId !== socket.id
@@ -526,12 +580,25 @@ io.on('connection', (socket) => {
           return;
         }
 
+        if (room.knockRequired && room.peers.size > 0 && !room.approvedSockets?.has(socket.id)) {
+          if (typeof callback === 'function') {
+            return callback({
+              success: false,
+              code: 'KNOCK_REQUIRED',
+              roomId: room.id,
+              pin: room.pin,
+              error: 'Требуется разрешение организатора для входа в комнату',
+            });
+          }
+          return;
+        }
+
         const peerId = socket.id;
         const isHost = room.peers.size === 0;
         const peer: PeerInfo = {
           id: peerId,
           socketId: socket.id,
-          name: data.peerName || 'Гость',
+          name: sanitizePeerName(data.peerName, 'Гость'),
           avatar: data.avatar,
           adminFrame: data.adminFrame,
           statusEmote: data.statusEmote,
@@ -542,7 +609,6 @@ io.on('connection', (socket) => {
           isAdmin: socket.data.isAdmin,
         };
 
-        // Assign free seat
         if (!room.peerSeats) room.peerSeats = {};
         const occupiedSeats = new Set(Object.values(room.peerSeats));
         let assignedSeat = 0;
@@ -558,7 +624,6 @@ io.on('connection', (socket) => {
         }
         room.peerSeats[peerId] = assignedSeat;
 
-        // Notify existing peers
         socket.to(room.id).emit('peer-joined', { ...peer, seatIndex: assignedSeat });
 
         roomManager.addPeer(room.id, peer);
@@ -574,6 +639,7 @@ io.on('connection', (socket) => {
             mode: room.mode || 'bridge',
             maxSeats: room.maxSeats || 8,
             isLocked: room.isLocked || false,
+            knockRequired: room.knockRequired || false,
             currentRoomTheme: room.currentRoomTheme || 'cyber-lounge',
             peerSeats: room.peerSeats,
             mySeat: assignedSeat,
@@ -588,35 +654,31 @@ io.on('connection', (socket) => {
     }
   );
 
-  // Update peer name
   socket.on('update-peer-name', (data: { roomId: string; name: string }) => {
     const room = roomManager.getRoom(data.roomId);
     if (!room) return;
     const peer = room.peers.get(socket.id);
     if (peer) {
-      peer.name = data.name;
+      peer.name = sanitizePeerName(data.name, peer.name);
       io.to(room.id).to(room.pin).emit('peer-updated', peer);
     }
   });
 
-  // Update peer avatar & flair
-  socket.on('update-peer-avatar', (data: { roomId: string; avatar: string; adminFrame?: any; statusEmote?: string }) => {
-    const room = roomManager.getRoom(data.roomId);
-    if (!room) return;
-    const peer = room.peers.get(socket.id);
-    if (peer) {
-      peer.avatar = data.avatar;
-      if (data.adminFrame !== undefined) {
-        peer.adminFrame = data.adminFrame;
+  socket.on(
+    'update-peer-avatar',
+    (data: { roomId: string; avatar: string; adminFrame?: any; statusEmote?: string }) => {
+      const room = roomManager.getRoom(data.roomId);
+      if (!room) return;
+      const peer = room.peers.get(socket.id);
+      if (peer) {
+        peer.avatar = data.avatar;
+        if (data.adminFrame !== undefined) peer.adminFrame = data.adminFrame;
+        if (data.statusEmote !== undefined) peer.statusEmote = data.statusEmote;
+        io.to(room.id).to(room.pin).emit('peer-updated', peer);
       }
-      if (data.statusEmote !== undefined) {
-        peer.statusEmote = data.statusEmote;
-      }
-      io.to(room.id).to(room.pin).emit('peer-updated', peer);
     }
-  });
+  );
 
-  // Update peer status emote
   socket.on('update-peer-status-emote', (data: { roomId: string; statusEmote?: string }) => {
     const room = roomManager.getRoom(data.roomId);
     if (!room) return;
@@ -627,7 +689,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Seat switching
   socket.on('change-seat', (data: { roomId: string; seatIndex: number }) => {
     const room = roomManager.getRoom(data.roomId);
     if (!room) return;
@@ -639,26 +700,28 @@ io.on('connection', (socket) => {
     });
   });
 
-  // Host: Update Room Config (max seats, lock room)
   socket.on(
     'update-room-config',
-    (data: { roomId: string; maxSeats?: number; isLocked?: boolean }) => {
+    (data: { roomId: string; maxSeats?: number; isLocked?: boolean; knockRequired?: boolean }) => {
       const room = roomManager.getRoom(data.roomId);
       if (!room) return;
       const peer = room.peers.get(socket.id);
       if (!peer?.isHost && room.peers.size > 1) return;
 
-      if (data.maxSeats !== undefined) room.maxSeats = data.maxSeats;
+      if (data.maxSeats !== undefined) {
+        room.maxSeats = Math.max(2, Math.min(Number(data.maxSeats) || 8, 20));
+      }
       if (data.isLocked !== undefined) room.isLocked = data.isLocked;
+      if (data.knockRequired !== undefined) room.knockRequired = data.knockRequired;
 
       io.to(room.id).to(room.pin).emit('room-config-updated', {
         maxSeats: room.maxSeats,
         isLocked: room.isLocked,
+        knockRequired: room.knockRequired,
       });
     }
   );
 
-  // Host: Kick Peer
   socket.on(
     'kick-peer',
     (data: { roomId: string; targetPeerId: string; reason?: string }) => {
@@ -684,7 +747,6 @@ io.on('connection', (socket) => {
     }
   );
 
-  // Host: Mute All
   socket.on('mute-all', (data: { roomId: string }) => {
     const room = roomManager.getRoom(data.roomId);
     if (!room) return;
@@ -696,7 +758,6 @@ io.on('connection', (socket) => {
     });
   });
 
-  // Host: Synchronize Theme
   socket.on('change-room-theme', (data: { roomId: string; theme: string }) => {
     const room = roomManager.getRoom(data.roomId);
     if (!room) return;
@@ -709,7 +770,6 @@ io.on('connection', (socket) => {
     });
   });
 
-  // Peer: Toggle mic status
   socket.on('toggle-mic', (data: { roomId: string; isMicActive: boolean }) => {
     const room = roomManager.getRoom(data.roomId);
     if (!room) return;
@@ -723,7 +783,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // 3. WebRTC Signal Relay (offer, answer, ice-candidate)
+  // 3. WebRTC Signal Relay
   socket.on('signal', (data: { to: string; payload: any }) => {
     if (!data.to || !data.payload) return;
     io.to(data.to).emit('signal', {
@@ -732,21 +792,90 @@ io.on('connection', (socket) => {
     });
   });
 
-  // 4. Knock / Knock Response (if knock mode used)
+  // 4. Knock / Knock Response
   socket.on('knock', (data: { roomId: string; peerName: string }) => {
-    const room = roomManager.getRoom(data.roomId);
+    const room = roomManager.getRoom(data?.roomId || '');
     if (!room) return;
-    // Broadcast knock to all existing peers (especially host)
-    socket.to(room.id).emit('knock-request', {
+
+    if (!room.pendingKnockSockets) room.pendingKnockSockets = new Set();
+    room.pendingKnockSockets.add(socket.id);
+    socket.data.knockingRoomId = room.id;
+
+    const hostPeer = Array.from(room.peers.values()).find((p) => p.isHost);
+    const payload = {
       socketId: socket.id,
-      peerName: data.peerName,
-    });
+      roomId: room.id,
+      peerName: sanitizePeerName(data.peerName, 'Гость'),
+    };
+
+    if (hostPeer) {
+      io.to(hostPeer.socketId).emit('knock-request', payload);
+    } else {
+      socket.to(room.id).emit('knock-request', payload);
+    }
   });
 
-  socket.on('knock-decision', (data: { toSocketId: string; approved: boolean }) => {
-    io.to(data.toSocketId).emit('knock-result', {
-      approved: data.approved,
+  socket.on('cancel-knock', (data: { roomId: string }) => {
+    const room = roomManager.getRoom(data?.roomId || '');
+    if (!room) return;
+    room.pendingKnockSockets?.delete(socket.id);
+    socket.data.knockingRoomId = undefined;
+
+    const hostPeer = Array.from(room.peers.values()).find((p) => p.isHost);
+    if (hostPeer) {
+      io.to(hostPeer.socketId).emit('knock-cancelled', { socketId: socket.id });
+    } else {
+      socket.to(room.id).emit('knock-cancelled', { socketId: socket.id });
+    }
+  });
+
+  socket.on(
+    'knock-decision',
+    (data: { roomId: string; toSocketId: string; approved: boolean }) => {
+      const room = roomManager.getRoom(data?.roomId || '');
+      if (!room) return;
+      const sender = room.peers.get(socket.id);
+      if (!sender?.isHost && room.peers.size > 1) return;
+
+      room.pendingKnockSockets?.delete(data.toSocketId);
+
+      if (data.approved) {
+        if (!room.approvedSockets) room.approvedSockets = new Set();
+        room.approvedSockets.add(data.toSocketId);
+      }
+
+      io.to(data.toSocketId).emit('knock-result', {
+        approved: data.approved,
+        roomId: room.id,
+      });
+    }
+  );
+
+  // Panic / Instant Room Destruction
+  socket.on('destroy-room', (data: { roomId: string }) => {
+    const room = roomManager.getRoom(data?.roomId || '');
+    if (!room) return;
+    const sender = room.peers.get(socket.id);
+    if (!sender?.isHost && room.peers.size > 1) return;
+
+    if (room.pendingKnockSockets) {
+      for (const knockerId of room.pendingKnockSockets) {
+        io.to(knockerId).emit('knock-result', { approved: false, roomId: room.id });
+      }
+      room.pendingKnockSockets.clear();
+    }
+
+    socket.to(room.id).to(room.pin).emit('room-destroyed', {
+      reason: 'Организатор экстренно завершил встречу и стёр данные комнаты',
     });
+
+    for (const p of Array.from(room.peers.values())) {
+      const sock = io.sockets.sockets.get(p.socketId);
+      sock?.leave(room.id);
+      sock?.leave(room.pin);
+    }
+
+    roomManager.forceDeleteRoom(room.id, true);
   });
 
   // 5. Leave Room
@@ -764,6 +893,19 @@ io.on('connection', (socket) => {
 
   // 6. Disconnect
   socket.on('disconnect', () => {
+    if (socket.data.knockingRoomId) {
+      const kRoom = roomManager.getRoom(socket.data.knockingRoomId);
+      if (kRoom) {
+        kRoom.pendingKnockSockets?.delete(socket.id);
+        const hostPeer = Array.from(kRoom.peers.values()).find((p) => p.isHost);
+        if (hostPeer) {
+          io.to(hostPeer.socketId).emit('knock-cancelled', { socketId: socket.id });
+        }
+      }
+    }
+    if (socket.data.pendingPairRoomId) {
+      roomManager.forceDeleteRoom(socket.data.pendingPairRoomId);
+    }
     removeFromLobby(socket.id);
     const { room, peer } = roomManager.removePeerBySocket(socket.id);
     if (room && peer) {
@@ -776,5 +918,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, () => {
-  console.log(`🚀 AirBridge Signaling Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Bridgik Signaling Server running on http://localhost:${PORT}`);
 });

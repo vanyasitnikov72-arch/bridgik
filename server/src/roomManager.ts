@@ -2,16 +2,13 @@ import crypto from 'crypto';
 import { Room, PeerInfo } from './types.js';
 
 export class RoomManager {
-  private rooms: Map<string, Room> = new Map(); // key: room.id
-  private pinToRoomId: Map<string, string> = new Map(); // key: 4-digit pin -> room.id
+  private rooms: Map<string, Room> = new Map();
+  private pinToRoomId: Map<string, string> = new Map();
   private socketToRoom: Map<string, { roomId: string; peerId: string }> = new Map();
+  private cleanupTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
 
-  /**
-   * Generates a cryptographically secure, unguessable room ID token
-   * Formatted in Google-Meet style (e.g. "w7tk-9mp4-qx2a") with ~60 bits of entropy
-   */
   private generateSecureRoomId(): string {
-    const chars = 'abcdefghjkmnpqrstuvwxyz23456789'; // 30 non-ambiguous chars
+    const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
     let id = '';
     const bytes = crypto.randomBytes(12);
     for (let i = 0; i < 12; i++) {
@@ -21,27 +18,28 @@ export class RoomManager {
     return id;
   }
 
-  /**
-   * Generates a unique 4-digit PIN not currently in use
-   */
   private generateUniquePin(): string {
     let pin = '';
     let attempts = 0;
     do {
-      pin = Math.floor(1000 + Math.random() * 9000).toString();
+      pin = crypto.randomInt(1000, 10000).toString();
       attempts++;
-      if (attempts > 9999) {
-        // Fallback to 5-digit if space is exhausted
-        pin = Math.floor(10000 + Math.random() * 90000).toString();
+      if (attempts > 9000) {
+        pin = crypto.randomInt(10000, 100000).toString();
         break;
       }
     } while (this.pinToRoomId.has(pin));
     return pin;
   }
 
-  /**
-   * Create a new room with a secure token ID and a 4-digit PIN
-   */
+  private cancelCleanupTimer(roomId: string) {
+    const timer = this.cleanupTimers.get(roomId);
+    if (timer) {
+      clearTimeout(timer);
+      this.cleanupTimers.delete(roomId);
+    }
+  }
+
   public createRoom(requestedId?: string): Room {
     const pin = this.generateUniquePin();
     let id = requestedId?.trim() ? requestedId.trim().toLowerCase() : this.generateSecureRoomId();
@@ -62,12 +60,29 @@ export class RoomManager {
       this.pinToRoomId.set(id, id);
     }
 
+    this.scheduleRoomCleanup(id, pin, 120 * 1000);
     return room;
   }
 
-  /**
-   * Find room by ID or by PIN
-   */
+  public forceDeleteRoom(roomIdOrPin: string, force = false) {
+    const room = this.getRoom(roomIdOrPin);
+    if (!room) return;
+
+    this.cancelCleanupTimer(room.id);
+    if (!force && room.peers.size > 0) return;
+
+    if (force) {
+      for (const peer of room.peers.values()) {
+        this.socketToRoom.delete(peer.socketId);
+      }
+      room.peers.clear();
+    }
+
+    this.rooms.delete(room.id);
+    this.pinToRoomId.delete(room.pin);
+    this.pinToRoomId.delete(room.id);
+  }
+
   public getRoom(idOrPin: string): Room | undefined {
     const normalized = idOrPin.trim().toLowerCase();
     if (this.rooms.has(normalized)) {
@@ -80,21 +95,16 @@ export class RoomManager {
     return undefined;
   }
 
-  /**
-   * Add a peer to a room
-   */
   public addPeer(roomId: string, peer: PeerInfo): boolean {
     const room = this.rooms.get(roomId);
     if (!room) return false;
 
+    this.cancelCleanupTimer(roomId);
     room.peers.set(peer.id, peer);
     this.socketToRoom.set(peer.socketId, { roomId, peerId: peer.id });
     return true;
   }
 
-  /**
-   * Remove peer by socket ID
-   */
   public removePeerBySocket(socketId: string): { room?: Room; peer?: PeerInfo } {
     const record = this.socketToRoom.get(socketId);
     if (!record) return {};
@@ -108,31 +118,27 @@ export class RoomManager {
     const peer = room.peers.get(peerId);
     room.peers.delete(peerId);
 
-    // If room is now empty, schedule deletion
     if (room.peers.size === 0) {
-      this.scheduleRoomCleanup(roomId, room.pin);
+      this.scheduleRoomCleanup(roomId, room.pin, 60 * 1000);
     }
 
     return { room, peer };
   }
 
-  /**
-   * Schedule room cleanup after 60 seconds if still empty
-   */
-  private scheduleRoomCleanup(roomId: string, pin: string) {
-    setTimeout(() => {
+  public scheduleRoomCleanup(roomId: string, pin: string, delayMs = 60 * 1000) {
+    this.cancelCleanupTimer(roomId);
+    const timer = setTimeout(() => {
+      this.cleanupTimers.delete(roomId);
       const room = this.rooms.get(roomId);
       if (room && room.peers.size === 0) {
         this.rooms.delete(roomId);
         this.pinToRoomId.delete(pin);
         this.pinToRoomId.delete(roomId);
       }
-    }, 60 * 1000);
+    }, delayMs);
+    this.cleanupTimers.set(roomId, timer);
   }
 
-  /**
-   * Get stats for healthcheck
-   */
   public getStats() {
     let peerCount = 0;
     for (const r of this.rooms.values()) {

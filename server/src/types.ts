@@ -14,11 +14,13 @@ export interface PeerInfo {
 }
 
 export interface Room {
-  id: string; // e.g. "4819" or "bridge-4819"
-  pin: string; // 4-digit numeric PIN for instant entry, e.g. "4819"
+  id: string;
+  pin: string;
   createdAt: number;
   peers: Map<string, PeerInfo>;
   knockRequired?: boolean;
+  approvedSockets?: Set<string>;
+  pendingKnockSockets?: Set<string>;
   mode?: 'bridge' | 'meeting';
   maxSeats?: number;
   isLocked?: boolean;

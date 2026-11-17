@@ -34,6 +34,8 @@ import {
   Music,
   Film,
   Sparkles,
+  Bell,
+  AlertTriangle,
 } from 'lucide-react';
 import { FileTransfer, Peer, TextMessage } from '../types/index.js';
 import { sound } from '../utils/sound.js';
@@ -49,8 +51,8 @@ interface RoomSeatDef {
   id: string;
   label: string;
   spotName: string;
-  x: number; // percentage from left
-  y: number; // percentage from top
+  x: number;
+  y: number;
 }
 
 interface RoomDefinition {
@@ -62,7 +64,7 @@ interface RoomDefinition {
   badgeBg: string;
   badgeBorder: string;
   badgeText: string;
-  seats: RoomSeatDef[]; // Exactly 8 organic spots on real furniture
+  seats: RoomSeatDef[];
 }
 
 export const ROOM_PRESETS: Record<RoomId, RoomDefinition> = {
@@ -153,7 +155,6 @@ const sanitizeRoomId = (val: string | null): RoomId => {
   return 'cyber-lounge';
 };
 
-// Interactive Avatar Token (clean on furniture, details only on hover)
 interface PixelAvatarSeatProps {
   name: string;
   avatar?: string;
@@ -209,7 +210,7 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
       onMouseLeave={() => setIsHovered(false)}
       onClick={isMe ? onToggleMic : undefined}
     >
-      {/* Floating Tooltip: ONLY VISIBLE ON HOVER */}
+      {/* Floating Tooltip */}
       <div
         className={`absolute -top-11 z-30 transition-all duration-200 flex flex-col items-center ${
           isHovered
@@ -217,18 +218,24 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
             : 'opacity-0 translate-y-1 scale-95 pointer-events-none'
         }`}
       >
-        <div className="px-3 py-1.5 rounded-xl bg-[#0e0e14]/95 border border-white/20 shadow-2xl backdrop-blur-md flex items-center gap-2 whitespace-nowrap">
+        <div className="px-3 py-1.5 rounded-xl bg-[#0e0e14]/95 border border-white/20 shadow-2xl backdrop-blur-md flex items-center gap-2 whitespace-nowrap max-w-[90vw] overflow-x-auto">
           <span
-            className={`w-2 h-2 rounded-full ${isMicActive ? 'animate-pulse' : ''}`}
+            className={`w-2 h-2 rounded-full shrink-0 ${isMicActive ? 'animate-pulse' : ''}`}
             style={{ backgroundColor: isMicActive ? accentColor : '#666677' }}
           />
           {isAdmin && (
-            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-400/20 text-amber-300 font-bold border border-amber-400/30 flex items-center gap-0.5">
+            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-400/20 text-amber-300 font-bold border border-amber-400/30 flex items-center gap-0.5 shrink-0">
               👑 DEV
             </span>
           )}
-          <span className={`text-xs font-bold font-mono flex items-center gap-1 ${isAdmin ? 'admin-name-shimmer' : 'text-[#ededed]'}`}>
-            <span>{name} {isMe ? '(Вы)' : ''}</span>
+          <span
+            className={`text-xs font-bold font-mono flex items-center gap-1 ${
+              isAdmin ? 'admin-name-shimmer' : 'text-[#ededed]'
+            }`}
+          >
+            <span>
+              {name} {isMe ? '(Вы)' : ''}
+            </span>
             {statusEmote && (
               <img
                 src={statusEmote}
@@ -237,7 +244,7 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
               />
             )}
           </span>
-          <span className="text-[10px] text-[#aaaaaa] font-mono flex items-center gap-1">
+          <span className="hidden sm:flex text-[10px] text-[#aaaaaa] font-mono items-center gap-1">
             {deviceType === 'mobile' ? (
               <Smartphone className="w-2.5 h-2.5 text-[#9ac43e]" />
             ) : (
@@ -252,7 +259,11 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
                   ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
                   : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
               }`}
-              title={connectionType === 'relay' ? 'Соединение через защищенный ретранслятор TURN (Симметричный NAT)' : 'Прямой P2P WebRTC'}
+              title={
+                connectionType === 'relay'
+                  ? 'Соединение через защищенный ретранслятор TURN'
+                  : 'Прямой P2P WebRTC'
+              }
             >
               {connectionType === 'relay' ? '🛡️ TURN' : '⚡ P2P'}
             </span>
@@ -283,7 +294,7 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
         <div className="w-2 h-1 bg-[#0e0e14] border-r border-b border-white/20 rotate-45 -mt-0.5" />
       </div>
 
-      {/* Speech Halo & Avatar Circle sitting firmly on furniture */}
+      {/* Speech Halo & Avatar Circle */}
       <div className="relative flex items-center justify-center">
         {isMicActive && (
           <div
@@ -292,12 +303,11 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
           />
         )}
 
-        {/* Live Equalizer bars floating above avatar when speaking */}
         {isMicActive && (
           <div
             className="absolute -top-4 flex items-end gap-0.5 h-3 px-1 py-0.5 rounded bg-[#101014]/95 border shadow-sm pointer-events-none"
             style={{ borderColor: `${accentColor}80` }}
-            title="Голос передается"
+            title="Микрофон активен"
           >
             <span className="w-0.5 rounded-xs animate-eq-1" style={{ backgroundColor: accentColor }} />
             <span className="w-0.5 rounded-xs animate-eq-2" style={{ backgroundColor: accentColor }} />
@@ -306,28 +316,34 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
           </div>
         )}
 
-        {/* Animated 7TV / Telegram Status Emote Badge */}
         {statusEmote && (
           <img
             src={statusEmote}
             alt="status"
-            className="absolute -top-2 -left-1.5 w-5 h-5 object-contain select-none z-20 pointer-events-none filter drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)]"
+            className="absolute -top-2 -left-1.5 w-4 h-4 sm:w-5 sm:h-5 object-contain select-none z-20 pointer-events-none filter drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)]"
             title="Эмодзи-статус"
           />
         )}
 
-        {/* Avatar Token sitting cleanly on the furniture */}
         <div
           className={`w-8 h-8 sm:w-12 sm:h-12 rounded-full border-2 flex items-center justify-center transition-all duration-200 shadow-2xl relative cursor-pointer drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)] overflow-hidden ${
             isHovered ? 'scale-115 ring-2 ring-white/50' : 'hover:scale-105'
           } ${isMicActive ? 'bg-[#152414]' : 'bg-[#191922]'} ${getSeatFrameClass()}`}
           style={{
-            borderColor: isAdmin && adminFrame !== 'none'
-              ? undefined
-              : (isMicActive ? accentColor : isHovered ? '#ffffff' : '#444455'),
-            boxShadow: isAdmin && adminFrame !== 'none'
-              ? undefined
-              : (isMicActive ? `0 0 16px ${accentColor}80` : '0 4px 12px rgba(0,0,0,0.7)'),
+            borderColor:
+              isAdmin && adminFrame !== 'none'
+                ? undefined
+                : isMicActive
+                ? accentColor
+                : isHovered
+                ? '#ffffff'
+                : '#444455',
+            boxShadow:
+              isAdmin && adminFrame !== 'none'
+                ? undefined
+                : isMicActive
+                ? `0 0 16px ${accentColor}80`
+                : '0 4px 12px rgba(0,0,0,0.7)',
           }}
         >
           <img
@@ -338,17 +354,20 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
           />
 
           {isAdmin && adminFrame !== 'none' && (
-            <span className="absolute -top-1 -right-0.5 text-[10px] select-none filter drop-shadow-[0_0_4px_rgba(245,158,11,0.8)] z-20">
+            <span className="absolute -top-1 -right-0.5 text-[9px] sm:text-[10px] select-none filter drop-shadow-[0_0_4px_rgba(245,158,11,0.8)] z-20">
               👑
             </span>
           )}
 
-          {/* Corner Mic Indicator */}
           <div
-            className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border border-[#121218] flex items-center justify-center text-white shadow-xs z-10"
+            className="absolute -bottom-0.5 -right-0.5 sm:-bottom-1 sm:-right-1 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full border border-[#121218] flex items-center justify-center text-white shadow-xs z-10"
             style={{ backgroundColor: isMicActive ? accentColor : '#33333d' }}
           >
-            {isMicActive ? <Mic className="w-2 h-2 animate-pulse" /> : <MicOff className="w-2 h-2 text-[#888888]" />}
+            {isMicActive ? (
+              <Mic className="w-2 h-2 animate-pulse" />
+            ) : (
+              <MicOff className="w-2 h-2 text-[#888888]" />
+            )}
           </div>
         </div>
       </div>
@@ -356,7 +375,6 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
   );
 };
 
-// Interactive Empty Seat on furniture (reveals clean spot name on hover)
 interface EmptyPixelSeatProps {
   spotName: string;
   accentColor: string;
@@ -377,9 +395,8 @@ const EmptyPixelSeat: React.FC<EmptyPixelSeatProps> = ({
       onMouseLeave={() => setIsHovered(false)}
       onClick={onTakeSeat}
     >
-      {/* Tooltip on hover: just displays the spot name */}
       <div
-        className={`absolute -top-10 z-30 transition-all duration-200 flex flex-col items-center pointer-events-none ${
+        className={`hidden sm:flex absolute -top-10 z-30 transition-all duration-200 flex-col items-center pointer-events-none ${
           isHovered
             ? 'opacity-100 -translate-y-1 scale-100'
             : 'opacity-0 translate-y-1 scale-95'
@@ -387,15 +404,12 @@ const EmptyPixelSeat: React.FC<EmptyPixelSeatProps> = ({
       >
         <div className="px-3 py-1.5 rounded-xl bg-[#0b120a]/95 border border-[#9ac43e]/50 shadow-[0_0_15px_rgba(0,0,0,0.9)] backdrop-blur-md flex items-center gap-1.5 whitespace-nowrap">
           <span className="w-1.5 h-1.5 rounded-full bg-[#9ac43e] animate-ping" />
-          <span className="text-xs font-bold text-[#bbf348] font-mono">
-            {spotName}
-          </span>
+          <span className="text-xs font-bold text-[#bbf348] font-mono">{spotName}</span>
           <span className="text-[10px] text-[#88aa55] font-sans">· занять место</span>
         </div>
         <div className="w-2 h-1 bg-[#0b120a] border-r border-b border-[#9ac43e]/50 rotate-45 -mt-0.5" />
       </div>
 
-      {/* Luminous circular seat marker on furniture with distinct contrast & subtle neon glow */}
       <div
         className={`w-7 h-7 sm:w-10 sm:h-10 rounded-full border-2 border-dashed flex items-center justify-center cursor-pointer transition-all duration-200 drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)] ${
           isHovered
@@ -408,7 +422,7 @@ const EmptyPixelSeat: React.FC<EmptyPixelSeatProps> = ({
         title={`Свободное место: ${spotName}. Кликните, чтобы пересесть.`}
       >
         <Plus
-          className={`w-4 h-4 transition-transform duration-200 ${
+          className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform duration-200 ${
             isHovered ? 'text-white scale-110' : 'text-[#bbf348]'
           }`}
           style={{ color: isHovered ? '#ffffff' : accentColor }}
@@ -439,6 +453,9 @@ interface MeetingRoomViewProps {
   onUpdateMaxSeats: (max: number) => void;
   isLocked: boolean;
   onToggleLockRoom: () => void;
+  knockRequired?: boolean;
+  onToggleKnockRequired?: () => void;
+  onPanicDestroy?: () => void;
   peerSeats: Record<string, number>;
   mySeatIndex: number;
   onSwitchSeat: (seatIdx: number) => void;
@@ -484,6 +501,9 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   onUpdateMaxSeats,
   isLocked,
   onToggleLockRoom,
+  knockRequired = false,
+  onToggleKnockRequired,
+  onPanicDestroy,
   peerSeats,
   mySeatIndex,
   onSwitchSeat,
@@ -513,7 +533,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   const [activeSideTab, setActiveSideTab] = useState<'notes' | 'chat'>('notes');
   const [meetingSeconds, setMeetingSeconds] = useState(0);
 
-  // Active Room Concept State - synced from server / host
   const [currentRoomId, setCurrentRoomId] = useState<RoomId>(() => {
     if (roomTheme && roomTheme in ROOM_PRESETS) return roomTheme as RoomId;
     return sanitizeRoomId(localStorage.getItem('bridgik_pixel_room'));
@@ -530,12 +549,10 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   const [isEmotePickerOpen, setIsEmotePickerOpen] = useState(false);
   const [customNameInput, setCustomNameInput] = useState(myUserName || '');
   const [nameSavedSuccess, setNameSavedSuccess] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
-    return sound.isEnabled();
-  });
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => sound.isEnabled());
 
   const myPeer = peers.find((p) => p.id === myPeerId);
-  const isHost = myPeer?.isHost ?? (peers.length <= 1);
+  const isHost = myPeer?.isHost ?? peers.length <= 1;
   const activeMyName = myUserName || myPeer?.name || 'Quantum Lynx';
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -546,13 +563,42 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   const dragCounter = useRef(0);
   const [fileToast, setFileToast] = useState<string | null>(null);
 
-  // Media Preview Lightbox state (images, video, audio)
   const [previewMedia, setPreviewMedia] = useState<{
     url: string;
     name: string;
     type: 'image' | 'video' | 'audio' | 'doc';
     size: number;
   } | null>(null);
+
+  const hasActiveTransfer = transfers.some((t) => t.status === 'transferring');
+
+  // Keep phone screen awake during active file transfers
+  useEffect(() => {
+    if (!hasActiveTransfer) return;
+
+    let wakeLockSentinel: any = null;
+    let isCancelled = false;
+
+    if (typeof navigator !== 'undefined' && 'wakeLock' in navigator) {
+      (navigator as any).wakeLock
+        .request('screen')
+        .then((sentinel: any) => {
+          if (isCancelled) {
+            sentinel?.release?.().catch(() => {});
+          } else {
+            wakeLockSentinel = sentinel;
+          }
+        })
+        .catch(() => {});
+    }
+
+    return () => {
+      isCancelled = true;
+      if (wakeLockSentinel) {
+        wakeLockSentinel.release?.().catch(() => {});
+      }
+    };
+  }, [hasActiveTransfer]);
 
   const isImageFile = (name: string, mime?: string) => {
     if (mime?.startsWith('image/')) return true;
@@ -569,20 +615,25 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
     return /\.(mp4|webm|mov|mkv|avi)$/i.test(name);
   };
 
-  // Unread chat badge (+1, +2, etc.) & toast notification
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [recentlyReceivedBadge, setRecentlyReceivedBadge] = useState<number | null>(null);
   const recentBadgeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevMessagesLength = useRef(messages.length);
-  const [newChatToast, setNewChatToast] = useState<{ sender: string; text: string; count: number } | null>(null);
+  const [newChatToast, setNewChatToast] = useState<{
+    sender: string;
+    text: string;
+    count: number;
+  } | null>(null);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Scratchpad cursor preservation during concurrent remote edits
   const scratchpadTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const scratchpadSelectionRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 });
 
   useEffect(() => {
-    if (scratchpadTextareaRef.current && document.activeElement === scratchpadTextareaRef.current) {
+    if (
+      scratchpadTextareaRef.current &&
+      document.activeElement === scratchpadTextareaRef.current
+    ) {
       const { start, end } = scratchpadSelectionRef.current;
       scratchpadTextareaRef.current.setSelectionRange(start, end);
     }
@@ -591,7 +642,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   useEffect(() => {
     if (messages.length > prevMessagesLength.current) {
       const addedMessages = messages.slice(prevMessagesLength.current);
-      // Filter out messages sent by ourselves and system notices
       const incomingFromOthers = addedMessages.filter((m) => {
         if (m.isSystem || m.senderId === 'system' || m.senderName === 'Система') return false;
         if (myPeerId && m.senderId) return m.senderId !== myPeerId;
@@ -605,7 +655,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
         if (activeSideTab !== 'chat') {
           setUnreadChatCount((prev) => prev + incomingFromOthers.length);
         } else {
-          // If currently inside the chat tab, flash a +1 badge on the tab header for 3.5s
           setRecentlyReceivedBadge(incomingFromOthers.length);
           if (recentBadgeTimeoutRef.current) clearTimeout(recentBadgeTimeoutRef.current);
           recentBadgeTimeoutRef.current = setTimeout(() => {
@@ -613,7 +662,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
           }, 3500);
         }
 
-        // Show floating message preview toast
         setNewChatToast({
           sender: latest.senderName,
           text: latest.text,
@@ -636,7 +684,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
     setNewChatToast(null);
   };
 
-  // Global Drag & Drop + Clipboard Paste for meeting files anywhere
   useEffect(() => {
     const handleDragEnter = (e: DragEvent) => {
       e.preventDefault();
@@ -675,12 +722,11 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
     };
 
     const handlePaste = (e: ClipboardEvent) => {
-      // If user is pasting files (e.g. screenshot or copied file)
       if (e.clipboardData?.files && e.clipboardData.files.length > 0) {
         e.preventDefault();
         sound.playConnect();
         onSendFiles(e.clipboardData.files);
-        setFileToast(`Файл из буфера добавлен в файлы комнаты`);
+        setFileToast('Файл из буфера добавлен в файлы комнаты');
         setTimeout(() => setFileToast(null), 3500);
       }
     };
@@ -700,14 +746,12 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
     };
   }, [onSendFiles]);
 
-  // Seat switching action
   const handleSwitchSeat = (seatIdx: number) => {
     if (seatIdx === mySeatIndex) return;
     sound.playClick();
     onSwitchSeat(seatIdx);
   };
 
-  // Host Actions
   const handleUpdateMaxSeats = (newMax: number) => {
     sound.playClick();
     onUpdateMaxSeats(newMax);
@@ -795,7 +839,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   };
 
   const handleSelectRoom = (roomId: RoomId) => {
-    if (!isHost) return; // Room theme selection is controlled exclusively by the Host
+    if (!isHost) return;
     setCurrentRoomId(roomId);
     localStorage.setItem('bridgik_pixel_room', roomId);
     setIsRoomPickerOpen(false);
@@ -830,19 +874,18 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
 
   const otherPeers = peers.filter((p) => p.id !== myPeerId);
   const currentRoom = ROOM_PRESETS[currentRoomId] || ROOM_PRESETS['cyber-lounge'];
-
-  // Slice seats according to current maxSeats capacity (2, 4, 6, or 8)
   const activeSeats = currentRoom.seats.slice(0, maxSeats);
 
-  // Seat occupancy mapping
   const actualMySeat = mySeatIndex >= 0 && mySeatIndex < maxSeats ? mySeatIndex : 0;
-  const seatOccupants: Record<number, { type: 'me' } | { type: 'peer'; peer: (typeof otherPeers)[0] }> = {
+  const seatOccupants: Record<
+    number,
+    { type: 'me' } | { type: 'peer'; peer: (typeof otherPeers)[0] }
+  > = {
     [actualMySeat]: { type: 'me' },
   };
 
   const occupiedIndices = new Set<number>([actualMySeat]);
 
-  // First place peers that have an assigned seat index
   otherPeers.forEach((peer) => {
     const preferred = peerSeats[peer.id];
     if (
@@ -856,7 +899,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
     }
   });
 
-  // Then distribute any remaining peers to the next available seats
   otherPeers.forEach((peer) => {
     if (Object.values(seatOccupants).some((o) => o.type === 'peer' && o.peer.id === peer.id)) {
       return;
@@ -871,21 +913,23 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   });
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-5">
+    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-5">
       {/* Top Header Bar */}
-      <div className="bg-[#1e1e1e] border border-[#353535] rounded-xl p-3.5 sm:p-4 mb-5 flex flex-wrap items-center justify-between gap-3 shadow-md">
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2 bg-[#141414] px-3.5 py-1.5 rounded-lg border border-[#333333]">
+      <div className="bg-[#1e1e1e] border border-[#353535] rounded-xl p-3 sm:p-4 mb-4 sm:mb-5 flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 shadow-md">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          <div className="flex items-center gap-2 bg-[#141414] px-3 py-1.5 rounded-lg border border-[#333333]">
             <span className="text-xs text-[#888888] uppercase font-bold tracking-wider">PIN:</span>
-            <span className="font-mono text-2xl font-extrabold tracking-wider text-[#9ac43e]">{pin}</span>
+            <span className="font-mono text-xl sm:text-2xl font-extrabold tracking-wider text-[#9ac43e]">
+              {pin}
+            </span>
           </div>
 
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#141414] border border-[#333333] text-sm font-mono">
+          <div className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg bg-[#141414] border border-[#333333] text-xs sm:text-sm font-mono">
             <span className="w-2 h-2 rounded-full bg-[#789d2a] animate-pulse" />
             <span className="text-[#ededed] font-bold">{formatTimer(meetingSeconds)}</span>
           </div>
 
-          <div className="flex items-center gap-2 text-sm text-[#aaaaaa]">
+          <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-[#aaaaaa]">
             <Users className="w-4 h-4 text-[#9ac43e]" />
             <span className="font-semibold text-[#ededed]">
               {peers.length} / {maxSeats} {maxSeats === 2 ? 'места' : 'мест'}
@@ -899,6 +943,13 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
             </div>
           )}
 
+          {knockRequired && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#789d2a]/15 border border-[#789d2a]/40 text-xs font-bold text-[#bbf348]">
+              <Bell className="w-3.5 h-3.5" />
+              <span>Зал ожидания</span>
+            </div>
+          )}
+
           {isLocked && (
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#ed2b3b]/15 border border-[#ed2b3b]/30 text-xs font-bold text-[#ef9282]">
               <Lock className="w-3.5 h-3.5" />
@@ -909,7 +960,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
 
         {/* Header Right Actions */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Room Selector Badge - Only host can open the picker */}
           {isHost ? (
             <button
               onClick={() => {
@@ -932,7 +982,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
             </div>
           )}
 
-          {/* Settings Button */}
           <button
             onClick={() => {
               setIsSettingsOpen(true);
@@ -946,259 +995,267 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
         </div>
       </div>
 
-      {/* Main Grid: Left = Full-Bleed Living Room Stage + Files; Right = Notes & Chat */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column (7 cols) */}
+      {/* Main Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
+        {/* Left Column */}
         <div className="lg:col-span-7 space-y-5">
-          {/* ============================================================== */}
-          {/* FULL-BLEED LIVING ROOM (DISCORD LIVING ROOM CONCEPT - NO VOID) */}
-          {/* ============================================================== */}
+          {/* Living Room Stage */}
           <div className="relative rounded-3xl border-2 border-[#33333e] bg-[#0c0c12] shadow-2xl overflow-hidden flex flex-col items-center justify-center">
-              {/* Room Top Minimal Bar */}
-              <div className="absolute top-3 left-3 right-3 z-20 flex items-center justify-between gap-2 pointer-events-none">
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#0c0c14]/90 border border-white/10 shadow-lg backdrop-blur-xs pointer-events-auto">
-                  <span
-                    className="w-2 h-2 rounded-full animate-pulse"
-                    style={{ backgroundColor: currentRoom.accent }}
-                  />
-                  <span className="text-xs font-mono font-extrabold uppercase tracking-wider text-[#ededed]">
-                    {currentRoom.title}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2 pointer-events-auto">
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#0c0c14]/90 border border-white/10 shadow-lg backdrop-blur-xs text-[11px] font-mono text-[#aaaaaa]">
-                    <Armchair className="w-3.5 h-3.5 text-[#9ac43e]" />
-                    <span>{maxSeats} мест · P2P Direct</span>
-                  </div>
-                </div>
+            <div className="absolute top-3 left-3 right-3 z-20 flex items-center justify-between gap-2 pointer-events-none">
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#0c0c14]/90 border border-white/10 shadow-lg backdrop-blur-xs pointer-events-auto">
+                <span
+                  className="w-2 h-2 rounded-full animate-pulse"
+                  style={{ backgroundColor: currentRoom.accent }}
+                />
+                <span className="text-xs font-mono font-extrabold uppercase tracking-wider text-[#ededed]">
+                  {currentRoom.title}
+                </span>
               </div>
 
-              {/* Full-Bleed 16:9 Interior Viewport */}
-              <div className="relative w-full aspect-video max-h-[520px] overflow-hidden flex items-center justify-center">
-                {/* 100% Edge-to-Edge Interior Image (Zero cutaway voids, zero floating chunks) */}
-                <img
-                  src={currentRoom.imageSrc}
-                  alt={currentRoom.title}
-                  className="w-full h-full object-cover select-none pointer-events-none"
-                />
+              <div className="flex items-center gap-2 pointer-events-auto">
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#0c0c14]/90 border border-white/10 shadow-lg backdrop-blur-xs text-[11px] font-mono text-[#aaaaaa]">
+                  <Armchair className="w-3.5 h-3.5 text-[#9ac43e]" />
+                  <span>{maxSeats} мест · P2P Direct</span>
+                </div>
+              </div>
+            </div>
 
-                {/* Subtle Cinematic Vignette & Ambient Scanline */}
-                <div
-                  className="absolute inset-0 pointer-events-none opacity-20 shadow-[inset_0_0_80px_rgba(0,0,0,0.8)]"
-                  style={{
-                    backgroundImage: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%)',
-                    backgroundSize: '100% 4px',
-                  }}
-                />
+            <div className="relative w-full aspect-video max-h-[520px] overflow-hidden flex items-center justify-center">
+              <img
+                src={currentRoom.imageSrc}
+                alt={currentRoom.title}
+                className="w-full h-full object-cover select-none pointer-events-none"
+              />
 
-                {/* ============================================================== */}
-                {/* ORGANIC SEATS POSITIONED ON FURNITURE (UP TO maxSeats)        */}
-                {/* ============================================================== */}
-                {activeSeats.map((seat, index) => {
-                  const occupant = seatOccupants[index];
-                  let seatContent: React.ReactNode = null;
+              <div
+                className="absolute inset-0 pointer-events-none opacity-20 shadow-[inset_0_0_80px_rgba(0,0,0,0.8)]"
+                style={{
+                  backgroundImage:
+                    'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%)',
+                  backgroundSize: '100% 4px',
+                }}
+              />
 
-                  if (occupant?.type === 'me') {
-                    // Current user's seat
-                    seatContent = (
-                      <PixelAvatarSeat
-                        name={activeMyName}
-                        avatar={userAvatar || getAvatarForName(activeMyName)}
-                        isMe={true}
-                        deviceType={myPeer?.deviceType}
-                        isMicActive={isMicActive}
-                        spotName={seat.spotName}
-                        accentColor={currentRoom.accent}
-                        onToggleMic={onToggleMic}
-                        isHost={isHost}
-                        isAdmin={isAdmin}
-                        adminFrame={adminFrame}
-                        statusEmote={statusEmote || undefined}
-                      />
-                    );
-                  } else if (occupant?.type === 'peer') {
-                    // Connected Peer sitting on this furniture
-                    const peer = occupant.peer;
-                    seatContent = (
-                      <PixelAvatarSeat
-                        name={peer.name}
-                        avatar={peer.avatar || getAvatarForName(peer.name)}
-                        isMe={false}
-                        deviceType={peer.deviceType}
-                        isMicActive={Boolean(peer.isMicActive)}
-                        spotName={seat.spotName}
-                        accentColor={currentRoom.accent}
-                        isHost={peer.isHost}
-                        isAdmin={peer.isAdmin}
-                        adminFrame={peer.adminFrame}
-                        statusEmote={peer.statusEmote}
-                        connectionType={peerConnectionTypes?.[peer.id]}
-                        onKick={isHost ? () => handleKickPeer(peer.id) : undefined}
-                      />
-                    );
-                  } else {
-                    // Empty seat - clickable to switch seats
-                    seatContent = (
-                      <EmptyPixelSeat
-                        spotName={seat.spotName}
-                        accentColor={currentRoom.accent}
-                        onTakeSeat={() => handleSwitchSeat(index)}
-                      />
-                    );
-                  }
+              {activeSeats.map((seat, index) => {
+                const occupant = seatOccupants[index];
+                let seatContent: React.ReactNode = null;
 
-                  return (
-                    <div
-                      key={seat.id}
-                      className="absolute z-10 -translate-x-1/2 -translate-y-1/2 transition-all duration-300"
-                      style={{
-                        left: `${seat.x}%`,
-                        top: `${seat.y}%`,
-                      }}
-                    >
-                      {seatContent}
-                    </div>
+                if (occupant?.type === 'me') {
+                  seatContent = (
+                    <PixelAvatarSeat
+                      name={activeMyName}
+                      avatar={userAvatar || getAvatarForName(activeMyName)}
+                      isMe={true}
+                      deviceType={myPeer?.deviceType}
+                      isMicActive={isMicActive}
+                      spotName={seat.spotName}
+                      accentColor={currentRoom.accent}
+                      onToggleMic={onToggleMic}
+                      isHost={isHost}
+                      isAdmin={isAdmin}
+                      adminFrame={adminFrame}
+                      statusEmote={statusEmote || undefined}
+                    />
                   );
-                })}
-              </div>
+                } else if (occupant?.type === 'peer') {
+                  const peer = occupant.peer;
+                  seatContent = (
+                    <PixelAvatarSeat
+                      name={peer.name}
+                      avatar={peer.avatar || getAvatarForName(peer.name)}
+                      isMe={false}
+                      deviceType={peer.deviceType}
+                      isMicActive={Boolean(peer.isMicActive)}
+                      spotName={seat.spotName}
+                      accentColor={currentRoom.accent}
+                      isHost={peer.isHost}
+                      isAdmin={peer.isAdmin}
+                      adminFrame={peer.adminFrame}
+                      statusEmote={peer.statusEmote}
+                      connectionType={peerConnectionTypes?.[peer.id]}
+                      onKick={isHost ? () => handleKickPeer(peer.id) : undefined}
+                    />
+                  );
+                } else {
+                  seatContent = (
+                    <EmptyPixelSeat
+                      spotName={seat.spotName}
+                      accentColor={currentRoom.accent}
+                      onTakeSeat={() => handleSwitchSeat(index)}
+                    />
+                  );
+                }
 
-              {/* Floating Bottom Control Dock (below image on mobile, floating HUD on desktop) */}
-           <div className="relative sm:absolute sm:bottom-3 sm:left-1/2 sm:-translate-x-1/2 z-30 flex flex-wrap sm:flex-nowrap items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 w-full sm:w-auto sm:max-w-[95%] bg-[#121218]/95 border-t sm:border border-white/15 sm:rounded-2xl shadow-2xl backdrop-blur-md">
-                {/* Mic Button */}
-                <button
-                  onClick={onToggleMic}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                    isMicActive
-                      ? 'bg-[#ed2b3b] hover:bg-[#d92231] text-white shadow-[0_0_12px_rgba(237,43,59,0.5)]'
-                      : 'bg-[#25252c] hover:bg-[#303038] text-[#ededed] border border-white/10'
-                  }`}
-                  title={isMicActive ? 'Заглушить микрофон' : 'Включить микрофон'}
-                >
-                  {isMicActive ? <Mic className="w-4 h-4 animate-pulse" /> : <MicOff className="w-4 h-4" />}
-                  <span>{isMicActive ? 'Микрофон вкл' : 'Микрофон'}</span>
-                </button>
-
-                {/* Room Selector Trigger (Host only) */}
-                {isHost && (
-                  <button
-                    onClick={() => {
-                      setIsRoomPickerOpen(!isRoomPickerOpen);
-                      sound.playClick();
+                return (
+                  <div
+                    key={seat.id}
+                    className="absolute z-10 -translate-x-1/2 -translate-y-1/2 transition-all duration-300"
+                    style={{
+                      left: `${seat.x}%`,
+                      top: `${seat.y}%`,
                     }}
-                    className="px-2.5 py-1.5 rounded-xl bg-[#25252c] hover:bg-[#303038] text-[#ededed] border border-white/10 text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-                    title="Выбрать другую локацию (Организатор)"
                   >
-                    <Home className="w-4 h-4 text-[#9ac43e]" />
-                    <span className="hidden md:inline">Локация</span>
-                  </button>
-                )}
+                    {seatContent}
+                  </div>
+                );
+              })}
+            </div>
 
-                {/* Files Toolbar Button */}
+            {/* Control Dock (below room on mobile, floating HUD on desktop) */}
+            <div className="relative sm:absolute sm:bottom-3 sm:left-1/2 sm:-translate-x-1/2 z-30 flex flex-wrap sm:flex-nowrap items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 w-full sm:w-auto sm:max-w-[96%] bg-[#121218]/95 border-t sm:border border-white/15 sm:rounded-2xl shadow-2xl backdrop-blur-md">
+              <button
+                onClick={onToggleMic}
+                className={`px-3 sm:px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  isMicActive
+                    ? 'bg-[#ed2b3b] hover:bg-[#d92231] text-white shadow-[0_0_12px_rgba(237,43,59,0.5)]'
+                    : 'bg-[#25252c] hover:bg-[#303038] text-[#ededed] border border-white/10'
+                }`}
+                title={isMicActive ? 'Заглушить микрофон' : 'Включить микрофон'}
+              >
+                {isMicActive ? (
+                  <Mic className="w-4 h-4 animate-pulse" />
+                ) : (
+                  <MicOff className="w-4 h-4" />
+                )}
+                <span>{isMicActive ? 'Микрофон вкл' : 'Микрофон'}</span>
+              </button>
+
+              {isHost && (
                 <button
                   onClick={() => {
-                    meetingFilesSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                    setIsRoomPickerOpen(!isRoomPickerOpen);
+                    sound.playClick();
                   }}
                   className="px-2.5 py-1.5 rounded-xl bg-[#25252c] hover:bg-[#303038] text-[#ededed] border border-white/10 text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-                  title="Файлы комнаты"
+                  title="Выбрать другую локацию (Организатор)"
                 >
-                  <Paperclip className="w-4 h-4 text-[#9ac43e]" />
-                  <span className="hidden md:inline">Файлы</span>
-                  {transfers.length > 0 && (
-                    <span className="px-1.5 py-0.2 rounded-full bg-[#789d2a] text-white text-[10px] font-mono font-bold">
-                      {transfers.length}
-                    </span>
-                  )}
+                  <Home className="w-4 h-4 text-[#9ac43e]" />
+                  <span className="hidden md:inline">Локация</span>
                 </button>
+              )}
 
-                {/* QR Code Button */}
+              <button
+                onClick={() => {
+                  meetingFilesSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="px-2.5 py-1.5 rounded-xl bg-[#25252c] hover:bg-[#303038] text-[#ededed] border border-white/10 text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Файлы комнаты"
+              >
+                <Paperclip className="w-4 h-4 text-[#9ac43e]" />
+                <span className="hidden md:inline">Файлы</span>
+                {transfers.length > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full bg-[#789d2a] text-white text-[10px] font-mono font-bold">
+                    {transfers.length}
+                  </span>
+                )}
+              </button>
+
+              <button
+                onClick={onOpenQR}
+                className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-[#25252c] hover:bg-[#303038] text-[#ededed] border border-white/10 text-xs sm:text-sm font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                title="Показать QR-код"
+              >
+                <QrCode className="w-4 h-4 text-[#9ac43e]" />
+                <span className="hidden sm:inline">QR</span>
+              </button>
+
+              <button
+                onClick={handleCopyLink}
+                className="px-2.5 py-1.5 rounded-xl bg-[#25252c] hover:bg-[#303038] text-[#ededed] border border-white/10 text-xs sm:text-sm font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                title="Скопировать ссылку на комнату"
+              >
+                {copiedLink ? (
+                  <>
+                    <Check className="w-4 h-4 text-[#9ac43e]" />
+                    <span className="text-[#9ac43e] hidden sm:inline">Скопировано</span>
+                  </>
+                ) : (
+                  <>
+                    <Share2 className="w-4 h-4" />
+                    <span className="hidden sm:inline">Ссылка</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={onLeaveRoom}
+                className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#25252c] hover:bg-[#353540] text-[#cccccc] hover:text-white border border-white/10 text-xs sm:text-sm font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                title="Покинуть комнату"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Выйти</span>
+              </button>
+
+              {onPanicDestroy && (
                 <button
-                  onClick={onOpenQR}
-                  className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-[#25252c] hover:bg-[#303038] text-[#ededed] border border-white/10 text-xs sm:text-sm font-bold flex items-center gap-1 transition-colors cursor-pointer"
-                  title="Показать QR-код"
+                  onClick={onPanicDestroy}
+                  className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#ed2b3b]/20 hover:bg-[#ed2b3b] text-[#ef9282] hover:text-white border border-[#ed2b3b]/50 text-xs sm:text-sm font-bold flex items-center gap-1 transition-colors cursor-pointer shadow-[0_0_12px_rgba(237,43,59,0.25)]"
+                  title={
+                    isHost
+                      ? 'ПАНИКА: мгновенно уничтожить комнату для всех'
+                      : 'ПАНИКА: экстренно всё стереть и выйти'
+                  }
                 >
-                  <QrCode className="w-4 h-4 text-[#9ac43e]" />
-                  <span className="hidden sm:inline">QR</span>
+                  <AlertTriangle className="w-4 h-4" />
+                  <span>Паника</span>
                 </button>
-
-                {/* Copy Link Button */}
-                <button
-                  onClick={handleCopyLink}
-                  className="px-2.5 py-1.5 rounded-xl bg-[#25252c] hover:bg-[#303038] text-[#ededed] border border-white/10 text-xs sm:text-sm font-bold flex items-center gap-1 transition-colors cursor-pointer"
-                  title="Скопировать ссылку на комнату"
-                >
-                  {copiedLink ? (
-                    <>
-                      <Check className="w-4 h-4 text-[#9ac43e]" />
-                      <span className="text-[#9ac43e] hidden sm:inline">Скопировано</span>
-                    </>
-                  ) : (
-                    <>
-                      <Share2 className="w-4 h-4" />
-                      <span className="hidden sm:inline">Ссылка</span>
-                    </>
-                  )}
-                </button>
-
-                {/* Panic Leave Button */}
-                <button
-                  onClick={onLeaveRoom}
-                  className="px-3 py-1.5 rounded-xl bg-[#ef9282]/15 hover:bg-[#ed2b3b] text-[#ef9282] hover:text-white border border-[#ed2b3b]/30 text-xs sm:text-sm font-bold flex items-center gap-1 transition-colors cursor-pointer ml-1"
-                  title="Завершить встречу"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span className="hidden sm:inline">Выйти</span>
-                </button>
-              </div>
-
-              {/* Quick Room Picker Popover */}
-              {isRoomPickerOpen && (
-                <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-40 bg-[#14141c] border border-white/20 rounded-2xl p-3 shadow-2xl w-84 max-w-[95%] animate-in fade-in zoom-in-95 duration-150">
-                  <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
-                    <span className="text-xs font-bold text-[#ededed] uppercase font-mono tracking-wider">
-                      Выберите локацию (все 8 мест):
-                    </span>
-                    <button
-                      onClick={() => setIsRoomPickerOpen(false)}
-                      className="p-1 rounded text-[#888888] hover:text-white"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  <div className="space-y-1.5 max-h-60 overflow-y-auto">
-                    {Object.values(ROOM_PRESETS).map((r) => {
-                      const isSelected = currentRoomId === r.id;
-                      return (
-                        <button
-                          key={r.id}
-                          onClick={() => handleSelectRoom(r.id)}
-                          className={`w-full p-2 rounded-xl border text-left flex items-center gap-2.5 transition-all cursor-pointer ${
-                            isSelected
-                              ? 'bg-[#222230] border-[#9ac43e]'
-                              : 'bg-[#181820] border-white/5 hover:border-white/20'
-                          }`}
-                        >
-                          <img
-                            src={r.imageSrc}
-                            alt={r.title}
-                            className="w-14 h-9 rounded-lg object-cover border border-white/10 shrink-0"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-xs font-extrabold text-[#ededed] truncate">{r.title}</p>
-                            <p className="text-[10px] text-[#888888] truncate">{r.subtitle}</p>
-                          </div>
-                          {isSelected && <CheckCircle2 className="w-4 h-4 text-[#9ac43e] shrink-0" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
               )}
             </div>
 
-          {/* Room Files Drawer / Dropzone with Rich Media Previews */}
-          <div ref={meetingFilesSectionRef} className="bg-[#1e1e1e] border border-[#353535] rounded-2xl p-4 sm:p-5 shadow-sm scroll-mt-6">
+            {isRoomPickerOpen && (
+              <div className="absolute bottom-14 sm:bottom-16 left-1/2 -translate-x-1/2 z-40 bg-[#14141c] border border-white/20 rounded-2xl p-3 shadow-2xl w-84 max-w-[95%] animate-in fade-in zoom-in-95 duration-150">
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
+                  <span className="text-xs font-bold text-[#ededed] uppercase font-mono tracking-wider">
+                    Выберите локацию (все 8 мест):
+                  </span>
+                  <button
+                    onClick={() => setIsRoomPickerOpen(false)}
+                    className="p-1 rounded text-[#888888] hover:text-white"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <div className="space-y-1.5 max-h-60 overflow-y-auto">
+                  {Object.values(ROOM_PRESETS).map((r) => {
+                    const isSelected = currentRoomId === r.id;
+                    return (
+                      <button
+                        key={r.id}
+                        onClick={() => handleSelectRoom(r.id)}
+                        className={`w-full p-2 rounded-xl border text-left flex items-center gap-2.5 transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-[#222230] border-[#9ac43e]'
+                            : 'bg-[#181820] border-white/5 hover:border-white/20'
+                        }`}
+                      >
+                        <img
+                          src={r.imageSrc}
+                          alt={r.title}
+                          className="w-14 h-9 rounded-lg object-cover border border-white/10 shrink-0"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-extrabold text-[#ededed] truncate">
+                            {r.title}
+                          </p>
+                          <p className="text-[10px] text-[#888888] truncate">{r.subtitle}</p>
+                        </div>
+                        {isSelected && (
+                          <CheckCircle2 className="w-4 h-4 text-[#9ac43e] shrink-0" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Room Files Drawer */}
+          <div
+            ref={meetingFilesSectionRef}
+            className="bg-[#1e1e1e] border border-[#353535] rounded-2xl p-4 sm:p-5 shadow-sm scroll-mt-6"
+          >
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Paperclip className="w-4 h-4 text-[#9ac43e]" />
@@ -1232,7 +1289,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
               />
             </div>
 
-            {/* Transferred Files with Thumbnails, Audio Player & Preview Lightbox */}
             {transfers.length > 0 ? (
               <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1 scrollbar-thin">
                 {transfers.map((t) => {
@@ -1247,7 +1303,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3 min-w-0">
-                          {/* Image Thumbnail with Click-to-preview */}
                           {isImg && t.blobUrl ? (
                             <div
                               onClick={() =>
@@ -1304,22 +1359,33 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                           )}
 
                           <div className="min-w-0">
-                            <p className="font-bold text-[#ededed] truncate max-w-[200px] sm:max-w-xs">{t.name}</p>
+                            <p className="font-bold text-[#ededed] truncate max-w-[170px] sm:max-w-xs">
+                              {t.name}
+                            </p>
                             <p className="text-xs text-[#888888] flex items-center gap-2 mt-0.5 font-mono">
                               <span>{(t.size / 1024 / 1024).toFixed(1)} МБ</span>
                               <span>•</span>
-                              <span className={t.type === 'upload' ? 'text-[#9ac43e]' : 'text-[#888888]'}>
+                              <span
+                                className={
+                                  t.type === 'upload' ? 'text-[#9ac43e]' : 'text-[#888888]'
+                                }
+                              >
                                 {t.type === 'upload' ? 'Отправлено' : 'Получено'}
                               </span>
                               <span>•</span>
-                              <span className={t.status === 'completed' ? 'text-[#9ac43e] font-semibold' : 'text-[#d4e8a8]'}>
+                              <span
+                                className={
+                                  t.status === 'completed'
+                                    ? 'text-[#9ac43e] font-semibold'
+                                    : 'text-[#d4e8a8]'
+                                }
+                              >
                                 {t.status === 'completed' ? 'Готово' : `${t.progress}%`}
                               </span>
                             </p>
                           </div>
                         </div>
 
-                        {/* Action buttons: Preview & Download (available for both sender & receiver) */}
                         <div className="flex items-center gap-1.5 shrink-0">
                           {t.blobUrl && (
                             <>
@@ -1363,14 +1429,9 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                         </div>
                       </div>
 
-                      {/* Built-in Custom Cyber Audio Player for audio files */}
                       {isAud && t.blobUrl && (
                         <div className="mt-1 pt-2 border-t border-white/5">
-                          <CustomAudioPlayer
-                            src={t.blobUrl}
-                            compact
-                            title={t.name}
-                          />
+                          <CustomAudioPlayer src={t.blobUrl} compact title={t.name} />
                         </div>
                       )}
                     </div>
@@ -1379,19 +1440,22 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
               </div>
             ) : (
               <div
-             onClick={() => fileInputRef.current?.click()}
-             className="py-4 px-3 text-center text-xs sm:text-sm text-[#888888] border border-dashed border-[#333333] hover:border-[#789d2a]/60 rounded-xl cursor-pointer transition-colors"
-           >
-             <span className="hidden sm:inline">Перетащите сюда документы или файлы для участников комнаты</span>
-             <span className="sm:hidden">Нажмите сюда или на «Прикрепить файл», чтобы отправить участникам</span>
-           </div>
+                onClick={() => fileInputRef.current?.click()}
+                className="py-4 px-3 text-center text-xs sm:text-sm text-[#888888] border border-dashed border-[#333333] hover:border-[#789d2a]/60 rounded-xl cursor-pointer transition-colors"
+              >
+                <span className="hidden sm:inline">
+                  Перетащите сюда документы или файлы для участников комнаты
+                </span>
+                <span className="sm:hidden">
+                  Нажмите сюда или на «Прикрепить файл», чтобы отправить участникам
+                </span>
+              </div>
             )}
           </div>
         </div>
 
-        {/* Right Column: Scratchpad & Chat (5 cols) */}
+        {/* Right Column: Scratchpad & Chat */}
         <div className="lg:col-span-5 bg-[#1e1e1e] border border-[#353535] rounded-2xl flex flex-col h-[460px] lg:h-[560px] shadow-md overflow-hidden">
-          {/* Tab Header: Notes / Chat */}
           <div className="flex items-center border-b border-[#353535] bg-[#171717]">
             <button
               onClick={() => setActiveSideTab('notes')}
@@ -1420,7 +1484,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
               </div>
               <span>Чат</span>
 
-              {(unreadChatCount > 0 || recentlyReceivedBadge !== null) ? (
+              {unreadChatCount > 0 || recentlyReceivedBadge !== null ? (
                 <span className="px-2 py-0.5 rounded-full bg-[#789d2a] text-white text-xs font-black font-mono shadow-[0_0_12px_rgba(120,157,42,0.9)] animate-bounce flex items-center gap-1 border border-[#bbf348]">
                   +{unreadChatCount > 0 ? unreadChatCount : recentlyReceivedBadge}
                 </span>
@@ -1430,7 +1494,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
             </button>
           </div>
 
-          {/* Tab Content: Shared Scratchpad / Canvas */}
           {activeSideTab === 'notes' ? (
             <div className="flex-1 flex flex-col p-4">
               <div className="flex items-center justify-between mb-3 text-xs sm:text-sm text-[#aaaaaa]">
@@ -1438,22 +1501,28 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                   <span className="w-2 h-2 rounded-full bg-[#789d2a]" />
                   <span>Канвас · Синхронизация на лету</span>
                 </span>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2">
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     className="p-1.5 hover:text-white rounded bg-[#272727] hover:bg-[#333333] transition-colors cursor-pointer text-xs flex items-center gap-1 border border-[#383838]"
                     title="Прикрепить файл к комнате"
                   >
                     <Paperclip className="w-3.5 h-3.5 text-[#9ac43e]" />
-                    <span>Файл</span>
+                    <span className="hidden sm:inline">Файл</span>
                   </button>
                   <button
                     onClick={handleCopyNotes}
                     className="p-1.5 hover:text-white rounded bg-[#272727] hover:bg-[#333333] transition-colors cursor-pointer text-xs flex items-center gap-1"
                     title="Скопировать Канвас"
                   >
-                    {copiedNotes ? <Check className="w-3.5 h-3.5 text-[#9ac43e]" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedNotes ? 'Скопировано' : 'Копировать'}</span>
+                    {copiedNotes ? (
+                      <Check className="w-3.5 h-3.5 text-[#9ac43e]" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" />
+                    )}
+                    <span className="hidden sm:inline">
+                      {copiedNotes ? 'Скопировано' : 'Копировать'}
+                    </span>
                   </button>
                   <button
                     onClick={handleDownloadMarkdown}
@@ -1478,12 +1547,18 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 value={scratchpadText}
                 onChange={(e) => {
                   const target = e.target;
-                  scratchpadSelectionRef.current = { start: target.selectionStart, end: target.selectionEnd };
+                  scratchpadSelectionRef.current = {
+                    start: target.selectionStart,
+                    end: target.selectionEnd,
+                  };
                   onUpdateScratchpad(target.value);
                 }}
                 onSelect={(e) => {
                   const target = e.target as HTMLTextAreaElement;
-                  scratchpadSelectionRef.current = { start: target.selectionStart, end: target.selectionEnd };
+                  scratchpadSelectionRef.current = {
+                    start: target.selectionStart,
+                    end: target.selectionEnd,
+                  };
                 }}
                 placeholder="Канвас комнаты... Набросайте план, тезисы, ссылки или код. Все изменения моментально видны собеседникам."
                 className="flex-1 w-full bg-[#141414] border border-[#333333] rounded-xl p-3.5 text-base sm:text-lg text-[#ededed] placeholder-[#666666] outline-none focus:border-[#789d2a] resize-none font-mono leading-relaxed transition-colors"
@@ -1495,7 +1570,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
               </div>
             </div>
           ) : (
-            /* Tab Content: Meeting Chat */
             <div className="flex-1 flex flex-col min-h-0">
               <div className="flex-1 p-4 overflow-y-auto space-y-3 scrollbar-thin">
                 {messages.length === 0 ? (
@@ -1507,10 +1581,12 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                     const isMe = m.senderId === myPeerId;
                     const peer = peers.find((p) => p.id === m.senderId);
                     const currentAvatar = isMe
-                      ? (userAvatar || getAvatarForName(activeMyName))
-                      : (peer?.avatar || m.senderAvatar || getAvatarForName(m.senderName));
+                      ? userAvatar || getAvatarForName(activeMyName)
+                      : peer?.avatar || m.senderAvatar || getAvatarForName(m.senderName);
                     const messageIsAdmin = isMe ? isAdmin : Boolean(peer?.isAdmin || m.isAdmin);
-                    const messageAdminFrame = isMe ? adminFrame : (peer?.adminFrame || m.adminFrame || 'gold');
+                    const messageAdminFrame = isMe
+                      ? adminFrame
+                      : peer?.adminFrame || m.adminFrame || 'gold';
                     return (
                       <ChatMessageBubble
                         key={m.id}
@@ -1521,8 +1597,13 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                         avatar={currentAvatar}
                         isAdmin={messageIsAdmin}
                         adminFrame={messageAdminFrame}
-                        senderStatusEmote={m.senderStatusEmote || (isMe ? (statusEmote || undefined) : peer?.statusEmote)}
-                        time={new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        senderStatusEmote={
+                          m.senderStatusEmote || (isMe ? statusEmote || undefined : peer?.statusEmote)
+                        }
+                        time={new Date(m.timestamp).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
                       />
                     );
                   })
@@ -1530,7 +1611,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 <div ref={chatBottomRef} />
               </div>
 
-              {/* Chat Input Bar with 7TV Emote Picker */}
               <div className="relative border-t border-[#353535] bg-[#171717]">
                 <EmotePicker
                   isOpen={isEmotePickerOpen}
@@ -1541,13 +1621,15 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                   }}
                 />
 
-                <form onSubmit={handleSendChat} className="p-3 flex items-center gap-2">
-                  {/* Current User's Round Mascot Avatar (visual indicator) */}
-                  <div className="relative shrink-0 select-none" title={isAdmin ? `Создатель: ${activeMyName}` : `Ваш аватар: ${activeMyName}`}>
+                <form onSubmit={handleSendChat} className="p-2.5 sm:p-3 flex items-center gap-1.5 sm:gap-2">
+                  <div
+                    className="relative shrink-0 select-none"
+                    title={isAdmin ? `Создатель: ${activeMyName}` : `Ваш аватар: ${activeMyName}`}
+                  >
                     <img
                       src={userAvatar || getAvatarForName(activeMyName)}
                       alt={activeMyName}
-                      className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover bg-[#171717] ${
+                      className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover bg-[#171717] ${
                         isAdmin && adminFrame !== 'none'
                           ? adminFrame === 'rgb'
                             ? 'border-2 border-sky-400 animate-admin-rgb'
@@ -1571,32 +1653,32 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
                     placeholder="Сообщение или ссылка..."
-                    className="flex-1 min-w-0 w-full bg-[#141414] border border-[#333333] rounded-xl px-3.5 py-2 text-base text-[#ededed] placeholder-[#666666] outline-none focus:border-[#789d2a] transition-colors"
+                    className="flex-1 min-w-0 w-full bg-[#141414] border border-[#333333] rounded-xl px-3 sm:px-3.5 py-2 text-sm sm:text-base text-[#ededed] placeholder-[#666666] outline-none focus:border-[#789d2a] transition-colors"
                   />
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="p-2.5 rounded-xl border bg-[#222222] border-[#333333] text-[#888888] hover:text-[#9ac43e] hover:border-[#789d2a] transition-colors cursor-pointer flex items-center justify-center shrink-0"
+                    className="p-2 sm:p-2.5 rounded-xl border bg-[#222222] border-[#333333] text-[#888888] hover:text-[#9ac43e] hover:border-[#789d2a] transition-colors cursor-pointer flex items-center justify-center shrink-0"
                     title="Прикрепить файл к комнате"
                   >
-                    <Paperclip className="w-5 h-5" />
+                    <Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
                   <button
                     type="button"
                     onClick={() => setIsEmotePickerOpen(!isEmotePickerOpen)}
-                    className={`p-2.5 rounded-xl border transition-colors cursor-pointer flex items-center justify-center shrink-0 ${
+                    className={`p-2 sm:p-2.5 rounded-xl border transition-colors cursor-pointer flex items-center justify-center shrink-0 ${
                       isEmotePickerOpen
                         ? 'bg-[#789d2a]/20 border-[#789d2a] text-[#9ac43e]'
                         : 'bg-[#222222] border-[#333333] text-[#888888] hover:text-[#ededed] hover:border-[#555555]'
                     }`}
                     title="Смайлики (7TV и мемы)"
                   >
-                    <Smile className="w-5 h-5" />
+                    <Smile className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
                   <button
                     type="submit"
                     disabled={!chatInput.trim()}
-                    className="px-4 py-2.5 bg-[#789d2a] hover:bg-[#8cb632] disabled:opacity-40 text-white rounded-xl font-bold text-sm transition-colors cursor-pointer flex items-center justify-center shrink-0 shadow-md shadow-[#789d2a]/20"
+                    className="px-3 sm:px-4 py-2 sm:py-2.5 bg-[#789d2a] hover:bg-[#8cb632] disabled:opacity-40 text-white rounded-xl font-bold text-sm transition-colors cursor-pointer flex items-center justify-center shrink-0 shadow-md shadow-[#789d2a]/20"
                   >
                     <Send className="w-4 h-4" />
                   </button>
@@ -1611,7 +1693,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
       {isSettingsOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="bg-[#1b1b1f] border border-[#35353f] rounded-3xl max-w-xl w-full shadow-2xl relative max-h-[88vh] flex flex-col overflow-hidden">
-            {/* Modal Header (Pinned at top) */}
             <div className="flex items-center justify-between p-5 sm:p-6 pb-4 border-b border-[#303038] shrink-0 bg-[#1b1b1f]">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-[#25252e] border border-[#383845] flex items-center justify-center text-[#9ac43e]">
@@ -1619,7 +1700,9 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 </div>
                 <div>
                   <h3 className="text-xl font-extrabold text-[#ededed]">Настройки гостиной</h3>
-                  <p className="text-xs text-[#888888]">Выбор интерьера (все 8 мест), позывной и звук</p>
+                  <p className="text-xs text-[#888888]">
+                    Выбор интерьера (все 8 мест), позывной и звук
+                  </p>
                 </div>
               </div>
               <button
@@ -1633,9 +1716,8 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
               </button>
             </div>
 
-            {/* Scrollable Modal Content (Clipped strictly within card) */}
             <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-5 space-y-6 [scrollbar-color:#383848_transparent] [scrollbar-width:thin]">
-              {/* Host Settings Section (if isHost) */}
+              {/* Host Settings Section */}
               {isHost && (
                 <div className="p-4 rounded-2xl bg-[#14141c] border border-[#f59e0b]/30 space-y-4">
                   <div className="flex items-center justify-between">
@@ -1648,7 +1730,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                     </span>
                   </div>
 
-                  {/* Seat capacity selector */}
                   <div>
                     <label className="text-xs font-semibold text-[#aaaaaa] block mb-1.5">
                       Количество мест в комнате (на диванах и креслах):
@@ -1672,7 +1753,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                     </div>
                   </div>
 
-                  {/* Lock room & Mute all actions */}
                   <div className="flex flex-wrap items-center gap-2 pt-1">
                     <button
                       type="button"
@@ -1683,9 +1763,43 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                           : 'bg-[#1e1e28] text-[#ededed] border-white/10 hover:bg-[#282836]'
                       }`}
                     >
-                      {isLocked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5 text-[#9ac43e]" />}
-                      <span>{isLocked ? 'Комната закрыта (вход заблокирован)' : 'Комната открыта для гостей'}</span>
+                      {isLocked ? (
+                        <Lock className="w-3.5 h-3.5" />
+                      ) : (
+                        <Unlock className="w-3.5 h-3.5 text-[#9ac43e]" />
+                      )}
+                      <span>
+                        {isLocked
+                          ? 'Комната закрыта (вход заблокирован)'
+                          : 'Комната открыта для гостей'}
+                      </span>
                     </button>
+
+                    {onToggleKnockRequired && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          sound.playClick();
+                          onToggleKnockRequired();
+                        }}
+                        className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer border ${
+                          knockRequired
+                            ? 'bg-[#789d2a]/20 text-[#bbf348] border-[#789d2a]'
+                            : 'bg-[#1e1e28] text-[#ededed] border-white/10 hover:bg-[#282836]'
+                        }`}
+                      >
+                        <Bell
+                          className={`w-3.5 h-3.5 ${
+                            knockRequired ? 'text-[#bbf348]' : 'text-[#888888]'
+                          }`}
+                        />
+                        <span>
+                          {knockRequired
+                            ? 'Стук в дверь: ВКЛ (по одобрению)'
+                            : 'Стук в дверь: ВЫКЛ'}
+                        </span>
+                      </button>
+                    )}
 
                     <button
                       type="button"
@@ -1698,7 +1812,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                     </button>
                   </div>
 
-                  {/* Peer List with Kick actions */}
                   {otherPeers.length > 0 && (
                     <div className="pt-2 border-t border-white/5 space-y-1.5">
                       <span className="text-[11px] font-bold text-[#888888] uppercase tracking-wider">
@@ -1727,15 +1840,19 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 </div>
               )}
 
-              {/* Section 1: Choose Room Location */}
+              {/* Room Location */}
               {isHost ? (
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <Home className="w-4 h-4 text-[#9ac43e]" />
-                      <h4 className="text-base font-bold text-[#ededed]">Интерьер комнаты (выбор хоста)</h4>
+                      <h4 className="text-base font-bold text-[#ededed]">
+                        Интерьер комнаты (выбор хоста)
+                      </h4>
                     </div>
-                    <span className="text-xs font-mono text-[#888888]">вместимость: {maxSeats} мест</span>
+                    <span className="text-xs font-mono text-[#888888]">
+                      вместимость: {maxSeats} мест
+                    </span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1766,7 +1883,9 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                           </div>
                           <div>
                             <p className="font-extrabold text-sm text-[#ededed]">{r.title}</p>
-                            <p className="text-xs text-[#888888] leading-tight mt-0.5">{r.subtitle}</p>
+                            <p className="text-xs text-[#888888] leading-tight mt-0.5">
+                              {r.subtitle}
+                            </p>
                           </div>
                         </button>
                       );
@@ -1779,11 +1898,13 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                     <Home className="w-4 h-4 text-[#9ac43e]" />
                     Локация: <b>{currentRoom.title}</b>
                   </span>
-                  <span className="text-[11px] font-mono text-[#789d2a]">Управляется организатором</span>
+                  <span className="text-[11px] font-mono text-[#789d2a]">
+                    Управляется организатором
+                  </span>
                 </div>
               )}
 
-              {/* Section 2: Nickname */}
+              {/* Nickname */}
               <div className="space-y-2 pt-2 border-t border-[#303038]">
                 <div className="flex items-center gap-2">
                   <Users className="w-4 h-4 text-[#9ac43e]" />
@@ -1796,11 +1917,11 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                     onChange={(e) => setCustomNameInput(e.target.value)}
                     placeholder="Ваше имя или позывной..."
                     maxLength={24}
-                    className="flex-1 bg-[#141418] border border-[#33333d] rounded-xl px-3.5 py-2 text-base text-[#ededed] outline-none focus:border-[#789d2a] font-mono transition-colors"
+                    className="flex-1 min-w-0 bg-[#141418] border border-[#33333d] rounded-xl px-3.5 py-2 text-base text-[#ededed] outline-none focus:border-[#789d2a] font-mono transition-colors"
                   />
                   <button
                     onClick={handleSaveName}
-                    className="px-4 py-2 rounded-xl bg-[#789d2a] hover:bg-[#8cb632] text-white text-sm font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+                    className="px-4 py-2 rounded-xl bg-[#789d2a] hover:bg-[#8cb632] text-white text-sm font-bold transition-colors cursor-pointer flex items-center gap-1.5 shrink-0"
                   >
                     {nameSavedSuccess ? <Check className="w-4 h-4" /> : null}
                     <span>{nameSavedSuccess ? 'Сохранено' : 'Сохранить'}</span>
@@ -1808,7 +1929,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 </div>
               </div>
 
-              {/* Section 2.1: Mascot Avatar Selection */}
+              {/* Mascot Avatar Selection */}
               <div className="space-y-3 pt-3 border-t border-[#303038]">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -1861,7 +1982,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 </div>
               </div>
 
-              {/* Section 3: Sound Toggles */}
+              {/* Sound Toggles */}
               <div className="space-y-3 pt-2 border-t border-[#303038]">
                 <h4 className="text-base font-bold text-[#ededed] flex items-center gap-2">
                   <Volume2 className="w-4 h-4 text-[#9ac43e]" />
@@ -1895,7 +2016,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 </div>
               </div>
 
-              {/* Section 4: Security Info */}
+              {/* Security Info */}
               <div className="p-3.5 rounded-xl bg-[#121216] border border-[#2a2a35] text-xs text-[#888888] space-y-1 font-mono">
                 <div className="flex items-center justify-between text-[#ededed] font-bold">
                   <span className="flex items-center gap-1.5">
@@ -1909,7 +2030,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
               </div>
             </div>
 
-            {/* Modal Footer (Pinned at bottom) */}
             <div className="p-5 sm:p-6 pt-4 border-t border-[#303038] flex justify-end shrink-0 bg-[#1b1b1f]">
               <button
                 onClick={() => {
@@ -1959,7 +2079,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
         </div>
       )}
 
-      {/* Global Drag & Drop Overlay anywhere on the screen */}
+      {/* Global Drag & Drop Overlay */}
       {isGlobalDragging && (
         <div className="fixed inset-0 z-[120] bg-black/85 backdrop-blur-md flex flex-col items-center justify-center p-6 border-4 border-dashed border-[#789d2a] animate-in fade-in duration-150 pointer-events-none select-none">
           <div className="w-24 h-24 rounded-3xl bg-[#789d2a]/20 border-2 border-[#789d2a] flex items-center justify-center text-[#9ac43e] mb-5 shadow-[0_0_50px_rgba(120,157,42,0.4)] animate-bounce">
@@ -1983,7 +2103,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
           onClick={() => setPreviewMedia(null)}
           className="fixed inset-0 z-[130] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 animate-in fade-in duration-150"
         >
-          {/* Lightbox Header Bar */}
           <div
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-4xl flex items-center justify-between pb-3 mb-3 border-b border-white/10 text-white"
@@ -2014,7 +2133,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
             </div>
           </div>
 
-          {/* Lightbox Media Container */}
           <div
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-4xl flex-1 max-h-[80vh] flex items-center justify-center overflow-hidden rounded-2xl bg-[#0e0e12] border border-[#2a2a35] shadow-2xl p-2 relative"
@@ -2048,7 +2166,9 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                   <Music className="w-10 h-10" />
                 </div>
                 <div className="text-center w-full min-w-0">
-                  <p className="text-base font-bold text-white mb-1 truncate px-2">{previewMedia.name}</p>
+                  <p className="text-base font-bold text-white mb-1 truncate px-2">
+                    {previewMedia.name}
+                  </p>
                   <p className="text-xs text-[#888888] font-mono">Аудиозапись встречи · P2P</p>
                 </div>
                 <CustomAudioPlayer

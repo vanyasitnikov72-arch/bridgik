@@ -1,6 +1,19 @@
 import { useState, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { Smartphone, Monitor, Check, X, Radio, AlertCircle, Lock, Users, UserCheck, UserMinus, Copy } from 'lucide-react';
+import {
+  Smartphone,
+  Monitor,
+  Check,
+  X,
+  Radio,
+  AlertCircle,
+  Lock,
+  Users,
+  UserCheck,
+  UserMinus,
+  Copy,
+  Bell,
+} from 'lucide-react';
 import { Navbar } from './components/Navbar.js';
 import { HomeView } from './components/HomeView.js';
 import { RoomView } from './components/RoomView.js';
@@ -9,8 +22,22 @@ import { AboutView } from './components/AboutView.js';
 import { LegalView, LegalDocType } from './components/LegalView.js';
 import { QRCodeModal } from './components/QRCodeModal.js';
 import { Footer } from './components/Footer.js';
-import { FileTransfer, Peer, TextMessage, ThemeMode, NearbyPeer, PairRequest, AppTab, RoomMode } from './types/index.js';
-import { detectDeviceType, generateRandomName, getRandomAvatar, getBrowserDeviceId } from './utils/device.js';
+import {
+  FileTransfer,
+  Peer,
+  TextMessage,
+  ThemeMode,
+  NearbyPeer,
+  PairRequest,
+  AppTab,
+  RoomMode,
+} from './types/index.js';
+import {
+  detectDeviceType,
+  generateRandomName,
+  getRandomAvatar,
+  getBrowserDeviceId,
+} from './utils/device.js';
 import { WebRTCManager } from './services/webrtc.js';
 import { sound } from './utils/sound.js';
 
@@ -22,7 +49,12 @@ interface RoomAlertNotice {
 
 export function App() {
   const [userName, setUserName] = useState<string>(() => {
-    return localStorage.getItem('bridgik_username') || localStorage.getItem('bridgit_username') || localStorage.getItem('airbridge_username') || generateRandomName();
+    return (
+      localStorage.getItem('bridgik_username') ||
+      localStorage.getItem('bridgit_username') ||
+      localStorage.getItem('airbridge_username') ||
+      generateRandomName()
+    );
   });
   const [userAvatar, setUserAvatar] = useState<string>(() => {
     const saved = localStorage.getItem('bridgik_user_avatar');
@@ -46,7 +78,6 @@ export function App() {
     return localStorage.getItem('bridgik_user_status_emote') || null;
   });
 
-  // Check URL param ?admin=... or stored key on load
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const urlAdminKey = params.get('admin');
@@ -89,14 +120,18 @@ export function App() {
   useEffect(() => {
     peersRef.current = peers;
   }, [peers]);
+
   const [lanIp, setLanIp] = useState<string | null>(null);
   const [destinationDirName, setDestinationDirName] = useState<string | null>(null);
   const destinationDirHandleRef = useRef<any>(null);
   const [autoDownload, setAutoDownload] = useState<boolean>(() => {
-    return localStorage.getItem('bridgik_auto_download') !== 'false' && localStorage.getItem('bridgit_auto_download') !== 'false';
+    return (
+      localStorage.getItem('bridgik_auto_download') !== 'false' &&
+      localStorage.getItem('bridgit_auto_download') !== 'false'
+    );
   });
 
-  // Media
+  // Media & Room State
   const [isMicActive, setIsMicActive] = useState(false);
   const [isScreenActive, setIsScreenActive] = useState(false);
   const [hasRemoteVideo, setHasRemoteVideo] = useState(false);
@@ -105,20 +140,30 @@ export function App() {
   });
   const [maxSeats, setMaxSeats] = useState<number>(8);
   const [isLocked, setIsLocked] = useState<boolean>(false);
+  const [knockRequired, setKnockRequired] = useState<boolean>(false);
+  const [waitingKnock, setWaitingKnock] = useState<{ roomId: string; pin: string } | null>(null);
+  const [incomingKnocks, setIncomingKnocks] = useState<
+    Array<{ socketId: string; roomId: string; peerName: string }>
+  >([]);
+  const joinRoomRef = useRef<(pinOrId: string, mode?: RoomMode) => void>(() => {});
   const [peerSeats, setPeerSeats] = useState<Record<string, number>>({});
   const [mySeatIndex, setMySeatIndex] = useState<number>(0);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const [remoteAudioStreams, setRemoteAudioStreams] = useState<Record<string, MediaStream>>({});
   const [audioAutoplayBlocked, setAudioAutoplayBlocked] = useState(false);
+
   const autoDownloadRef = useRef<boolean>(autoDownload);
   useEffect(() => {
     autoDownloadRef.current = autoDownload;
   }, [autoDownload]);
+
   const isMicActiveRef = useRef<boolean>(isMicActive);
   useEffect(() => {
     isMicActiveRef.current = isMicActive;
   }, [isMicActive]);
+
   const toggleMicRef = useRef<() => Promise<boolean>>(async () => false);
+
   useEffect(() => {
     if (!audioAutoplayBlocked) return;
     const unlockAudio = async () => {
@@ -140,15 +185,17 @@ export function App() {
       window.removeEventListener('keydown', unlockAudio);
     };
   }, [audioAutoplayBlocked]);
+
   const [scratchpadTypingUser, setScratchpadTypingUser] = useState<string | null>(null);
   const scratchpadTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [peerConnectionTypes, setPeerConnectionTypes] = useState<Record<string, 'direct' | 'relay'>>({});
+  const [peerConnectionTypes, setPeerConnectionTypes] = useState<
+    Record<string, 'direct' | 'relay'>
+  >({});
 
   const webrtcRef = useRef<WebRTCManager | null>(null);
 
   // Initialize Socket.io
   useEffect(() => {
-    // In dev Vite proxies /socket.io, in production same origin
     const socketInstance = io({
       transports: ['websocket', 'polling'],
     });
@@ -181,7 +228,6 @@ export function App() {
       .catch(() => {});
   }, []);
 
-  // Auto-dismiss pair rejection notice after 6s
   useEffect(() => {
     if (!pairRejectionNotice) return;
     const timer = setTimeout(() => {
@@ -190,7 +236,6 @@ export function App() {
     return () => clearTimeout(timer);
   }, [pairRejectionNotice]);
 
-  // Auto-dismiss room alert notice after 7s
   useEffect(() => {
     if (!roomAlertNotice) return;
     const timer = setTimeout(() => {
@@ -199,16 +244,13 @@ export function App() {
     return () => clearTimeout(timer);
   }, [roomAlertNotice]);
 
-  // Sync user name changes
   const handleUpdateUserName = (name: string) => {
     setUserName(name);
     localStorage.setItem('bridgik_username', name);
     if (webrtcRef.current) {
       webrtcRef.current.updateMyName(name);
     }
-    setPeers((prev) =>
-      prev.map((p) => (p.id === myPeerId ? { ...p, name } : p))
-    );
+    setPeers((prev) => prev.map((p) => (p.id === myPeerId ? { ...p, name } : p)));
     if (socket && roomId) {
       socket.emit('update-peer-name', { roomId, name });
     }
@@ -223,9 +265,7 @@ export function App() {
     if (webrtcRef.current) {
       webrtcRef.current.updateMyAvatar(avatar);
     }
-    setPeers((prev) =>
-      prev.map((p) => (p.id === myPeerId ? { ...p, avatar } : p))
-    );
+    setPeers((prev) => prev.map((p) => (p.id === myPeerId ? { ...p, avatar } : p)));
     setMessages((prev) =>
       prev.map((m) => (m.senderId === myPeerId ? { ...m, senderAvatar: avatar } : m))
     );
@@ -238,9 +278,7 @@ export function App() {
     setAdminFrame(frame);
     localStorage.setItem('bridgik_admin_frame', frame);
     webrtcRef.current?.updateAdminStatus(isAdmin, frame);
-    setPeers((prev) =>
-      prev.map((p) => (p.id === myPeerId ? { ...p, adminFrame: frame } : p))
-    );
+    setPeers((prev) => prev.map((p) => (p.id === myPeerId ? { ...p, adminFrame: frame } : p)));
     if (socket && roomId) {
       socket.emit('update-peer-avatar', { roomId, avatar: userAvatar, adminFrame: frame });
     }
@@ -260,7 +298,9 @@ export function App() {
       prev.map((p) => (p.id === myPeerId ? { ...p, statusEmote: emote || undefined } : p))
     );
     setMessages((prev) =>
-      prev.map((m) => (m.senderId === myPeerId ? { ...m, senderStatusEmote: emote || undefined } : m))
+      prev.map((m) =>
+        m.senderId === myPeerId ? { ...m, senderStatusEmote: emote || undefined } : m
+      )
     );
     if (socket && roomId) {
       socket.emit('update-peer-status-emote', { roomId, statusEmote: emote || undefined });
@@ -270,7 +310,6 @@ export function App() {
     }
   };
 
-  // Toggle Theme
   const handleToggleTheme = () => {
     const nextTheme: ThemeMode =
       theme === 'swiss' ? 'cyberpunk' : theme === 'cyberpunk' ? 'lofi' : 'swiss';
@@ -278,118 +317,122 @@ export function App() {
     localStorage.setItem('airbridge_theme', nextTheme);
   };
 
-  // Setup WebRTC manager when entering room
   const setupWebRTC = (sock: Socket, myId: string) => {
     if (webrtcRef.current) {
       webrtcRef.current.destroy();
     }
 
-    const manager = new WebRTCManager(sock, myId, userName, {
-      onTextMessage: (msg) => {
-        // Only voice/play chime for incoming messages from others, not from ourselves
-        if (msg.senderId !== myId) {
-          sound.playMessage();
-        }
-        setMessages((prev) => [...prev, msg]);
-      },
-      onTransferProgress: (updated) => {
-        setTransfers((prev) => {
-          const index = prev.findIndex((t) => t.id === updated.id);
-          if (index >= 0) {
-            const next = [...prev];
-            next[index] = {
-              ...next[index],
-              ...updated,
-              blobUrl: updated.blobUrl || next[index].blobUrl,
-            } as FileTransfer;
-            return next;
-          } else {
-            return [updated as FileTransfer, ...prev];
+    const manager = new WebRTCManager(
+      sock,
+      myId,
+      userName,
+      {
+        onTextMessage: (msg) => {
+          if (msg.senderId !== myId) {
+            sound.playMessage();
           }
-        });
-      },
-      onTransferComplete: (completed) => {
-        sound.playTransferComplete();
+          setMessages((prev) => [...prev, msg]);
+        },
+        onTransferProgress: (updated) => {
+          setTransfers((prev) => {
+            const index = prev.findIndex((t) => t.id === updated.id);
+            if (index >= 0) {
+              const next = [...prev];
+              next[index] = {
+                ...next[index],
+                ...updated,
+                blobUrl: updated.blobUrl || next[index].blobUrl,
+              } as FileTransfer;
+              return next;
+            } else {
+              return [updated as FileTransfer, ...prev];
+            }
+          });
+        },
+        onTransferComplete: (completed) => {
+          sound.playTransferComplete();
 
-        // Auto-download for completed in-memory downloads if enabled
-        if (completed.type === 'download' && completed.blobUrl && !completed.savedToDisk) {
-          if (autoDownloadRef.current) {
-            try {
-              const a = document.createElement('a');
-              a.href = completed.blobUrl;
-              a.download = completed.name;
-              document.body.appendChild(a);
-              a.click();
-              document.body.removeChild(a);
-            } catch (err) {
-              console.warn('Auto download error', err);
+          if (completed.type === 'download' && completed.blobUrl && !completed.savedToDisk) {
+            if (autoDownloadRef.current) {
+              try {
+                const a = document.createElement('a');
+                a.href = completed.blobUrl;
+                a.download = completed.name;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+              } catch (err) {
+                console.warn('Auto download error', err);
+              }
             }
           }
-        }
 
-        setTransfers((prev) => {
-          const index = prev.findIndex((t) => t.id === completed.id);
-          if (index >= 0) {
-            const next = [...prev];
-            next[index] = {
-              ...completed,
-              blobUrl: completed.blobUrl || next[index].blobUrl,
+          setTransfers((prev) => {
+            const index = prev.findIndex((t) => t.id === completed.id);
+            if (index >= 0) {
+              const next = [...prev];
+              next[index] = {
+                ...completed,
+                blobUrl: completed.blobUrl || next[index].blobUrl,
+              };
+              return next;
+            }
+            return [completed, ...prev];
+          });
+        },
+        onRemoteStream: (peerId, stream) => {
+          const videoTracks = stream.getVideoTracks();
+          const audioTracks = stream.getAudioTracks();
+
+          if (videoTracks.length > 0 && remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = stream;
+            setHasRemoteVideo(true);
+            videoTracks[0].onended = () => {
+              setHasRemoteVideo(false);
             };
-            return next;
           }
-          return [completed, ...prev];
-        });
-      },
-      onRemoteStream: (peerId, stream) => {
-        const videoTracks = stream.getVideoTracks();
-        const audioTracks = stream.getAudioTracks();
 
-        if (videoTracks.length > 0 && remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = stream;
-          setHasRemoteVideo(true);
-          videoTracks[0].onended = () => {
-            setHasRemoteVideo(false);
-          };
-        }
-
-        if (audioTracks.length > 0) {
-          setRemoteAudioStreams((prev) => ({ ...prev, [peerId]: stream }));
-        }
-      },
-      onConnectionFailed: (_peerId, reason) => {
-        if (reason === 'NAT_BLOCKED') {
+          if (audioTracks.length > 0) {
+            setRemoteAudioStreams((prev) => ({ ...prev, [peerId]: stream }));
+          }
+        },
+        onConnectionFailed: (_peerId, reason) => {
+          if (reason === 'NAT_BLOCKED') {
+            setRoomAlertNotice({
+              type: 'general',
+              title: 'Прямое соединение заблокировано сетью',
+              message:
+                'Файрвол или мобильный оператор блокирует прямой P2P-канал между устройствами.',
+            });
+          }
+        },
+        onMemoryLimitWarning: (fileName, size) => {
+          const mb = Math.round(size / (1024 * 1024));
           setRoomAlertNotice({
             type: 'general',
-            title: 'Прямое соединение заблокировано сетью',
-            message: 'Файрвол или мобильный оператор блокирует прямой P2P-канал между устройствами.',
+            title: 'Крупный файл для мобильного браузера',
+            message: `Файл «${fileName}» (${mb} МБ) загружается в оперативную память, так как браузер не поддерживает прямую запись на диск.`,
           });
-        }
+        },
+        onPeerConnectionStateChange: (peerId, state) => {
+          console.log(`Peer ${peerId} state changed to ${state}`);
+        },
+        onScratchpadSync: (text) => {
+          setScratchpadText(text);
+        },
+        onScratchpadTyping: (updatedBy) => {
+          setScratchpadTypingUser(updatedBy);
+          if (scratchpadTypingTimerRef.current) clearTimeout(scratchpadTypingTimerRef.current);
+          scratchpadTypingTimerRef.current = setTimeout(() => {
+            setScratchpadTypingUser(null);
+          }, 2500);
+        },
+        onConnectionTypeChange: (peerId, type) => {
+          setPeerConnectionTypes((prev) => ({ ...prev, [peerId]: type }));
+        },
       },
-      onMemoryLimitWarning: (fileName, size) => {
-        const mb = Math.round(size / (1024 * 1024));
-        setRoomAlertNotice({
-          type: 'general',
-          title: 'Крупный файл для мобильного браузера',
-          message: `Файл «${fileName}» (${mb} МБ) загружается в оперативную память, так как браузер не поддерживает прямую запись на диск.`,
-        });
-      },
-      onPeerConnectionStateChange: (peerId, state) => {
-        console.log(`Peer ${peerId} state changed to ${state}`);
-      },
-      onScratchpadSync: (text) => {
-        setScratchpadText(text);
-      },
-      onScratchpadTyping: (updatedBy) => {
-        setScratchpadTypingUser(updatedBy);
-        if (scratchpadTypingTimerRef.current) clearTimeout(scratchpadTypingTimerRef.current);
-        scratchpadTypingTimerRef.current = setTimeout(() => {
-          setScratchpadTypingUser(null);
-        }, 2500);
-      },
-      onConnectionTypeChange: (peerId, type) => {
-        setPeerConnectionTypes((prev) => ({ ...prev, [peerId]: type }));
-      },
-    }, userAvatar);
+      userAvatar
+    );
 
     if (destinationDirHandleRef.current) {
       manager.setDestinationDirectory(destinationDirHandleRef.current);
@@ -425,12 +468,10 @@ export function App() {
         return [...prev, newPeer];
       });
 
-      // Floating top toast notification (centered)
       setParticipantNotice({ type: 'joined', name: newPeer.name });
       if (participantNoticeTimerRef.current) clearTimeout(participantNoticeTimerRef.current);
       participantNoticeTimerRef.current = setTimeout(() => setParticipantNotice(null), 4000);
 
-      // Existing peer initiates WebRTC connection
       if (webrtcRef.current) {
         webrtcRef.current.connectToPeer(newPeer.id, true);
       }
@@ -448,7 +489,6 @@ export function App() {
         return next;
       });
 
-      // Floating top toast notification (centered)
       setParticipantNotice({ type: 'left', name: peerName });
       if (participantNoticeTimerRef.current) clearTimeout(participantNoticeTimerRef.current);
       participantNoticeTimerRef.current = setTimeout(() => setParticipantNotice(null), 4000);
@@ -464,12 +504,18 @@ export function App() {
       );
       if (updatedPeer.avatar) {
         setMessages((prev) =>
-          prev.map((m) => (m.senderId === updatedPeer.id ? { ...m, senderAvatar: updatedPeer.avatar } : m))
+          prev.map((m) =>
+            m.senderId === updatedPeer.id ? { ...m, senderAvatar: updatedPeer.avatar } : m
+          )
         );
       }
       if (updatedPeer.statusEmote !== undefined) {
         setMessages((prev) =>
-          prev.map((m) => (m.senderId === updatedPeer.id ? { ...m, senderStatusEmote: updatedPeer.statusEmote } : m))
+          prev.map((m) =>
+            m.senderId === updatedPeer.id
+              ? { ...m, senderStatusEmote: updatedPeer.statusEmote }
+              : m
+          )
         );
       }
     });
@@ -487,10 +533,14 @@ export function App() {
       }
     });
 
-    socket.on('room-config-updated', (data: { maxSeats?: number; isLocked?: boolean }) => {
-      if (data.maxSeats !== undefined) setMaxSeats(data.maxSeats);
-      if (data.isLocked !== undefined) setIsLocked(data.isLocked);
-    });
+    socket.on(
+      'room-config-updated',
+      (data: { maxSeats?: number; isLocked?: boolean; knockRequired?: boolean }) => {
+        if (data.maxSeats !== undefined) setMaxSeats(data.maxSeats);
+        if (data.isLocked !== undefined) setIsLocked(data.isLocked);
+        if (data.knockRequired !== undefined) setKnockRequired(data.knockRequired);
+      }
+    );
 
     socket.on('peer-seat-changed', (data: { peerId: string; seatIndex: number }) => {
       setPeerSeats((prev) => {
@@ -514,6 +564,69 @@ export function App() {
       }
     });
 
+    socket.on('knock-request', (req: { socketId: string; roomId: string; peerName: string }) => {
+      sound.playMessage();
+      setIncomingKnocks((prev) => {
+        if (prev.some((k) => k.socketId === req.socketId)) return prev;
+        return [...prev, req];
+      });
+    });
+
+    socket.on('knock-cancelled', (data: { socketId: string }) => {
+      setIncomingKnocks((prev) => prev.filter((k) => k.socketId !== data.socketId));
+    });
+
+    socket.on('knock-result', (data: { approved: boolean; roomId: string }) => {
+      setWaitingKnock(null);
+      if (data.approved) {
+        sound.playConnect();
+        joinRoomRef.current(data.roomId);
+      } else {
+        sound.playClick();
+        setRoomAlertNotice({
+          type: 'locked',
+          title: 'Вход отклонён',
+          message: 'Организатор отклонил ваш запрос или закрыл комнату.',
+        });
+      }
+    });
+
+    socket.on('room-destroyed', (data: { reason?: string }) => {
+      sound.playClick();
+      if (webrtcRef.current) {
+        webrtcRef.current.destroy();
+        webrtcRef.current = null;
+      }
+      setRoomId(null);
+      setPin('');
+      setMyPeerId('');
+      setPeers([]);
+      setTransfers((prev) => {
+        prev.forEach((t) => t.blobUrl && URL.revokeObjectURL(t.blobUrl));
+        return [];
+      });
+      setMessages([]);
+      setScratchpadText('');
+      setIsMicActive(false);
+      setIsScreenActive(false);
+      setHasRemoteVideo(false);
+      setRemoteAudioStreams({});
+      setAudioAutoplayBlocked(false);
+      setWaitingKnock(null);
+      setIncomingKnocks([]);
+      setKnockRequired(false);
+      setIsLocked(false);
+      setMaxSeats(8);
+      setPeerSeats({});
+      setMySeatIndex(0);
+      window.history.replaceState({}, '', window.location.pathname);
+      setRoomAlertNotice({
+        type: 'locked',
+        title: 'Комната уничтожена',
+        message: data?.reason || 'Организатор экстренно завершил встречу.',
+      });
+    });
+
     socket.on('signal', ({ from, payload }: { from: string; payload: any }) => {
       if (webrtcRef.current) {
         webrtcRef.current.handleSignal(from, payload);
@@ -531,6 +644,10 @@ export function App() {
       socket.off('peer-seat-changed');
       socket.off('kicked');
       socket.off('remote-mute');
+      socket.off('knock-request');
+      socket.off('knock-cancelled');
+      socket.off('knock-result');
+      socket.off('room-destroyed');
       socket.off('signal');
     };
   }, [socket]);
@@ -559,7 +676,12 @@ export function App() {
       setIncomingPairRequest(null);
     };
 
-    const handlePairResult = (res: { roomId: string; pin: string; accepted: boolean; reason?: string }) => {
+    const handlePairResult = (res: {
+      roomId: string;
+      pin: string;
+      accepted: boolean;
+      reason?: string;
+    }) => {
       setIsPairing(false);
       setPairingTargetSocketId('');
       setPairingTargetName('');
@@ -598,7 +720,6 @@ export function App() {
     }
   }, [socket, isConnected]);
 
-  // Create Room
   const handleCreateRoom = (mode: RoomMode = 'bridge') => {
     if (!socket) return;
     setIsLoading(true);
@@ -628,6 +749,7 @@ export function App() {
           setPeers(res.peers || []);
           if (res.maxSeats !== undefined) setMaxSeats(res.maxSeats);
           if (res.isLocked !== undefined) setIsLocked(res.isLocked);
+          if (res.knockRequired !== undefined) setKnockRequired(res.knockRequired);
           if (res.currentRoomTheme) {
             setRoomTheme(res.currentRoomTheme);
           }
@@ -644,7 +766,6 @@ export function App() {
     );
   };
 
-  // Pair via local radar in 1 click
   const handlePairWithNearby = (targetSocketId: string) => {
     if (!socket) return;
     const targetPeer = nearbyPeers.find((p) => p.socketId === targetSocketId);
@@ -707,6 +828,7 @@ export function App() {
       return next;
     });
   };
+
   const handleCreateMeeting = () => {
     handleCreateRoom('meeting');
   };
@@ -739,6 +861,7 @@ export function App() {
           setPeers(res.peers || []);
           if (res.maxSeats !== undefined) setMaxSeats(res.maxSeats);
           if (res.isLocked !== undefined) setIsLocked(res.isLocked);
+          if (res.knockRequired !== undefined) setKnockRequired(res.knockRequired);
           const resolvedMode = (res.mode as RoomMode) || targetMode;
           setRoomMode(resolvedMode);
           setActiveTab(resolvedMode);
@@ -756,11 +879,21 @@ export function App() {
           sound.playClick();
           window.history.replaceState({}, '', window.location.pathname);
           const errText = res.error || 'Комната не найдена';
-          if (res.code === 'ALREADY_IN_ROOM_SAME_BROWSER' || errText.includes('другой вкладке')) {
+          if (res.code === 'KNOCK_REQUIRED' && res.roomId) {
+            setWaitingKnock({ roomId: res.roomId, pin: res.pin || pinOrId });
+            socket.emit('knock', { roomId: res.roomId, peerName: userName });
+            return;
+          }
+          if (
+            res.code === 'ALREADY_IN_ROOM_SAME_BROWSER' ||
+            errText.includes('другой вкладке')
+          ) {
             setRoomAlertNotice({
               type: 'duplicate',
               title: 'Комната уже открыта',
-              message: errText || 'Вы уже находитесь в этой комнате в другой вкладке браузера. Чтобы подключить второго участника, откройте окно Инкогнито (Ctrl+Shift+N) или другой браузер.',
+              message:
+                errText ||
+                'Вы уже находитесь в этой комнате в другой вкладке браузера. Чтобы подключить второго участника, откройте окно Инкогнито (Ctrl+Shift+N) или другой браузер.',
             });
           } else if (res.code === 'RATE_LIMITED') {
             setRoomAlertNotice({
@@ -768,13 +901,21 @@ export function App() {
               title: 'Слишком много попыток',
               message: errText,
             });
-          } else if (res.code === 'ROOM_LOCKED' || errText.includes('закрыт') || errText.includes('заблокирован')) {
+          } else if (
+            res.code === 'ROOM_LOCKED' ||
+            errText.includes('закрыт') ||
+            errText.includes('заблокирован')
+          ) {
             setRoomAlertNotice({
               type: 'locked',
               title: 'Комната закрыта',
               message: 'Организатор заблокировал вход в эту комнату. Подключение невозможно.',
             });
-          } else if (res.code === 'ROOM_FULL' || errText.includes('лимит') || errText.includes('переполн')) {
+          } else if (
+            res.code === 'ROOM_FULL' ||
+            errText.includes('лимит') ||
+            errText.includes('переполн')
+          ) {
             setRoomAlertNotice({
               type: 'full',
               title: 'Комната переполнена',
@@ -792,6 +933,7 @@ export function App() {
       }
     );
   };
+  joinRoomRef.current = handleJoinRoom;
 
   const handlePickDestinationDir = async () => {
     if (typeof window === 'undefined' || !('showDirectoryPicker' in window)) {
@@ -824,7 +966,6 @@ export function App() {
     }
   };
 
-  // Leave Room
   const handleLeaveRoom = () => {
     if (socket) {
       socket.emit('leave-room');
@@ -844,6 +985,7 @@ export function App() {
       return [];
     });
     setMessages([]);
+    setScratchpadText('');
     setAudioAutoplayBlocked(false);
     setIsMicActive(false);
     setIsScreenActive(false);
@@ -851,9 +993,11 @@ export function App() {
     setRemoteAudioStreams({});
     setMaxSeats(8);
     setIsLocked(false);
+    setKnockRequired(false);
+    setIncomingKnocks([]);
     setPeerSeats({});
     setMySeatIndex(0);
-    window.history.pushState({}, '', window.location.pathname);
+    window.history.replaceState({}, '', window.location.pathname);
   };
 
   const handleUpdateMaxSeats = (newMax: number) => {
@@ -877,6 +1021,56 @@ export function App() {
     }
   };
 
+  const handleToggleKnockRequired = () => {
+    const nextKnock = !knockRequired;
+    setKnockRequired(nextKnock);
+    if (socket && (pin || roomId)) {
+      socket.emit('update-room-config', {
+        roomId: pin || roomId,
+        knockRequired: nextKnock,
+      });
+    }
+  };
+
+  const handleKnockDecision = (
+    targetSocketId: string,
+    targetRoomId: string,
+    approved: boolean
+  ) => {
+    if (!socket) return;
+    sound.playClick();
+    socket.emit('knock-decision', {
+      roomId: targetRoomId,
+      toSocketId: targetSocketId,
+      approved,
+    });
+    setIncomingKnocks((prev) => prev.filter((k) => k.socketId !== targetSocketId));
+  };
+
+  const handleCancelKnock = () => {
+    if (socket && waitingKnock) {
+      socket.emit('cancel-knock', { roomId: waitingKnock.roomId });
+    }
+    setWaitingKnock(null);
+  };
+
+  const handlePanicDestroy = () => {
+    const amHost =
+      peersRef.current.find((p) => p.id === myPeerId)?.isHost ??
+      peersRef.current.length <= 1;
+    if (socket && amHost && (pin || roomId)) {
+      socket.emit('destroy-room', { roomId: pin || roomId });
+    }
+    handleLeaveRoom();
+    setRoomAlertNotice({
+      type: 'locked',
+      title: 'Экстренный выход (Паника)',
+      message: amHost
+        ? 'Комната уничтожена для всех, каналы и локальная память очищены.'
+        : 'Все каналы разорваны, локальная история и буфер стёрты.',
+    });
+  };
+
   const handleSwitchSeat = (seatIdx: number) => {
     setMySeatIndex(seatIdx);
     if (socket && (pin || roomId)) {
@@ -887,7 +1081,6 @@ export function App() {
     }
   };
 
-  // Send Files
   const handleSendFiles = (files: FileList | File[]) => {
     if (!webrtcRef.current) return;
     const fileArray = Array.from(files);
@@ -896,13 +1089,11 @@ export function App() {
     });
   };
 
-  // Send Text
   const handleSendText = (text: string, isClipboard = false) => {
     if (!webrtcRef.current) return;
     webrtcRef.current.sendTextMessage(text, isClipboard);
   };
 
-  // Shared Scratchpad update
   const handleUpdateScratchpad = (text: string) => {
     setScratchpadText(text);
     if (webrtcRef.current) {
@@ -911,27 +1102,23 @@ export function App() {
     }
   };
 
-  // Cancel Transfer
   const handleCancelTransfer = (id: string) => {
     if (!webrtcRef.current) return;
     webrtcRef.current.cancelTransfer(id);
   };
 
-  // Accept large file (pick folder and stream to disk)
   const handleAcceptFile = async (fileId: string) => {
     if (webrtcRef.current) {
       await webrtcRef.current.acceptIncomingFile(fileId);
     }
   };
 
-  // Reject large file
   const handleRejectFile = (fileId: string) => {
     if (webrtcRef.current) {
       webrtcRef.current.rejectIncomingFile(fileId);
     }
   };
 
-  // Toggle Mic with instant responsiveness and clear error feedback
   const handleToggleMic = async () => {
     if (!webrtcRef.current) {
       sound.playClick();
@@ -968,7 +1155,6 @@ export function App() {
   };
   toggleMicRef.current = handleToggleMic;
 
-  // Toggle Screen
   const handleToggleScreen = async () => {
     if (!webrtcRef.current) return false;
     const active = await webrtcRef.current.toggleScreenShare();
@@ -986,13 +1172,14 @@ export function App() {
     return `${window.location.protocol}//${host}?room=${targetRoom}${modeQuery}`;
   })();
 
-  // Theme Classes
   const getThemeWrapperClass = () => {
     return 'bg-[#171717] text-[#f2f2f2] selection:bg-[#789d2a] selection:text-white';
   };
 
   return (
-    <div className={`min-h-screen flex flex-col overflow-x-hidden transition-colors ${getThemeWrapperClass()}`}>
+    <div
+      className={`min-h-screen flex flex-col overflow-x-hidden transition-colors ${getThemeWrapperClass()}`}
+    >
       <Navbar
         userName={userName}
         onUpdateUserName={handleUpdateUserName}
@@ -1061,6 +1248,9 @@ export function App() {
             onUpdateMaxSeats={handleUpdateMaxSeats}
             isLocked={isLocked}
             onToggleLockRoom={handleToggleLockRoom}
+            knockRequired={knockRequired}
+            onToggleKnockRequired={handleToggleKnockRequired}
+            onPanicDestroy={handlePanicDestroy}
             peerSeats={peerSeats}
             mySeatIndex={mySeatIndex}
             onSwitchSeat={handleSwitchSeat}
@@ -1133,7 +1323,10 @@ export function App() {
 
       {/* 1. Incoming Pair Request (Receiver) */}
       {incomingPairRequest && (
-        <aside aria-label="Входящий запрос на передачу" className="fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-2xl animate-in slide-in-from-top-6 duration-300">
+        <aside
+          aria-label="Входящий запрос на передачу"
+          className="fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-2xl animate-in slide-in-from-top-6 duration-300"
+        >
           <div className="p-4 sm:p-5 rounded-2xl bg-[#1c2214]/95 border-2 border-[#789d2a] shadow-[0_12px_45px_rgba(0,0,0,0.85)] backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3.5 min-w-0 w-full sm:w-auto">
               <div className="w-12 h-12 rounded-xl bg-[#789d2a]/20 border border-[#789d2a] flex items-center justify-center text-[#9ac43e] shrink-0 relative">
@@ -1149,7 +1342,8 @@ export function App() {
                   Входящее подключение для передачи файлов
                 </p>
                 <p className="text-sm sm:text-base text-[#9ac43e] truncate">
-                  <strong className="text-[#c7ea6a]">{incomingPairRequest.fromName}</strong> хочет передать вам файлы
+                  <strong className="text-[#c7ea6a]">{incomingPairRequest.fromName}</strong> хочет
+                  передать вам файлы
                 </p>
               </div>
             </div>
@@ -1173,9 +1367,79 @@ export function App() {
         </aside>
       )}
 
+      {/* Waiting Knock Approval (Guest) */}
+      {waitingKnock && (
+        <div className="fixed inset-0 z-[140] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-[#1b1b1f] border-2 border-[#789d2a] rounded-3xl p-6 sm:p-8 max-w-md w-full text-center shadow-2xl space-y-5">
+            <div className="w-16 h-16 rounded-2xl bg-[#789d2a]/20 border border-[#789d2a] flex items-center justify-center text-[#9ac43e] mx-auto animate-pulse">
+              <Bell className="w-8 h-8" />
+            </div>
+            <div>
+              <h3 className="text-2xl font-extrabold text-[#ededed] mb-1">
+                Стучимся в комнату...
+              </h3>
+              <p className="text-sm sm:text-base text-[#aaaaaa]">
+                Код комнаты:{' '}
+                <strong className="font-mono text-[#9ac43e]">{waitingKnock.pin}</strong>.
+                Организатор включил зал ожидания — подождите одобрения входа.
+              </p>
+            </div>
+            <button
+              onClick={handleCancelKnock}
+              className="w-full py-3 rounded-xl bg-[#2a2a32] hover:bg-[#353540] text-[#ededed] font-bold text-base transition-colors cursor-pointer"
+            >
+              Отменить и вернуться
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Incoming Knock Requests (Host) */}
+      {incomingKnocks.length > 0 && (
+        <aside className="fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 z-[145] w-[95%] max-w-xl space-y-2.5">
+          {incomingKnocks.map((k) => (
+            <div
+              key={k.socketId}
+              className="p-4 rounded-2xl bg-[#1c2214]/95 border-2 border-[#789d2a] shadow-[0_12px_45px_rgba(0,0,0,0.85)] backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-3 animate-in slide-in-from-top-4"
+            >
+              <div className="flex items-center gap-3 min-w-0 w-full sm:w-auto">
+                <div className="w-11 h-11 rounded-xl bg-[#789d2a]/20 border border-[#789d2a] flex items-center justify-center text-[#9ac43e] shrink-0">
+                  <Bell className="w-5 h-5 animate-bounce" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-base font-bold text-[#ededed]">Стук в комнату</p>
+                  <p className="text-sm text-[#9ac43e] truncate">
+                    <strong>{k.peerName}</strong> просит разрешения войти
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                <button
+                  onClick={() => handleKnockDecision(k.socketId, k.roomId, true)}
+                  className="flex-1 sm:flex-none px-5 py-2 rounded-xl bg-[#789d2a] hover:bg-[#8cb632] text-white font-bold text-sm cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Впустить</span>
+                </button>
+                <button
+                  onClick={() => handleKnockDecision(k.socketId, k.roomId, false)}
+                  className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-[#2d2d2d] hover:bg-[#ed2b3b] text-[#ededed] hover:text-white font-bold text-sm cursor-pointer flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                  <span>Отклонить</span>
+                </button>
+              </div>
+            </div>
+          ))}
+        </aside>
+      )}
+
       {/* 2. Pair Request Rejection Alert */}
       {pairRejectionNotice && (
-        <aside aria-label="Запрос отклонен" className="fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-xl animate-in slide-in-from-top-6 duration-300">
+        <aside
+          aria-label="Запрос отклонен"
+          className="fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-xl animate-in slide-in-from-top-6 duration-300"
+        >
           <div className="p-4 sm:p-5 rounded-2xl bg-[#221616]/95 border-2 border-[#ed2b3b]/60 shadow-[0_12px_45px_rgba(0,0,0,0.85)] backdrop-blur-md flex items-center justify-between gap-3.5">
             <div className="flex items-center gap-3.5 min-w-0">
               <div className="w-11 h-11 rounded-xl bg-[#ed2b3b]/20 border border-[#ed2b3b]/40 flex items-center justify-center text-[#ef9282] shrink-0">
@@ -1202,7 +1466,10 @@ export function App() {
 
       {/* 3. Sender Waiting Notification */}
       {isPairing && (
-        <aside aria-label="Ожидание ответа" className="fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-xl animate-in slide-in-from-top-6 duration-300">
+        <aside
+          aria-label="Ожидание ответа"
+          className="fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-xl animate-in slide-in-from-top-6 duration-300"
+        >
           <div className="p-4 sm:p-5 rounded-2xl bg-[#171c12]/95 border-2 border-[#789d2a]/60 shadow-[0_12px_45px_rgba(0,0,0,0.85)] backdrop-blur-md flex items-center justify-between gap-3.5">
             <div className="flex items-center gap-3.5 min-w-0">
               <div className="w-11 h-11 rounded-xl bg-[#789d2a]/20 border border-[#789d2a] flex items-center justify-center text-[#9ac43e] shrink-0">
@@ -1213,7 +1480,8 @@ export function App() {
                   Ожидание подтверждения...
                 </p>
                 <p className="text-sm sm:text-base text-[#9ac43e] truncate">
-                  Запрос отправлен на устройство <strong>{pairingTargetName || 'собеседника'}</strong>
+                  Запрос отправлен на устройство{' '}
+                  <strong>{pairingTargetName || 'собеседника'}</strong>
                 </p>
               </div>
             </div>
@@ -1227,28 +1495,35 @@ export function App() {
         </aside>
       )}
 
-      {/* 4. Room Alert Notification (Room Locked / Room Full / Room Not Found / Duplicate Tab) */}
+      {/* 4. Room Alert Notification */}
       {roomAlertNotice && (
-        <aside aria-label={roomAlertNotice.title} className="fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-xl animate-in slide-in-from-top-6 duration-300">
-          <div className={`p-4 sm:p-5 rounded-2xl shadow-[0_12px_45px_rgba(0,0,0,0.85)] backdrop-blur-md flex items-center justify-between gap-3.5 border-2 ${
-            roomAlertNotice.type === 'duplicate'
-              ? 'bg-[#221c12]/95 border-[#f59e0b]/80 shadow-[0_0_35px_rgba(245,158,11,0.25)]'
-              : roomAlertNotice.type === 'locked'
-              ? 'bg-[#221614]/95 border-[#ed2b3b]/60'
-              : roomAlertNotice.type === 'full'
-              ? 'bg-[#221a14]/95 border-[#f97316]/70'
-              : 'bg-[#201818]/95 border-[#ed2b3b]/50'
-          }`}>
+        <aside
+          aria-label={roomAlertNotice.title}
+          className="fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-xl animate-in slide-in-from-top-6 duration-300"
+        >
+          <div
+            className={`p-4 sm:p-5 rounded-2xl shadow-[0_12px_45px_rgba(0,0,0,0.85)] backdrop-blur-md flex items-center justify-between gap-3.5 border-2 ${
+              roomAlertNotice.type === 'duplicate'
+                ? 'bg-[#221c12]/95 border-[#f59e0b]/80 shadow-[0_0_35px_rgba(245,158,11,0.25)]'
+                : roomAlertNotice.type === 'locked'
+                ? 'bg-[#221614]/95 border-[#ed2b3b]/60'
+                : roomAlertNotice.type === 'full'
+                ? 'bg-[#221a14]/95 border-[#f97316]/70'
+                : 'bg-[#201818]/95 border-[#ed2b3b]/50'
+            }`}
+          >
             <div className="flex items-center gap-3.5 min-w-0">
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border ${
-                roomAlertNotice.type === 'duplicate'
-                  ? 'bg-[#f59e0b]/20 border-[#f59e0b]/50 text-[#fbbf24]'
-                  : roomAlertNotice.type === 'locked'
-                  ? 'bg-[#ed2b3b]/20 border-[#ed2b3b]/40 text-[#ef9282]'
-                  : roomAlertNotice.type === 'full'
-                  ? 'bg-[#f97316]/20 border-[#f97316]/40 text-[#f97316]'
-                  : 'bg-[#ed2b3b]/20 border-[#ed2b3b]/40 text-[#ef9282]'
-              }`}>
+              <div
+                className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border ${
+                  roomAlertNotice.type === 'duplicate'
+                    ? 'bg-[#f59e0b]/20 border-[#f59e0b]/50 text-[#fbbf24]'
+                    : roomAlertNotice.type === 'locked'
+                    ? 'bg-[#ed2b3b]/20 border-[#ed2b3b]/40 text-[#ef9282]'
+                    : roomAlertNotice.type === 'full'
+                    ? 'bg-[#f97316]/20 border-[#f97316]/40 text-[#f97316]'
+                    : 'bg-[#ed2b3b]/20 border-[#ed2b3b]/40 text-[#ef9282]'
+                }`}
+              >
                 {roomAlertNotice.type === 'duplicate' ? (
                   <Copy className="w-6 h-6" />
                 ) : roomAlertNotice.type === 'locked' ? (
@@ -1263,15 +1538,17 @@ export function App() {
                 <p className="text-base sm:text-lg font-bold text-[#ededed] leading-snug">
                   {roomAlertNotice.title}
                 </p>
-                <p className={`text-sm sm:text-base leading-snug ${
-                  roomAlertNotice.type === 'duplicate'
-                    ? 'text-[#fde68a]'
-                    : roomAlertNotice.type === 'locked'
-                    ? 'text-[#ef9282]'
-                    : roomAlertNotice.type === 'full'
-                    ? 'text-[#fb923c]'
-                    : 'text-[#ef9282]'
-                }`}>
+                <p
+                  className={`text-sm sm:text-base leading-snug ${
+                    roomAlertNotice.type === 'duplicate'
+                      ? 'text-[#fde68a]'
+                      : roomAlertNotice.type === 'locked'
+                      ? 'text-[#ef9282]'
+                      : roomAlertNotice.type === 'full'
+                      ? 'text-[#fb923c]'
+                      : 'text-[#ef9282]'
+                  }`}
+                >
                   {roomAlertNotice.message}
                 </p>
               </div>
@@ -1286,7 +1563,7 @@ export function App() {
         </aside>
       )}
 
-      {/* 5. Floating Participant Joined / Left Toast Notification (Centered Only) */}
+      {/* 5. Floating Participant Joined / Left Toast Notification */}
       {participantNotice && (
         <aside
           aria-label="Уведомление об участнике"
@@ -1339,7 +1616,6 @@ export function App() {
         </button>
       )}
 
-      {/* Hidden audio elements to play remote peer microphones live without collision */}
       {Object.entries(remoteAudioStreams).map(([peerId, stream]) => (
         <RemotePeerAudio
           key={peerId}
