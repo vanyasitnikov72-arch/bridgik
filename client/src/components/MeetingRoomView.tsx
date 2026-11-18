@@ -174,6 +174,7 @@ interface PixelAvatarSeatProps {
   reactions?: Array<{ id: string; emoteUrl: string }>;
   onToggleMic?: () => void;
   onKick?: () => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
 }
 
 const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
@@ -195,6 +196,7 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
   reactions = [],
   onToggleMic,
   onKick,
+  onContextMenu,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isControlsOpen, setIsControlsOpen] = useState(false);
@@ -232,6 +234,13 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
       className="relative flex flex-col items-center select-none"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onContextMenu={(e) => {
+        if (!onContextMenu) return;
+        e.preventDefault();
+        e.stopPropagation();
+        setIsControlsOpen(false);
+        onContextMenu(e);
+      }}
       onClick={() => {
         if (isMe) {
           onToggleMic?.();
@@ -478,12 +487,14 @@ interface EmptyPixelSeatProps {
   spotName: string;
   accentColor: string;
   onTakeSeat: () => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
 }
 
 const EmptyPixelSeat: React.FC<EmptyPixelSeatProps> = ({
   spotName,
   accentColor,
   onTakeSeat,
+  onContextMenu,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
 
@@ -493,6 +504,12 @@ const EmptyPixelSeat: React.FC<EmptyPixelSeatProps> = ({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={onTakeSeat}
+      onContextMenu={(e) => {
+        if (!onContextMenu) return;
+        e.preventDefault();
+        e.stopPropagation();
+        onContextMenu(e);
+      }}
     >
       <div
         className={`hidden sm:flex absolute -top-10 z-30 transition-all duration-200 flex-col items-center pointer-events-none ${
@@ -659,6 +676,46 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   const [customNameInput, setCustomNameInput] = useState(myUserName || '');
   const [nameSavedSuccess, setNameSavedSuccess] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => sound.isEnabled());
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    target:
+      | { kind: 'me' }
+      | { kind: 'peer'; peer: Peer }
+      | { kind: 'seat'; seatIndex: number; spotName: string };
+  } | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setContextMenu(null);
+      }
+    };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setContextMenu(null);
+    };
+    document.addEventListener('mousedown', handleOutside);
+    window.addEventListener('keydown', handleEsc);
+    return () => {
+      document.removeEventListener('mousedown', handleOutside);
+      window.removeEventListener('keydown', handleEsc);
+    };
+  }, [contextMenu]);
+
+  const openSeatContextMenu = (
+    e: React.MouseEvent,
+    target:
+      | { kind: 'me' }
+      | { kind: 'peer'; peer: Peer }
+      | { kind: 'seat'; seatIndex: number; spotName: string }
+  ) => {
+    sound.playClick();
+    const x = Math.min(e.clientX, window.innerWidth - 265);
+    const y = Math.min(e.clientY, window.innerHeight - 310);
+    setContextMenu({ x: Math.max(8, x), y: Math.max(8, y), target });
+  };
 
   const myPeer = peers.find((p) => p.id === myPeerId);
   const isHost = myPeer?.isHost ?? peers.length <= 1;
@@ -1164,6 +1221,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                       adminFrame={adminFrame}
                       statusEmote={statusEmote || undefined}
                       reactions={seatReactions.filter((r) => r.peerId === myPeerId)}
+                      onContextMenu={(e) => openSeatContextMenu(e, { kind: 'me' })}
                     />
                   );
                 } else if (occupant?.type === 'peer') {
@@ -1191,6 +1249,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                       }
                       reactions={seatReactions.filter((r) => r.peerId === peer.id)}
                       onKick={isHost ? () => handleKickPeer(peer.id) : undefined}
+                      onContextMenu={(e) => openSeatContextMenu(e, { kind: 'peer', peer })}
                     />
                   );
                 } else {
@@ -1199,6 +1258,13 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                       spotName={seat.spotName}
                       accentColor={currentRoom.accent}
                       onTakeSeat={() => handleSwitchSeat(index)}
+                      onContextMenu={(e) =>
+                   openSeatContextMenu(e, {
+                     kind: 'seat',
+                     seatIndex: index,
+                     spotName: seat.spotName,
+                   })
+                 }
                     />
                   );
                 }
@@ -2314,6 +2380,264 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
               </div>
             )}
           </div>
+        </div>
+      )}
+      {/* Custom Right-Click Context Menu for Participants & Seats */}
+      {contextMenu && (
+        <div
+          ref={contextMenuRef}
+          onContextMenu={(e) => e.preventDefault()}
+          style={{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }}
+          className="fixed z-[170] w-64 rounded-2xl bg-[#18181f]/98 border border-white/15 shadow-[0_20px_55px_rgba(0,0,0,0.9)] backdrop-blur-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100"
+        >
+          {contextMenu.target.kind === 'me' && (
+            <>
+              <div className="px-3.5 py-2.5 border-b border-white/[0.08] flex items-center gap-2.5">
+                <img
+                  src={userAvatar || getAvatarForName(activeMyName)}
+                  alt=""
+                  className="w-8 h-8 rounded-full object-cover border border-[#789d2a]"
+                  style={{ imageRendering: 'pixelated' }}
+                />
+                <div className="min-w-0">
+                  <p className="text-sm font-extrabold text-[#ededed] truncate">
+                    {activeMyName} (Вы)
+                  </p>
+                  <p className="text-[11px] text-[#9ac43e]">
+                    {isHost ? 'Организатор комнаты' : 'Участник'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-1.5 space-y-0.5 text-sm font-bold">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onToggleMic();
+                    setContextMenu(null);
+                  }}
+                  className="w-full px-3 py-2 rounded-xl flex items-center gap-2.5 text-[#ededed] hover:bg-white/[0.07] cursor-pointer text-left"
+                >
+                  {isMicActive ? (
+                    <MicOff className="w-4 h-4 text-[#ef9282]" />
+                  ) : (
+                    <Mic className="w-4 h-4 text-[#9ac43e]" />
+                  )}
+                  <span>{isMicActive ? 'Выключить микрофон' : 'Включить микрофон'}</span>
+                </button>
+
+                {onSendReaction && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsReactionPickerOpen(true);
+                      setContextMenu(null);
+                    }}
+                    className="w-full px-3 py-2 rounded-xl flex items-center gap-2.5 text-[#ededed] hover:bg-white/[0.07] cursor-pointer text-left"
+                  >
+                    <Smile className="w-4 h-4 text-amber-300" />
+                    <span>Отправить 7TV-реакцию</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSettingsOpen(true);
+                    setContextMenu(null);
+                  }}
+                  className="w-full px-3 py-2 rounded-xl flex items-center gap-2.5 text-[#ededed] hover:bg-white/[0.07] cursor-pointer text-left"
+                >
+                  <Settings className="w-4 h-4 text-[#a8a8a8]" />
+                  <span>Сменить ник и настройки</span>
+                </button>
+
+                {isHost && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleMuteAll();
+                      setContextMenu(null);
+                    }}
+                    className="w-full px-3 py-2 rounded-xl flex items-center gap-2.5 text-[#ededed] hover:bg-white/[0.07] cursor-pointer text-left"
+                  >
+                    <MicOff className="w-4 h-4 text-amber-400" />
+                    <span>Заглушить всех в комнате</span>
+                  </button>
+                )}
+
+                <div className="my-1 border-t border-white/[0.08]" />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setContextMenu(null);
+                    onLeaveRoom();
+                  }}
+                  className="w-full px-3 py-2 rounded-xl flex items-center gap-2.5 text-[#ef9282] hover:bg-[#ed2b3b]/20 cursor-pointer text-left"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Покинуть комнату</span>
+                </button>
+              </div>
+            </>
+          )}
+
+          {contextMenu.target.kind === 'peer' && (() => {
+            const peer = contextMenu.target.peer;
+            const vol = peerVolumes[peer.id] ?? 100;
+            const connType = peerConnectionTypes?.[peer.id];
+            return (
+              <>
+                <div className="px-3.5 py-2.5 border-b border-white/[0.08] flex items-center gap-2.5">
+                  <img
+                    src={peer.avatar || getAvatarForName(peer.name)}
+                    alt=""
+                    className="w-8 h-8 rounded-full object-cover border border-white/20"
+                    style={{ imageRendering: 'pixelated' }}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-extrabold text-[#ededed] truncate">
+                        {peer.name}
+                      </p>
+                      {peer.isHost && <Crown className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
+                    </div>
+                    <p className="text-[11px] text-[#888888]">
+                      {peer.isMicActive ? 'Микрофон вкл' : 'Микрофон выкл'}
+                      {connType ? ` · ${connType === 'relay' ? 'TURN' : 'P2P'}` : ''}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-1.5 space-y-0.5 text-sm font-bold">
+                  {onChangePeerVolume && (
+                    <div className="px-3 py-2 rounded-xl bg-white/[0.03] space-y-1.5 mb-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-[#c4c4c4] flex items-center gap-1.5">
+                          {vol === 0 ? (
+                            <VolumeX className="w-3.5 h-3.5 text-[#ef9282]" />
+                          ) : (
+                            <Volume2 className="w-3.5 h-3.5 text-[#9ac43e]" />
+                          )}
+                          <span>Громкость для меня</span>
+                        </span>
+                        <span className="font-mono text-[#ededed]">{vol}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={200}
+                        step={5}
+                        value={vol}
+                        onChange={(e) => onChangePeerVolume(peer.id, Number(e.target.value))}
+                        className="w-full accent-[#789d2a] cursor-pointer h-1.5"
+                      />
+                      <div className="flex gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => onChangePeerVolume(peer.id, vol === 0 ? 100 : 0)}
+                          className="flex-1 py-1 rounded-lg bg-[#25252e] hover:bg-[#32323d] text-[11px] text-[#ededed] cursor-pointer"
+                        >
+                          {vol === 0 ? 'Включить (100%)' : 'Заглушить для себя'}
+                        </button>
+                        {vol !== 100 && (
+                          <button
+                            type="button"
+                            onClick={() => onChangePeerVolume(peer.id, 100)}
+                            className="px-2 py-1 rounded-lg bg-[#25252e] hover:bg-[#32323d] text-[11px] text-[#9ac43e] cursor-pointer"
+                          >
+                            100%
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleOpenChatTab();
+                      setChatInput((prev) =>
+                        prev ? `${prev} @${peer.name} ` : `@${peer.name} `
+                      );
+                      setContextMenu(null);
+                    }}
+                    className="w-full px-3 py-2 rounded-xl flex items-center gap-2.5 text-[#ededed] hover:bg-white/[0.07] cursor-pointer text-left"
+                  >
+                    <Send className="w-4 h-4 text-[#9ac43e]" />
+                    <span>Упомянуть в чате</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(peer.name).catch(() => {});
+                      sound.playClick();
+                      setContextMenu(null);
+                    }}
+                    className="w-full px-3 py-2 rounded-xl flex items-center gap-2.5 text-[#ededed] hover:bg-white/[0.07] cursor-pointer text-left"
+                  >
+                    <Copy className="w-4 h-4 text-[#a8a8a8]" />
+                    <span>Скопировать ник</span>
+                  </button>
+
+                  {isHost && (
+                    <>
+                      <div className="my-1 border-t border-white/[0.08]" />
+                      <p className="px-3 pt-1 text-[10px] uppercase tracking-wider text-amber-400/90 font-extrabold">
+                        Действия хоста
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleMuteAll();
+                          setContextMenu(null);
+                        }}
+                        className="w-full px-3 py-2 rounded-xl flex items-center gap-2.5 text-[#ededed] hover:bg-white/[0.07] cursor-pointer text-left"
+                      >
+                        <MicOff className="w-4 h-4 text-amber-400" />
+                        <span>Заглушить всех в комнате</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setContextMenu(null);
+                          handleKickPeer(peer.id);
+                        }}
+                        className="w-full px-3 py-2 rounded-xl flex items-center gap-2.5 text-[#ef9282] hover:bg-[#ed2b3b] hover:text-white cursor-pointer text-left transition-colors"
+                      >
+                        <UserX className="w-4 h-4" />
+                        <span>Исключить из комнаты</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+              </>
+            );
+          })()}
+
+          {contextMenu.target.kind === 'seat' && (() => {
+            const seatTarget = contextMenu.target;
+            return (
+              <div className="p-1.5 space-y-0.5 text-sm font-bold">
+                <p className="px-3 py-1.5 text-xs text-[#888888] border-b border-white/[0.06]">
+                  {seatTarget.spotName}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleSwitchSeat(seatTarget.seatIndex);
+                    setContextMenu(null);
+                  }}
+                  className="w-full px-3 py-2 rounded-xl flex items-center gap-2.5 text-[#bbf348] hover:bg-[#789d2a]/20 cursor-pointer text-left"
+                >
+                  <Armchair className="w-4 h-4" />
+                  <span>Пересесть сюда</span>
+                </button>
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>

@@ -9,12 +9,12 @@ import {
   Mic,
   FileText,
   Lock,
-  Users,
   Paperclip,
   ChevronDown,
 } from 'lucide-react';
 import { NearbyPeer, PairRequest } from '../types/index.js';
 import { BridgeIcon } from './icons/BridgeIcon.js';
+import { RoomLoungeIcon } from './icons/RoomLoungeIcon.js';
 import { sound } from '../utils/sound.js';
 
 interface HomeViewProps {
@@ -362,7 +362,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                         : 'bg-[#262626] border-[#3a3a3a] text-[#9ac43e]'
                     }`}
                   >
-                    <Users className="w-5 h-5 sm:w-6 sm:h-6" />
+                    <RoomLoungeIcon className="w-5 h-5 sm:w-6 sm:h-6" />
                   </div>
                   <div className="min-w-0">
                     <h3 className="text-xl sm:text-2xl font-extrabold text-white">Режим «Комната»</h3>

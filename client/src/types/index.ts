@@ -1,6 +1,42 @@
 export type ThemeMode = 'swiss' | 'cyberpunk' | 'lofi';
-export type AppTab = 'bridge' | 'meeting' | 'about' | 'legal';
+export type AppTab = 'bridge' | 'meeting' | 'about' | 'legal' | 'profile';
 export type RoomMode = 'bridge' | 'meeting';
+
+export type AuthProvider = 'twitch' | 'telegram' | 'key';
+export type UserTier = 'free' | 'pro';
+export type AvatarFrameId = 'none' | 'gold' | 'rgb' | 'plasma';
+
+export interface StickyDevice {
+  id: string;
+  name: string;
+  deviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown';
+  browserLabel: string;
+  isCurrent: boolean;
+  isOnline: boolean;
+  lastSeenAt: number;
+}
+
+export interface UserProfile {
+  id: string;
+  displayName: string;
+  avatarUrl?: string;
+  tier: UserTier;
+  proUntil?: string;
+  providers: {
+    twitch?: { handle: string; avatarUrl?: string };
+    telegram?: { username?: string; id?: number };
+    hasLicenseKey?: boolean;
+  };
+  licenseKeyPreview?: string;
+  unlockedFrames: AvatarFrameId[];
+  unlockedThemes: string[];
+  activeFrame: AvatarFrameId;
+  activeEmote?: string | null;
+  defaultRoomTheme: string;
+  s3QuotaUsedMb: number;
+  s3QuotaLimitMb: number;
+  devices: StickyDevice[];
+}
 
 export interface Peer {
   id: string;

@@ -21,6 +21,11 @@ import { MeetingRoomView } from './components/MeetingRoomView.js';
 import { AboutView } from './components/AboutView.js';
 import { LegalView, LegalDocType } from './components/LegalView.js';
 import { QRCodeModal } from './components/QRCodeModal.js';
+import { AuthModal } from './components/AuthModal.js';
+import { SettingsModal } from './components/SettingsModal.js';
+import { LeaveConfirmModal } from './components/LeaveConfirmModal.js';
+import { ProfileView } from './components/ProfileView.js';
+import { ProfileSectionTab } from './components/ProfileDropdown.js';
 import { Footer } from './components/Footer.js';
 import {
   FileTransfer,
@@ -31,6 +36,8 @@ import {
   PairRequest,
   AppTab,
   RoomMode,
+  AuthProvider,
+  UserProfile,
 } from './types/index.js';
 import {
   detectDeviceType,
@@ -81,6 +88,144 @@ export function App() {
   const [statusEmote, setStatusEmote] = useState<string | null>(() => {
     return localStorage.getItem('bridgik_user_status_emote') || null;
   });
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(() => {
+    try {
+      const raw = localStorage.getItem('bridgik_demo_profile');
+      return raw ? (JSON.parse(raw) as UserProfile) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalProvider, setAuthModalProvider] = useState<AuthProvider>('twitch');
+  const [profileSectionTab, setProfileSectionTab] = useState<ProfileSectionTab>('appearance');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(() => sound.isEnabled());
+  const [radarVisible, setRadarVisible] = useState(() => {
+    return localStorage.getItem('bridgik_radar_visible') !== 'false';
+  });
+  const [stickyAutoAccept, setStickyAutoAccept] = useState(() => {
+    return localStorage.getItem('bridgik_sticky_auto_accept') !== 'false';
+  });
+  const [participantToasts, setParticipantToasts] = useState(() => {
+    return localStorage.getItem('bridgik_participant_toasts') !== 'false';
+  });
+  const [tgNotifyDownload, setTgNotifyDownload] = useState(() => {
+    return localStorage.getItem('bridgik_tg_notify_download') !== 'false';
+  });
+  const [tgNotifyDevice, setTgNotifyDevice] = useState(() => {
+    return localStorage.getItem('bridgik_tg_notify_device') === 'true';
+  });
+
+  const handleToggleSound = () => {
+    const next = sound.toggle();
+    setSoundEnabled(next);
+    if (next) sound.playMessage();
+  };
+
+  const saveProfile = (next: UserProfile | null) => {
+    setUserProfile(next);
+    if (next) {
+      localStorage.setItem('bridgik_demo_profile', JSON.stringify(next));
+    } else {
+      localStorage.removeItem('bridgik_demo_profile');
+    }
+  };
+
+  const handleAuthSuccess = (provider: AuthProvider, payload?: { key?: string }) => {
+    const base: UserProfile = userProfile || {
+      id: 'preview-user-1',
+      displayName: provider === 'twitch' ? 'tyypicall' : userName,
+      avatarUrl: userAvatar,
+      tier: 'free',
+      providers: {},
+      unlockedFrames: ['none'],
+      unlockedThemes: ['cyber-lounge', 'cozy-loft', 'skyline-penthouse', 'retro-lounge'],
+      activeFrame: 'none',
+      activeEmote: statusEmote,
+      defaultRoomTheme: roomTheme,
+      s3QuotaUsedMb: 0,
+      s3QuotaLimitMb: 0,
+      devices: [
+        {
+          id: getBrowserDeviceId(),
+          name: deviceType === 'mobile' ? 'Мой смартфон' : 'Этот ПК',
+          deviceType,
+          browserLabel: 'Текущий браузер',
+          isCurrent: true,
+          isOnline: true,
+          lastSeenAt: Date.now(),
+        },
+        {
+          id: 'demo-second-device',
+          name: deviceType === 'mobile' ? 'Домашний ПК' : 'iPhone Safari',
+          deviceType: deviceType === 'mobile' ? 'desktop' : 'mobile',
+          browserLabel: deviceType === 'mobile' ? 'Chrome Windows' : 'Safari iOS',
+          isCurrent: false,
+          isOnline: true,
+          lastSeenAt: Date.now() - 120000,
+        },
+      ],
+    };
+
+    const nextProviders = { ...base.providers };
+    let nextName = base.displayName;
+
+    if (provider === 'twitch') {
+      nextProviders.twitch = { handle: 'tyypicall' };
+      if (!userProfile) nextName = 'tyypicall';
+    } else if (provider === 'telegram') {
+      nextProviders.telegram = { username: 'bridgik_user', id: 100001 };
+    } else if (provider === 'key') {
+      nextProviders.hasLicenseKey = true;
+    }
+
+    const updated: UserProfile = {
+      ...base,
+      displayName: nextName,
+      providers: nextProviders,
+      licenseKeyPreview:
+        provider === 'key' && payload?.key ? payload.key : base.licenseKeyPreview,
+    };
+
+    saveProfile(updated);
+    if (updated.displayName !== userName) {
+      handleUpdateUserName(updated.displayName);
+    }
+  };
+
+  const handleToggleDemoTier = () => {
+    if (!userProfile) return;
+    const nextTier = userProfile.tier === 'pro' ? 'free' : 'pro';
+    const nextFrame =
+      nextTier === 'pro'
+        ? userProfile.activeFrame === 'none'
+          ? 'gold'
+          : userProfile.activeFrame
+        : 'none';
+    const updated: UserProfile = {
+      ...userProfile,
+      tier: nextTier,
+      unlockedFrames:
+        nextTier === 'pro' ? ['none', 'gold', 'rgb', 'plasma'] : ['none'],
+      unlockedThemes:
+        nextTier === 'pro'
+          ? ['cyber-lounge', 'tokyo-night', 'loft', 'bunker', 'coffee-shop', 'rainy-roof']
+          : ['cyber-lounge'],
+      activeFrame: nextFrame,
+      s3QuotaLimitMb: nextTier === 'pro' ? 20480 : 0,
+      s3QuotaUsedMb: nextTier === 'pro' ? 420 : 0,
+    };
+    saveProfile(updated);
+    handleUpdateAdminFrame(nextFrame);
+  };
+
+  const handleLogout = () => {
+    saveProfile(null);
+    if (activeTab === 'profile') {
+      setActiveTab(roomId ? roomMode : 'bridge');
+    }
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -782,7 +927,10 @@ export function App() {
 
   useEffect(() => {
     if (!socket || !isConnected || roomId) return;
-
+    if (!radarVisible) {
+   socket.emit('lobby-leave');
+   return;
+ }
     socket.emit('lobby-join', {
       name: userName,
       deviceType,
@@ -834,7 +982,7 @@ export function App() {
       socket.off('pair-request-cancelled', handlePairCancelled);
       socket.off('direct-pair-result', handlePairResult);
     };
-  }, [socket, isConnected, roomId, userName, deviceType]);
+  }, [socket, isConnected, roomId, userName, deviceType, radarVisible]);
 
   useEffect(() => {
     if (!socket || !isConnected) return;
@@ -1331,8 +1479,58 @@ export function App() {
     const targetRoom = roomId || pin;
     return `${window.location.protocol}//${host}?room=${targetRoom}${modeQuery}`;
   })();
+  const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
+
+  const activeTransfersCount = transfers.filter(
+    (t) =>
+      t.status === 'transferring' ||
+      t.status === 'pending' ||
+      t.status === 'waiting_receiver'
+  ).length;
+  const otherPeersCount = peers.filter((p) => p.id !== myPeerId).length;
+
+  const requestLeaveRoom = (source: 'header' | 'button') => {
+    if (!roomId) return;
+    const hasImportantActivity =
+      activeTransfersCount > 0 || otherPeersCount > 0 || isMicActive || isScreenActive;
+
+    if (source === 'header' || hasImportantActivity) {
+      sound.playClick();
+      setIsLeaveConfirmOpen(true);
+      return;
+    }
+    handleLeaveRoom();
+  };
+
+  useEffect(() => {
+    const shouldProtectTab = Boolean(roomId);
+    if (!shouldProtectTab) return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [roomId, activeTransfersCount, otherPeersCount, isMicActive, isScreenActive]);
 
   const getThemeWrapperClass = () => {
+    useEffect(() => {
+    let section = 'Мост';
+    if (activeTab === 'legal') {
+      section = 'Условия';
+    } else if (activeTab === 'about') {
+      section = 'О сервисе';
+    } else if (activeTab === 'profile') {
+      section = 'Профиль';
+    } else if (roomId) {
+      const modeTitle = roomMode === 'meeting' ? 'Комната' : 'Мост';
+      section = pin ? `${modeTitle} #${pin}` : modeTitle;
+    } else if (activeTab === 'meeting') {
+      section = 'Комната';
+    }
+    document.title = `${section} · bridgik`;
+  }, [activeTab, roomId, roomMode, pin]);
     return 'bg-[#171717] text-[#f2f2f2] selection:bg-[#789d2a] selection:text-white';
   };
 
@@ -1355,16 +1553,79 @@ export function App() {
         theme={theme}
         onToggleTheme={handleToggleTheme}
         isConnected={isConnected}
-        onGoHome={roomId ? handleLeaveRoom : () => setActiveTab('bridge')}
+        onGoHome={roomId ? () => requestLeaveRoom('header') : () => setActiveTab('bridge')}
         activeTab={activeTab}
         onSelectTab={setActiveTab}
-      />
+        userProfile={userProfile}
+        onOpenAuthModal={(provider = 'twitch') => {
+          setAuthModalProvider(provider);
+          setIsAuthModalOpen(true);
+        }}
+        onOpenProfile={(tab = 'appearance') => {
+          setProfileSectionTab(tab);
+          setActiveTab('profile');
+        }}
+        onToggleDemoTier={handleToggleDemoTier}
+        onLogout={handleLogout}
 
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        soundEnabled={soundEnabled}
+        onToggleSound={handleToggleSound}
+        roomId={roomId}
+        roomPin={pin}
+        roomMode={roomMode}
+        onReturnToRoom={() => setActiveTab(roomMode)}
+      />
       <main className="flex-1">
         {activeTab === 'legal' ? (
           <LegalView onBack={() => setActiveTab('bridge')} defaultDoc={legalDoc} />
         ) : activeTab === 'about' ? (
           <AboutView onBack={() => setActiveTab('bridge')} />
+        ) : activeTab === 'profile' && userProfile ? (
+          <ProfileView
+            key={profileSectionTab}
+            profile={userProfile}
+            isAdmin={isAdmin}
+            clientIp={clientIp}
+            initialTab={profileSectionTab}
+            onBack={() => setActiveTab(roomId ? roomMode : 'bridge')}
+            onUpdateDisplayName={(name) => {
+              handleUpdateUserName(name);
+              saveProfile({ ...userProfile, displayName: name });
+            }}
+            onUpdateAvatar={(avatar) => {
+              handleUpdateUserAvatar(avatar);
+              saveProfile({ ...userProfile, avatarUrl: avatar });
+            }}
+            onUpdateFrame={(frame) => {
+              handleUpdateAdminFrame(frame);
+              saveProfile({ ...userProfile, activeFrame: frame });
+            }}
+            onUpdateStatusEmote={(emote) => {
+              handleUpdateStatusEmote(emote);
+              saveProfile({ ...userProfile, activeEmote: emote });
+            }}
+            onUpdateDefaultTheme={(themeId) => {
+              setRoomTheme(themeId);
+              localStorage.setItem('bridgik_pixel_room', themeId);
+              saveProfile({ ...userProfile, defaultRoomTheme: themeId });
+            }}
+            onOpenAuthModal={(provider = 'twitch') => {
+              setAuthModalProvider(provider);
+              setIsAuthModalOpen(true);
+            }}
+            onToggleDemoTier={handleToggleDemoTier}
+            onRemoveDevice={(devId) => {
+              saveProfile({
+                ...userProfile,
+                devices: userProfile.devices.filter((d) => d.id !== devId),
+              });
+            }}
+            onCreateBridgeWithDevice={() => {
+              setActiveTab('bridge');
+              if (!roomId) handleCreateRoom('bridge');
+            }}
+          />
         ) : !roomId ? (
           <HomeView
             onCreateBridge={() => handleCreateRoom('bridge')}
@@ -1429,7 +1690,7 @@ export function App() {
             onUpdateScratchpad={handleUpdateScratchpad}
             onSendFiles={handleSendFiles}
             onSendText={handleSendText}
-            onLeaveRoom={handleLeaveRoom}
+            onLeaveRoom={() => requestLeaveRoom('button')}
             onOpenQR={() => setIsQRModalOpen(true)}
             onToggleMic={handleToggleMic}
             onToggleScreen={handleToggleScreen}
@@ -1458,7 +1719,7 @@ export function App() {
             onCancelTransfer={handleCancelTransfer}
             onAcceptFile={handleAcceptFile}
             onRejectFile={handleRejectFile}
-            onLeaveRoom={handleLeaveRoom}
+            onLeaveRoom={() => requestLeaveRoom('button')}
             onOpenQR={() => setIsQRModalOpen(true)}
             onToggleMic={handleToggleMic}
             onToggleScreen={handleToggleScreen}
@@ -1484,6 +1745,80 @@ export function App() {
         onClose={() => setIsQRModalOpen(false)}
         pin={pin}
         roomUrl={roomUrl}
+      />
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        initialProvider={authModalProvider}
+        onClose={() => setIsAuthModalOpen(false)}
+        onAuthSuccess={handleAuthSuccess}
+        onOpenLegal={(doc) => {
+          setLegalDoc(doc);
+          setActiveTab('legal');
+        }}
+      />
+
+      <LeaveConfirmModal
+        isOpen={isLeaveConfirmOpen}
+        roomMode={roomMode}
+        pin={pin}
+        activeTransfersCount={activeTransfersCount}
+        otherPeersCount={otherPeersCount}
+        isMicOrScreenActive={isMicActive || isScreenActive}
+        onStay={() => setIsLeaveConfirmOpen(false)}
+        onConfirmLeave={() => {
+          setIsLeaveConfirmOpen(false);
+          handleLeaveRoom();
+        }}
+      />
+
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        autoDownload={autoDownload}
+        onToggleAutoDownload={handleToggleAutoDownload}
+        soundEnabled={soundEnabled}
+        onToggleSound={handleToggleSound}
+        radarVisible={radarVisible}
+        onToggleRadarVisible={() => {
+          setRadarVisible((v) => {
+            const next = !v;
+            localStorage.setItem('bridgik_radar_visible', String(next));
+            return next;
+          });
+        }}
+        stickyAutoAccept={stickyAutoAccept}
+        onToggleStickyAutoAccept={() => {
+          setStickyAutoAccept((v) => {
+            const next = !v;
+            localStorage.setItem('bridgik_sticky_auto_accept', String(next));
+            return next;
+          });
+        }}
+        participantToasts={participantToasts}
+        onToggleParticipantToasts={() => {
+          setParticipantToasts((v) => {
+            const next = !v;
+            localStorage.setItem('bridgik_participant_toasts', String(next));
+            return next;
+          });
+        }}
+        tgNotifyDownload={tgNotifyDownload}
+        onToggleTgNotifyDownload={() => {
+          setTgNotifyDownload((v) => {
+            const next = !v;
+            localStorage.setItem('bridgik_tg_notify_download', String(next));
+            return next;
+          });
+        }}
+        tgNotifyDevice={tgNotifyDevice}
+        onToggleTgNotifyDevice={() => {
+          setTgNotifyDevice((v) => {
+            const next = !v;
+            localStorage.setItem('bridgik_tg_notify_device', String(next));
+            return next;
+          });
+        }}
+        hasTelegramLinked={Boolean(userProfile?.providers.telegram)}
       />
 
       {/* 1. Incoming Pair Request */}
@@ -1729,7 +2064,7 @@ export function App() {
       )}
 
       {/* 5. Floating Participant Joined / Left Toast Notification */}
-      {participantNotice && (
+      {participantToasts && participantNotice && (
         <aside
           aria-label="Уведомление об участнике"
           className={`fixed top-5 left-1/2 -translate-x-1/2 z-[150] px-4 py-2.5 rounded-2xl backdrop-blur-xl flex items-center gap-3 text-sm font-bold animate-in slide-in-from-top-4 duration-200 pointer-events-none select-none border-2 ${

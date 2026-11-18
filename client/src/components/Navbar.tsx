@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { Edit2, Check, Volume2, VolumeX, Smile, X } from 'lucide-react';
-import { ThemeMode, AppTab } from '../types/index.js';
+import { Volume2, VolumeX, LogIn, ChevronDown, Wrench, Check } from 'lucide-react';
+import { AuthProvider, ThemeMode, AppTab, RoomMode, UserProfile } from '../types/index.js';
 import { sound } from '../utils/sound.js';
-import { AvatarPicker } from './AvatarPicker.js';
-import { EmotePicker } from './EmotePicker.js';
+import { ProfileDropdown, ProfileSectionTab } from './ProfileDropdown.js';
 import { getAvatarForName } from '../utils/device.js';
 
 interface NavbarProps {
@@ -24,58 +23,76 @@ interface NavbarProps {
   onGoHome?: () => void;
   activeTab?: AppTab;
   onSelectTab?: (tab: AppTab) => void;
+  roomId?: string | null;
+  roomPin?: string;
+  roomMode?: RoomMode;
+  onReturnToRoom?: () => void;
+  userProfile?: UserProfile | null;
+  onOpenAuthModal?: (provider?: AuthProvider) => void;
+  onOpenProfile?: (tab?: ProfileSectionTab) => void;
+  onOpenSettings?: () => void;
+  soundEnabled?: boolean;
+  onToggleSound?: () => void;
+  onToggleDemoTier?: () => void;
+  onLogout?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   userName,
-  onUpdateUserName,
   userAvatar,
-  onUpdateUserAvatar,
-  statusEmote,
-  onUpdateStatusEmote,
   isAdmin,
   adminFrame = 'gold',
-  onUpdateAdminFrame,
-  clientIp,
-  theme: _theme,
-  onToggleTheme: _onToggleTheme,
   isConnected,
   onGoHome,
   activeTab = 'bridge',
   onSelectTab,
+  roomId,
+  roomPin,
+  roomMode = 'bridge',
+  onReturnToRoom,
+  userProfile,
+  onOpenAuthModal,
+  onOpenProfile,
+  onOpenSettings,
+  soundEnabled: externalSoundEnabled,
+  onToggleSound: externalOnToggleSound,
+  onToggleDemoTier,
+  onLogout,
 }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
-  const [isStatusPickerOpen, setIsStatusPickerOpen] = useState(false);
-  const [tempName, setTempName] = useState(userName);
-  const [soundEnabled, setSoundEnabled] = useState(() => sound.isEnabled());
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [localSoundEnabled, setLocalSoundEnabled] = useState(() => sound.isEnabled());
+  const soundEnabled = externalSoundEnabled ?? localSoundEnabled;
+
+  const effectiveFrame = userProfile ? userProfile.activeFrame : adminFrame;
+  const hasFrameAccess = Boolean(
+    isAdmin ||
+      (userProfile &&
+        (userProfile.tier === 'pro' || userProfile.unlockedFrames.includes(effectiveFrame)))
+  );
 
   const getAdminFrameClass = () => {
-    if (!isAdmin || adminFrame === 'none') {
+    if (!hasFrameAccess || effectiveFrame === 'none') {
       return 'border-2 border-[#789d2a] shadow-[0_0_8px_rgba(120,157,42,0.35)]';
     }
-    if (adminFrame === 'rgb') {
+    if (effectiveFrame === 'rgb') {
       return 'border-2 border-sky-400 animate-admin-rgb';
     }
-    if (adminFrame === 'plasma') {
+    if (effectiveFrame === 'plasma') {
       return 'border-2 border-purple-400 animate-admin-plasma';
     }
     return 'border-2 border-amber-400 animate-admin-gold';
   };
 
   const handleToggleSound = () => {
+    if (externalOnToggleSound) {
+      externalOnToggleSound();
+      return;
+    }
     const nextState = sound.toggle();
-    setSoundEnabled(nextState);
+    setLocalSoundEnabled(nextState);
     if (nextState) {
       sound.playMessage();
     }
-  };
-
-  const handleSaveName = () => {
-    if (tempName.trim()) {
-      onUpdateUserName(tempName.trim());
-    }
-    setIsEditing(false);
   };
 
   const goHome = () => {
@@ -84,21 +101,77 @@ export const Navbar: React.FC<NavbarProps> = ({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const isInRoomView =
+    Boolean(roomId) &&
+    activeTab !== 'about' &&
+    activeTab !== 'legal' &&
+    activeTab !== 'profile';
+
+  const activeSessionLabel = `${roomMode === 'meeting' ? 'Комната' : 'Мост'}${
+    roomPin ? ` #${roomPin}` : ''
+  }`;
+
   const navLinks = (
     <>
-      <button
-        onClick={goHome}
-        className={`pb-1 whitespace-nowrap cursor-pointer transition-colors ${
-          activeTab === 'bridge' || activeTab === 'meeting'
-            ? 'text-[#ededed] border-b-2 border-[#789d2a]'
-            : 'text-[#aaaaaa] hover:text-[#ededed]'
-        }`}
-      >
-        Главная
-      </button>
+      {roomId ? (
+        <>
+          <button
+            onClick={goHome}
+            className="pb-1 whitespace-nowrap cursor-pointer transition-colors text-[#aaaaaa] hover:text-[#ededed]"
+            title="Выйти на главную"
+          >
+            Главная
+          </button>
+          <button
+            onClick={() => {
+              onReturnToRoom?.();
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className={`pb-1 whitespace-nowrap cursor-pointer transition-colors inline-flex items-center gap-1.5 ${
+              isInRoomView
+                ? 'text-[#ededed] border-b-2 border-[#789d2a]'
+                : 'text-[#9ac43e] hover:text-[#ededed]'
+            }`}
+            title="Вернуться в активную сессию"
+          >
+            <span className="w-2 h-2 rounded-full bg-[#9ac43e] animate-pulse shrink-0" />
+            <span>{activeSessionLabel}</span>
+          </button>
+        </>
+      ) : (
+        <>
+          <button
+            onClick={() => {
+              onSelectTab?.('bridge');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className={`pb-1 whitespace-nowrap cursor-pointer transition-colors ${
+              activeTab === 'bridge'
+                ? 'text-[#ededed] border-b-2 border-[#789d2a]'
+                : 'text-[#aaaaaa] hover:text-[#ededed]'
+            }`}
+          >
+            Мост
+          </button>
+          <button
+            onClick={() => {
+              onSelectTab?.('meeting');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className={`pb-1 whitespace-nowrap cursor-pointer transition-colors ${
+              activeTab === 'meeting'
+                ? 'text-[#ededed] border-b-2 border-[#789d2a]'
+                : 'text-[#aaaaaa] hover:text-[#ededed]'
+            }`}
+          >
+            Комната
+          </button>
+        </>
+      )}
+
       <button
         onClick={() => {
-          if (onSelectTab) onSelectTab('about');
+          onSelectTab?.('about');
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         className={`pb-1 whitespace-nowrap cursor-pointer transition-colors ${
@@ -111,7 +184,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       </button>
       <button
         onClick={() => {
-          if (onSelectTab) onSelectTab('legal');
+          onSelectTab?.('legal');
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         className={`pb-1 whitespace-nowrap cursor-pointer transition-colors ${
@@ -146,7 +219,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {navLinks}
           </nav>
 
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
             <button
               onClick={handleToggleSound}
               className={`p-2 sm:p-2.5 rounded-lg border transition-colors cursor-pointer flex items-center justify-center shrink-0 ${
@@ -159,165 +232,107 @@ export const Navbar: React.FC<NavbarProps> = ({
               {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
             </button>
 
-            <div className="relative flex items-center min-w-0">
-              {isAvatarPickerOpen && (
-                <div className="absolute top-12 sm:top-14 right-0 z-50 max-w-[calc(100vw-1.5rem)]">
-                  <AvatarPicker
-                    currentAvatar={userAvatar || getAvatarForName(userName)}
-                    onSelectAvatar={(src) => {
-                      onUpdateUserAvatar?.(src);
-                      setIsAvatarPickerOpen(false);
-                    }}
-                    isAdmin={isAdmin}
-                    adminFrame={adminFrame}
-                    onSelectAdminFrame={onUpdateAdminFrame}
-                    clientIp={clientIp}
-                    onClose={() => setIsAvatarPickerOpen(false)}
-                  />
-                </div>
-              )}
-
-              {/* Профиль без внешней рамки */}
-              <div className="flex items-center gap-1.5 sm:gap-2.5 px-1 sm:px-2 py-1 text-sm sm:text-base text-[#ededed] transition-all min-w-0">
+            {userProfile ? (
+              <div className="relative flex items-center min-w-0">
                 <button
                   type="button"
-                  onClick={() => setIsAvatarPickerOpen(!isAvatarPickerOpen)}
-                  className={`relative cursor-pointer hover:scale-105 active:scale-95 transition-transform shrink-0 ${
-                    isAvatarPickerOpen ? 'ring-2 ring-amber-400 rounded-full scale-105' : ''
+                  onClick={() => {
+                    sound.playClick();
+                    setIsProfileMenuOpen((v) => !v);
+                  }}
+                  className={`flex items-center gap-2 px-1.5 sm:px-2.5 py-1 rounded-xl hover:bg-white/[0.05] transition-colors cursor-pointer min-w-0 outline-none ${
+                    isProfileMenuOpen ? 'bg-white/[0.06]' : ''
                   }`}
-                  title={
-                    isAdmin
-                      ? 'Кликните, чтобы выбрать маскота или рамку Создателя'
-                      : 'Кликните, чтобы сменить маскота'
-                  }
+                  title="Открыть меню профиля"
                 >
-                  <img
-                    src={userAvatar || getAvatarForName(userName)}
-                    alt={userName}
-                    className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover bg-[#171717] ${getAdminFrameClass()}`}
-                    style={{ imageRendering: 'pixelated' }}
-                  />
-                  {isAdmin && adminFrame !== 'none' && (
+                  <div className="relative shrink-0">
+                    <img
+                      src={userProfile.avatarUrl || userAvatar || getAvatarForName(userName)}
+                      alt={userProfile.displayName}
+                      className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover bg-[#171717] ${getAdminFrameClass()}`}
+                      style={{ imageRendering: 'pixelated' }}
+                    />
                     <span
-                      className="absolute -top-2 -right-1 text-[10px] sm:text-xs select-none filter drop-shadow-[0_0_6px_rgba(245,158,11,0.8)]"
-                      title="Создатель сервиса"
+                      className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#171717] ${
+                        isConnected ? 'bg-[#789d2a]' : 'bg-[#e8b33c]'
+                      }`}
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    {isAdmin && (
+                      <span
+                        className="w-4 h-4 rounded bg-[#222222] border border-white/15 flex items-center justify-center text-[#ededed] shrink-0"
+                        title="Создатель сервиса (DEV)"
+                      >
+                        <Wrench className="w-2.5 h-2.5" />
+                      </span>
+                    )}
+                    {userProfile.tier === 'pro' && (
+                      <span
+                        className="w-4 h-4 rounded bg-[#789d2a] flex items-center justify-center text-white shrink-0"
+                        title="Bridgik Pro"
+                      >
+                        <Check className="w-2.5 h-2.5 stroke-[3]" />
+                      </span>
+                    )}
+                    {userProfile.activeEmote && (
+                      <img
+                        src={userProfile.activeEmote}
+                        alt=""
+                        className="w-4 h-4 sm:w-5 sm:h-5 object-contain shrink-0 select-none"
+                      />
+                    )}
+                    <span
+                      className={`font-extrabold text-sm sm:text-base max-w-[78px] sm:max-w-[140px] truncate ${
+                        isAdmin || userProfile.tier === 'pro'
+                          ? 'admin-name-shimmer'
+                          : 'text-[#ededed]'
+                      }`}
                     >
-                      👑
+                      {userProfile.displayName}
                     </span>
-                  )}
-                  <span
-                    className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#171717] ${
-                      isConnected ? 'bg-[#789d2a]' : 'bg-[#e8b33c]'
-                    }`}
-                    title={isConnected ? 'В сети' : 'Подключение...'}
-                  />
+
+                    <ChevronDown
+                      className={`w-4 h-4 text-[#888888] shrink-0 transition-transform ${
+                        isProfileMenuOpen ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </div>
                 </button>
 
-                {isEditing ? (
-                  <div className="flex items-center gap-1">
-                    <input
-                      type="text"
-                      value={tempName}
-                      onChange={(e) => setTempName(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSaveName()}
-                      autoFocus
-                      className="bg-[#171717] text-[#ededed] px-2 py-0.5 rounded text-sm sm:text-base outline-none border border-[#789d2a] w-24 sm:w-32 font-bold"
-                    />
-                    <button
-                      onClick={handleSaveName}
-                      className="p-1 hover:text-[#9ac43e] transition-colors shrink-0"
-                    >
-                      <Check className="w-4 h-4 text-[#9ac43e]" />
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => {
-                      setTempName(userName);
-                      setIsEditing(true);
-                    }}
-                    className="flex items-center gap-1.5 sm:gap-2 hover:text-white transition-colors cursor-pointer min-w-0"
-                    title="Кликните, чтобы изменить имя"
-                  >
-                    <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
-                      {isAdmin && (
-                        <span
-                          className="px-1 sm:px-1.5 py-0.2 rounded text-[9px] sm:text-[10px] font-mono font-black bg-amber-400/20 text-amber-300 border border-amber-400/40 uppercase tracking-wider select-none shrink-0"
-                          title="Статус: Создатель сервиса (Root)"
-                        >
-                          DEV
-                        </span>
-                      )}
-                      <span
-                        className={`font-extrabold max-w-[76px] sm:max-w-[140px] truncate ${
-                          isAdmin ? 'admin-name-shimmer' : ''
-                        }`}
-                      >
-                        {userName}
-                      </span>
-                      <Edit2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#aaaaaa] hover:text-[#9ac43e] shrink-0" />
-                    </div>
-                  </button>
+                {isProfileMenuOpen && (
+                  <ProfileDropdown
+                    profile={userProfile}
+                    isAdmin={isAdmin}
+                    onOpenProfile={(tab) => onOpenProfile?.(tab)}
+                    onOpenSettings={onOpenSettings}
+                    onToggleDemoTier={onToggleDemoTier}
+                    onOpenLegal={() => onSelectTab?.('legal')}
+                    onLogout={() => onLogout?.()}
+                    onClose={() => setIsProfileMenuOpen(false)}
+                  />
                 )}
-
-                <div className="relative flex items-center shrink-0">
-                  {statusEmote ? (
-                    <div className="relative group/status flex items-center">
-                      <button
-                        type="button"
-                        onClick={() => setIsStatusPickerOpen(!isStatusPickerOpen)}
-                        className="p-0.5 sm:p-1 rounded-lg hover:bg-white/10 transition-transform active:scale-95 cursor-pointer shrink-0"
-                        title="Анимированный статус (кликните, чтобы сменить)"
-                      >
-                        <img
-                          src={statusEmote}
-                          alt="Статус"
-                          className="w-4 h-4 sm:w-5 sm:h-5 object-contain select-none filter drop-shadow-[0_0_6px_rgba(255,255,255,0.4)]"
-                        />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          sound.playClick();
-                          onUpdateStatusEmote?.(null);
-                        }}
-                        className="hidden sm:block opacity-0 group-hover/status:opacity-100 p-0.5 rounded text-[#888888] hover:text-red-400 hover:bg-white/10 transition-all -ml-1 cursor-pointer"
-                        title="Убрать эмодзи-статус"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setIsStatusPickerOpen(!isStatusPickerOpen)}
-                      className="p-0.5 sm:p-1 rounded-lg text-[#666677] hover:text-amber-300 hover:bg-white/5 transition-colors cursor-pointer shrink-0"
-                      title="Установить анимированный эмодзи-статус (7TV / Telegram)"
-                    >
-                      <Smile className="w-4 h-4" />
-                    </button>
-                  )}
-
-                  {isStatusPickerOpen && (
-                    <EmotePicker
-                      isOpen={isStatusPickerOpen}
-                      onClose={() => setIsStatusPickerOpen(false)}
-                      positionClass="top-12 sm:top-14 right-0"
-                      onSelectEmote={(emote) => {
-                        sound.playClick();
-                        onUpdateStatusEmote?.(emote.url);
-                        setIsStatusPickerOpen(false);
-                      }}
-                    />
-                  )}
-                </div>
               </div>
-            </div>
+            ) : (
+              onOpenAuthModal && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    sound.playClick();
+                    onOpenAuthModal('twitch');
+                  }}
+                  className="px-3.5 sm:px-4 py-2 rounded-xl bg-[#283216] hover:bg-[#33411c] border border-[#789d2a]/75 hover:border-[#9ac43e] text-[#ededed] font-extrabold text-sm sm:text-base transition-all cursor-pointer flex items-center gap-1.5 shadow-md shadow-black/30 shrink-0"
+                >
+                  <LogIn className="w-4 h-4 text-[#9ac43e] shrink-0" />
+                  <span>Войти</span>
+                </button>
+              )
+            )}
           </div>
         </div>
 
-        <nav className="flex md:hidden items-center justify-around border-t border-white/[0.06] py-2 text-base font-bold">
+        <nav className="flex md:hidden items-center justify-around border-t border-white/[0.06] py-2 text-sm sm:text-base font-bold gap-2">
           {navLinks}
         </nav>
       </div>
