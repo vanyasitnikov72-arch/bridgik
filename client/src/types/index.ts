@@ -55,8 +55,8 @@ export interface FileTransfer {
   type: 'upload' | 'download';
   peerId: string;
   peerName: string;
-  progress: number; // 0 to 100
-  speed: number; // bytes per second
+  progress: number;
+  speed: number;
   status:
     | 'pending'
     | 'pending_approval'
@@ -67,7 +67,7 @@ export interface FileTransfer {
     | 'error';
   blobUrl?: string;
   error?: string;
-  savedToDisk?: boolean; // true if written directly to disk via File System Access API
+  savedToDisk?: boolean;
 }
 
 export type WebRTCMessage =
@@ -128,5 +128,13 @@ export type WebRTCMessage =
   | {
       type: 'SCRATCHPAD_TYPING';
       updatedBy: string;
+      timestamp: number;
+    }
+  | {
+      type: 'REACTION';
+      id: string;
+      senderId: string;
+      emoteUrl: string;
+      emoteName?: string;
       timestamp: number;
     };

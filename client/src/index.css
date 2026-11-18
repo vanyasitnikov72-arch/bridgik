@@ -49,7 +49,7 @@
   --line: rgba(255, 255, 255, 0.08);
   --border: #3a3a3a;
 
-  --ink: #ededed;
+  --ink: #f2f2f2;
   --ink-2: #c4c4c4;
   --ink-3: #a8a8a8;
 
@@ -68,20 +68,18 @@
   *, *::before, *::after {
     font-family: 'Handjet', monospace, system-ui, sans-serif !important;
     letter-spacing: 0.045em;
-    font-weight: 500;
-    text-rendering: auto;
   }
 
   body {
     background-color: var(--bg);
     color: var(--ink);
-    font-size: 1.3rem;
-    line-height: 1.35;
+    font-size: 1.25rem;
+    font-weight: 500;
+    line-height: 1.45;
     -webkit-font-smoothing: antialiased;
-    text-rendering: optimizeLegibility;
+    text-rendering: auto;
   }
 
-  /* Custom scrollbar matching eblo.id */
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -98,7 +96,6 @@
   }
 }
 
-/* Sequential letter illumination wave for bridgik */
 @keyframes letter-glow-wave {
   0%, 75%, 100% {
     color: #ededed;
@@ -118,22 +115,11 @@
   transition: transform 0.2s, color 0.2s;
 }
 
-/* Data packet sliding across bridge */
 @keyframes bridge-flow-packet {
-  0% {
-    left: 4%;
-    opacity: 0;
-  }
-  15% {
-    opacity: 1;
-  }
-  85% {
-    opacity: 1;
-  }
-  100% {
-    left: 94%;
-    opacity: 0;
-  }
+  0% { left: 4%; opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { left: 94%; opacity: 0; }
 }
 
 .animate-bridge-flow {
@@ -142,20 +128,10 @@
 }
 
 @keyframes bridge-flow-packet-reverse {
-  0% {
-    left: 94%;
-    opacity: 0;
-  }
-  15% {
-    opacity: 1;
-  }
-  85% {
-    opacity: 1;
-  }
-  100% {
-    left: 4%;
-    opacity: 0;
-  }
+  0% { left: 94%; opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { left: 4%; opacity: 0; }
 }
 
 .animate-bridge-flow-reverse {
@@ -164,21 +140,14 @@
 }
 
 @keyframes beacon-blink {
-  0%, 100% {
-    opacity: 0.35;
-    filter: drop-shadow(0 0 0px #789d2a);
-  }
-  50% {
-    opacity: 1;
-    filter: drop-shadow(0 0 6px #bbf348);
-  }
+  0%, 100% { opacity: 0.35; filter: drop-shadow(0 0 0px #789d2a); }
+  50% { opacity: 1; filter: drop-shadow(0 0 6px #bbf348); }
 }
 
 .animate-beacon {
   animation: beacon-blink 1.6s infinite ease-in-out;
 }
 
-/* Animated audio equalizer bars */
 @keyframes eq-wave-1 {
   0%, 100% { height: 4px; }
   50% { height: 18px; }
@@ -201,87 +170,63 @@
 .animate-eq-3 { animation: eq-wave-3 0.8s infinite ease-in-out 0.3s; }
 .animate-eq-4 { animation: eq-wave-4 0.6s infinite ease-in-out 0.1s; }
 
-/* Table Decor: Coffee steam animation */
 @keyframes steam-rise {
-  0% {
-    transform: translateY(0) scaleX(1);
-    opacity: 0.65;
-  }
-  50% {
-    transform: translateY(-8px) scaleX(1.3) scaleY(1.2);
-    opacity: 0.35;
-  }
-  100% {
-    transform: translateY(-16px) scaleX(1.7) scaleY(1.4);
-    opacity: 0;
-  }
+  0% { transform: translateY(0) scaleX(1); opacity: 0.65; }
+  50% { transform: translateY(-8px) scaleX(1.3) scaleY(1.2); opacity: 0.35; }
+  100% { transform: translateY(-16px) scaleX(1.7) scaleY(1.4); opacity: 0; }
 }
 
-.animate-steam {
-  animation: steam-rise 2.4s infinite ease-out;
-}
-.animate-steam-delay {
-  animation: steam-rise 2.4s infinite ease-out 1.2s;
-}
+.animate-steam { animation: steam-rise 2.4s infinite ease-out; }
+.animate-steam-delay { animation: steam-rise 2.4s infinite ease-out 1.2s; }
 
-/* Central Conference Hub: Audio soundwave ripple */
 @keyframes hub-ripple {
-  0% {
-    transform: scale(0.8);
-    opacity: 0.8;
-  }
-  100% {
-    transform: scale(1.6);
-    opacity: 0;
-  }
+  0% { transform: scale(0.8); opacity: 0.8; }
+  100% { transform: scale(1.6); opacity: 0; }
 }
 
-.animate-hub-ripple {
-  animation: hub-ripple 2.2s infinite cubic-bezier(0.1, 0.7, 0.3, 1);
-}
-.animate-hub-ripple-delay {
-  animation: hub-ripple 2.2s infinite cubic-bezier(0.1, 0.7, 0.3, 1) 1.1s;
-}
+.animate-hub-ripple { animation: hub-ripple 2.2s infinite cubic-bezier(0.1, 0.7, 0.3, 1); }
+.animate-hub-ripple-delay { animation: hub-ripple 2.2s infinite cubic-bezier(0.1, 0.7, 0.3, 1) 1.1s; }
 
-/* Footer Pixel Mascot Idle Float */
 @keyframes ghost-float {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-5px);
-  }
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
 }
 
-.animate-ghost {
-  animation: ghost-float 2.6s infinite ease-in-out;
-}
+.animate-ghost { animation: ghost-float 2.6s infinite ease-in-out; }
 
-/* Voice Speech Halo Pulsing for Discord Living Room avatars */
 @keyframes speech-pulse-ring {
-  0% {
-    transform: scale(0.98);
-    box-shadow: 0 0 0 0 rgba(154, 196, 62, 0.7);
-  }
-  70% {
-    transform: scale(1.04);
-    box-shadow: 0 0 0 16px rgba(154, 196, 62, 0);
-  }
-  100% {
-    transform: scale(0.98);
-    box-shadow: 0 0 0 0 rgba(154, 196, 62, 0);
-  }
+  0% { transform: scale(0.98); box-shadow: 0 0 0 0 rgba(154, 196, 62, 0.7); }
+  70% { transform: scale(1.04); box-shadow: 0 0 0 16px rgba(154, 196, 62, 0); }
+  100% { transform: scale(0.98); box-shadow: 0 0 0 0 rgba(154, 196, 62, 0); }
 }
 
 .animate-speech-halo {
   animation: speech-pulse-ring 1.8s infinite cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* ========================================================
-   Admin / Creator Exclusive Flair & Animated Frames
-   ======================================================== */
+@keyframes reaction-float-up {
+  0% {
+    transform: translateY(6px) scale(0.5);
+    opacity: 0;
+  }
+  18% {
+    transform: translateY(-8px) scale(1.18);
+    opacity: 1;
+  }
+  75% {
+    transform: translateY(-48px) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-76px) scale(0.85);
+    opacity: 0;
+  }
+}
 
-/* 1. Golden Creator Halo & Pulse */
+.animate-reaction-float {
+  animation: reaction-float-up 2.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
 @keyframes admin-gold-glow {
   0%, 100% {
     box-shadow: 0 0 12px rgba(245, 158, 11, 0.75), inset 0 0 6px rgba(251, 191, 36, 0.4);
@@ -293,18 +238,11 @@
   }
 }
 
-.animate-admin-gold {
-  animation: admin-gold-glow 2.2s infinite ease-in-out;
-}
+.animate-admin-gold { animation: admin-gold-glow 2.2s infinite ease-in-out; }
 
-/* 2. Cyber RGB Rainbow Hue Rotation */
 @keyframes admin-rgb-spin {
-  0% {
-    filter: hue-rotate(0deg);
-  }
-  100% {
-    filter: hue-rotate(360deg);
-  }
+  0% { filter: hue-rotate(0deg); }
+  100% { filter: hue-rotate(360deg); }
 }
 
 .animate-admin-rgb {
@@ -313,7 +251,6 @@
   border-color: #38bdf8;
 }
 
-/* 3. Neon Plasma / Hologram Pulse */
 @keyframes admin-plasma-pulse {
   0%, 100% {
     box-shadow: 0 0 10px rgba(168, 85, 247, 0.7), inset 0 0 6px rgba(192, 132, 252, 0.4);
@@ -325,21 +262,12 @@
   }
 }
 
-.animate-admin-plasma {
-  animation: admin-plasma-pulse 2s infinite ease-in-out;
-}
+.animate-admin-plasma { animation: admin-plasma-pulse 2s infinite ease-in-out; }
 
-/* Admin Nickname Shimmer Text */
 @keyframes admin-shimmer-wave {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 .admin-name-shimmer {
@@ -349,5 +277,3 @@
   -webkit-text-fill-color: transparent;
   animation: admin-shimmer-wave 5s ease infinite;
 }
-
-

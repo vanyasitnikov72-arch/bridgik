@@ -38,6 +38,10 @@ import {
   getRandomAvatar,
   getBrowserDeviceId,
 } from './utils/device.js';
+import {
+  getSharedAudioContext,
+  monitorStreamVoiceActivity,
+} from './utils/audioAnalyzer.js';
 import { WebRTCManager } from './services/webrtc.js';
 import { sound } from './utils/sound.js';
 
@@ -131,8 +135,20 @@ export function App() {
     );
   });
 
-  // Media & Room State
+  // PWA Share Target queue
+  const [pendingSharedFiles, setPendingSharedFiles] = useState<File[]>([]);
+  const [pendingSharedText, setPendingSharedText] = useState<string>('');
+  const pendingShareOpenRoomRef = useRef(false);
+
+  // Media, Voice Activity, Per-peer Volumes & Reactions
   const [isMicActive, setIsMicActive] = useState(false);
+  const [localAudioStream, setLocalAudioStream] = useState<MediaStream | null>(null);
+  const [speakingPeers, setSpeakingPeers] = useState<Record<string, boolean>>({});
+  const [peerVolumes, setPeerVolumes] = useState<Record<string, number>>({});
+  const [seatReactions, setSeatReactions] = useState<
+    Array<{ id: string; peerId: string; emoteUrl: string }>
+  >([]);
+
   const [isScreenActive, setIsScreenActive] = useState(false);
   const [hasRemoteVideo, setHasRemoteVideo] = useState(false);
   const [roomTheme, setRoomTheme] = useState<string>(() => {
@@ -164,9 +180,83 @@ export function App() {
 
   const toggleMicRef = useRef<() => Promise<boolean>>(async () => false);
 
+  // Register Service Worker & read any files shared via Android Share Target
+  useEffect(() => {
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('shared') === '1' && 'caches' in window) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+      (async () => {
+        try {
+          const cache = await caches.open('bridgik-share-v1');
+          const metaResp = await cache.match('/__shared_meta__');
+          if (!metaResp) return;
+
+          const meta = await metaResp.json();
+          const loadedFiles: File[] = [];
+          if (Array.isArray(meta.files)) {
+            for (const fMeta of meta.files) {
+              const fileResp = await cache.match(fMeta.key);
+              if (fileResp) {
+                const blob = await fileResp.blob();
+                loadedFiles.push(
+                  new File([blob], fMeta.name || 'shared-file', {
+                    type: fMeta.type || blob.type || 'application/octet-stream',
+                  })
+                );
+              }
+            }
+          }
+
+          const combinedText = [meta.title, meta.text, meta.url]
+            .map((s: any) => String(s || '').trim())
+            .filter(Boolean)
+            .join('\n');
+
+          await caches.delete('bridgik-share-v1');
+
+          if (loadedFiles.length > 0 || combinedText) {
+            setPendingSharedFiles(loadedFiles);
+            setPendingSharedText(combinedText);
+            pendingShareOpenRoomRef.current = true;
+          }
+        } catch (err) {
+          console.warn('Failed to load shared target cache', err);
+        }
+      })();
+    }
+  }, []);
+
+  // Monitor local microphone real RMS volume for speaking indicator
+  useEffect(() => {
+    if (!localAudioStream || !myPeerId || !isMicActive) {
+      if (myPeerId) {
+        setSpeakingPeers((prev) => (prev[myPeerId] ? { ...prev, [myPeerId]: false } : prev));
+      }
+      return;
+    }
+    const stop = monitorStreamVoiceActivity(localAudioStream, (speaking) => {
+      setSpeakingPeers((prev) =>
+        prev[myPeerId] === speaking ? prev : { ...prev, [myPeerId]: speaking }
+      );
+    });
+    return () => {
+      stop();
+      setSpeakingPeers((prev) => (prev[myPeerId] ? { ...prev, [myPeerId]: false } : prev));
+    };
+  }, [localAudioStream, myPeerId, isMicActive]);
+
+  // Auto-unlock audio & WebAudio AudioContext on first user interaction
   useEffect(() => {
     if (!audioAutoplayBlocked) return;
     const unlockAudio = async () => {
+      const ctx = getSharedAudioContext();
+      if (ctx && ctx.state === 'suspended') {
+        await ctx.resume().catch(() => {});
+      }
       const els = Array.from(
         document.querySelectorAll('audio[data-peer-audio="true"]')
       ) as HTMLAudioElement[];
@@ -174,7 +264,7 @@ export function App() {
         els.map((audio) => (audio.paused ? audio.play() : Promise.resolve()))
       );
       const hasRejected = results.some((r) => r.status === 'rejected');
-      if (!hasRejected) {
+      if (!hasRejected && (!ctx || ctx.state === 'running')) {
         setAudioAutoplayBlocked(false);
       }
     };
@@ -193,6 +283,14 @@ export function App() {
   >({});
 
   const webrtcRef = useRef<WebRTCManager | null>(null);
+
+  const pushSeatReaction = (peerId: string, emoteUrl: string) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setSeatReactions((prev) => [...prev.slice(-15), { id, peerId, emoteUrl }]);
+    setTimeout(() => {
+      setSeatReactions((prev) => prev.filter((r) => r.id !== id));
+    }, 2500);
+  };
 
   // Initialize Socket.io
   useEffect(() => {
@@ -216,7 +314,20 @@ export function App() {
     };
   }, []);
 
-  // Fetch local network IP for mobile device pairing
+  // Auto-open a Bridge when arriving via Share Target
+  useEffect(() => {
+    if (
+      socket &&
+      isConnected &&
+      !roomId &&
+      pendingShareOpenRoomRef.current &&
+      (pendingSharedFiles.length > 0 || pendingSharedText)
+    ) {
+      pendingShareOpenRoomRef.current = false;
+      handleCreateRoom('bridge');
+    }
+  }, [socket, isConnected, roomId, pendingSharedFiles, pendingSharedText]);
+
   useEffect(() => {
     fetch('/api/health')
       .then((r) => r.json())
@@ -396,6 +507,13 @@ export function App() {
             setRemoteAudioStreams((prev) => ({ ...prev, [peerId]: stream }));
           }
         },
+        onLocalStreamChange: (stream) => {
+          setLocalAudioStream(stream);
+        },
+        onReaction: (peerId, emoteUrl) => {
+          sound.playClick();
+          pushSeatReaction(peerId, emoteUrl);
+        },
         onConnectionFailed: (_peerId, reason) => {
           if (reason === 'NAT_BLOCKED') {
             setRoomAlertNotice({
@@ -446,7 +564,6 @@ export function App() {
     return manager;
   };
 
-  // Listen to socket room events
   useEffect(() => {
     if (!socket) return;
 
@@ -488,6 +605,11 @@ export function App() {
         delete next[data.peerId];
         return next;
       });
+      setSpeakingPeers((prev) => {
+        const next = { ...prev };
+        delete next[data.peerId];
+        return next;
+      });
 
       setParticipantNotice({ type: 'left', name: peerName });
       if (participantNoticeTimerRef.current) clearTimeout(participantNoticeTimerRef.current);
@@ -524,6 +646,9 @@ export function App() {
       setPeers((prev) =>
         prev.map((p) => (p.id === data.peerId ? { ...p, isMicActive: data.isMicActive } : p))
       );
+      if (!data.isMicActive) {
+        setSpeakingPeers((prev) => ({ ...prev, [data.peerId]: false }));
+      }
     });
 
     socket.on('room-theme-changed', (data: { theme: string }) => {
@@ -608,6 +733,9 @@ export function App() {
       setMessages([]);
       setScratchpadText('');
       setIsMicActive(false);
+      setLocalAudioStream(null);
+      setSpeakingPeers({});
+      setSeatReactions([]);
       setIsScreenActive(false);
       setHasRemoteVideo(false);
       setRemoteAudioStreams({});
@@ -652,7 +780,6 @@ export function App() {
     };
   }, [socket]);
 
-  // Local Wi-Fi Discovery (Radar on HomeView)
   useEffect(() => {
     if (!socket || !isConnected || roomId) return;
 
@@ -709,7 +836,6 @@ export function App() {
     };
   }, [socket, isConnected, roomId, userName, deviceType]);
 
-  // Check URL query parameters for auto-join
   useEffect(() => {
     if (!socket || !isConnected) return;
     const params = new URLSearchParams(window.location.search);
@@ -988,6 +1114,9 @@ export function App() {
     setScratchpadText('');
     setAudioAutoplayBlocked(false);
     setIsMicActive(false);
+    setLocalAudioStream(null);
+    setSpeakingPeers({});
+    setSeatReactions([]);
     setIsScreenActive(false);
     setHasRemoteVideo(false);
     setRemoteAudioStreams({});
@@ -1081,6 +1210,21 @@ export function App() {
     }
   };
 
+  const handleChangePeerVolume = (peerId: string, volumePercent: number) => {
+    setPeerVolumes((prev) => ({
+      ...prev,
+      [peerId]: Math.max(0, Math.min(200, volumePercent)),
+    }));
+  };
+
+  const handleSendReaction = (emoteUrl: string, emoteName?: string) => {
+    sound.playClick();
+    if (myPeerId) {
+      pushSeatReaction(myPeerId, emoteUrl);
+    }
+    webrtcRef.current?.sendReaction(emoteUrl, emoteName);
+  };
+
   const handleSendFiles = (files: FileList | File[]) => {
     if (!webrtcRef.current) return;
     const fileArray = Array.from(files);
@@ -1092,6 +1236,22 @@ export function App() {
   const handleSendText = (text: string, isClipboard = false) => {
     if (!webrtcRef.current) return;
     webrtcRef.current.sendTextMessage(text, isClipboard);
+  };
+
+  const handleSendSharedBundle = () => {
+    if (pendingSharedFiles.length > 0) {
+      handleSendFiles(pendingSharedFiles);
+    }
+    if (pendingSharedText) {
+      handleSendText(pendingSharedText, true);
+    }
+    setPendingSharedFiles([]);
+    setPendingSharedText('');
+  };
+
+  const handleDismissSharedBundle = () => {
+    setPendingSharedFiles([]);
+    setPendingSharedText('');
   };
 
   const handleUpdateScratchpad = (text: string) => {
@@ -1254,6 +1414,11 @@ export function App() {
             peerSeats={peerSeats}
             mySeatIndex={mySeatIndex}
             onSwitchSeat={handleSwitchSeat}
+            speakingPeers={speakingPeers}
+            peerVolumes={peerVolumes}
+            onChangePeerVolume={handleChangePeerVolume}
+            seatReactions={seatReactions}
+            onSendReaction={handleSendReaction}
             roomUrl={roomUrl}
             peers={peers}
             peerConnectionTypes={peerConnectionTypes}
@@ -1306,6 +1471,10 @@ export function App() {
             destinationDirName={destinationDirName}
             onPickDestinationDir={handlePickDestinationDir}
             onClearDestinationDir={handleClearDestinationDir}
+            pendingSharedFiles={pendingSharedFiles}
+            pendingSharedText={pendingSharedText}
+            onSendSharedBundle={handleSendSharedBundle}
+            onDismissSharedBundle={handleDismissSharedBundle}
           />
         )}
       </main>
@@ -1317,11 +1486,7 @@ export function App() {
         roomUrl={roomUrl}
       />
 
-      {/* ============================================================== */}
-      {/* TOP FLOATING NOTIFICATIONS (Always visible above any scroll)   */}
-      {/* ============================================================== */}
-
-      {/* 1. Incoming Pair Request (Receiver) */}
+      {/* 1. Incoming Pair Request */}
       {incomingPairRequest && (
         <aside
           aria-label="Входящий запрос на передачу"
@@ -1605,6 +1770,7 @@ export function App() {
       {audioAutoplayBlocked && Object.keys(remoteAudioStreams).length > 0 && (
         <button
           onClick={() => {
+            getSharedAudioContext()?.resume().catch(() => {});
             document.querySelectorAll('audio[data-peer-audio="true"]').forEach((el) => {
               (el as HTMLAudioElement).play().catch(() => {});
             });
@@ -1620,6 +1786,12 @@ export function App() {
         <RemotePeerAudio
           key={peerId}
           stream={stream}
+          volumePercent={peerVolumes[peerId] ?? 100}
+          onSpeakingChange={(speaking) =>
+            setSpeakingPeers((prev) =>
+              prev[peerId] === speaking ? prev : { ...prev, [peerId]: speaking }
+            )
+          }
           onAutoplayBlocked={() => setAudioAutoplayBlocked(true)}
         />
       ))}
@@ -1629,17 +1801,98 @@ export function App() {
 
 function RemotePeerAudio({
   stream,
+  volumePercent = 100,
+  onSpeakingChange,
   onAutoplayBlocked,
 }: {
   stream: MediaStream;
+  volumePercent?: number;
+  onSpeakingChange?: (speaking: boolean) => void;
   onAutoplayBlocked?: () => void;
 }) {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const gainNodeRef = useRef<GainNode | null>(null);
+  const isIOS =
+    typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+  useEffect(() => {
+    if (gainNodeRef.current) {
+      gainNodeRef.current.gain.value = Math.max(0, Math.min(2, volumePercent / 100));
+    } else if (audioRef.current) {
+      audioRef.current.volume = Math.max(0, Math.min(1, volumePercent / 100));
+    }
+  }, [volumePercent]);
+
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !stream) return;
 
     audio.srcObject = stream;
+
+    const ctx = !isIOS ? getSharedAudioContext() : null;
+    let source: MediaStreamAudioSourceNode | null = null;
+    let gainNode: GainNode | null = null;
+    let analyser: AnalyserNode | null = null;
+    let rafId = 0;
+    let stopped = false;
+    let stopMonitor: (() => void) | null = null;
+
+    if (ctx) {
+      try {
+        // Mute native element so Web Audio GainNode handles 0-200% output cleanly without echo
+        audio.muted = true;
+        source = ctx.createMediaStreamSource(stream);
+        gainNode = ctx.createGain();
+        gainNode.gain.value = Math.max(0, Math.min(2, volumePercent / 100));
+        gainNodeRef.current = gainNode;
+
+        analyser = ctx.createAnalyser();
+        analyser.fftSize = 256;
+
+        source.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        source.connect(analyser);
+
+        const data = new Uint8Array(analyser.fftSize);
+        let lastSpokeAt = 0;
+        let isSpeaking = false;
+
+        const tick = () => {
+          if (stopped || !analyser) return;
+          analyser.getByteTimeDomainData(data);
+          let sum = 0;
+          for (let i = 0; i < data.length; i++) {
+            const norm = (data[i] - 128) / 128;
+            sum += norm * norm;
+          }
+          const rms = Math.sqrt(sum / data.length);
+          const now = performance.now();
+          if (rms > 0.015) {
+            lastSpokeAt = now;
+            if (!isSpeaking) {
+              isSpeaking = true;
+              onSpeakingChange?.(true);
+            }
+          } else if (isSpeaking && now - lastSpokeAt > 300) {
+            isSpeaking = false;
+            onSpeakingChange?.(false);
+          }
+          rafId = requestAnimationFrame(tick);
+        };
+        rafId = requestAnimationFrame(tick);
+      } catch {
+        gainNodeRef.current = null;
+        audio.muted = false;
+        audio.volume = Math.max(0, Math.min(1, volumePercent / 100));
+      }
+    } else {
+      audio.muted = false;
+      audio.volume = Math.max(0, Math.min(1, volumePercent / 100));
+      stopMonitor = monitorStreamVoiceActivity(stream, (speaking) => {
+        onSpeakingChange?.(speaking);
+      });
+    }
+
     audio.play().catch((err) => {
       if (err?.name !== 'AbortError') {
         onAutoplayBlocked?.();
@@ -1647,12 +1900,24 @@ function RemotePeerAudio({
     });
 
     const timer = setTimeout(() => {
-      if (audio.paused) {
+      if (audio.paused || (ctx && ctx.state === 'suspended')) {
         onAutoplayBlocked?.();
       }
     }, 300);
 
-    return () => clearTimeout(timer);
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+      if (rafId) cancelAnimationFrame(rafId);
+      stopMonitor?.();
+      try {
+        source?.disconnect();
+        gainNode?.disconnect();
+        analyser?.disconnect();
+      } catch {}
+      gainNodeRef.current = null;
+      onSpeakingChange?.(false);
+    };
   }, [stream]);
 
   return <audio ref={audioRef} data-peer-audio="true" autoPlay playsInline />;

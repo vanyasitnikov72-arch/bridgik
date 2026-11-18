@@ -22,10 +22,12 @@ import {
   Eye,
   CheckSquare,
   Square,
+  Package,
 } from 'lucide-react';
 import { FileTransfer, Peer, TextMessage } from '../types/index.js';
 import { formatBytes, formatSpeed, getAvatarForName } from '../utils/device.js';
 import { extractFilesFromDataTransfer } from '../utils/files.js';
+import { createZipFromBlobUrls } from '../utils/zip.js';
 import { sound } from '../utils/sound.js';
 import { CustomAudioPlayer } from './CustomAudioPlayer.js';
 import { CustomVideoPlayer } from './CustomVideoPlayer.js';
@@ -61,6 +63,10 @@ interface RoomViewProps {
   destinationDirName: string | null;
   onPickDestinationDir: () => void;
   onClearDestinationDir: () => void;
+  pendingSharedFiles?: File[];
+  pendingSharedText?: string;
+  onSendSharedBundle?: () => void;
+  onDismissSharedBundle?: () => void;
 }
 
 export const RoomView: React.FC<RoomViewProps> = ({
@@ -94,11 +100,16 @@ export const RoomView: React.FC<RoomViewProps> = ({
   destinationDirName,
   onPickDestinationDir,
   onClearDestinationDir,
+  pendingSharedFiles,
+  pendingSharedText,
+  onSendSharedBundle,
+  onDismissSharedBundle,
 }) => {
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedTextId, setCopiedTextId] = useState<string | null>(null);
   const [textInput, setTextInput] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+  const [isZipping, setIsZipping] = useState(false);
   const [previewMedia, setPreviewMedia] = useState<{
     url: string;
     name: string;
@@ -120,7 +131,11 @@ export const RoomView: React.FC<RoomViewProps> = ({
 
   const hasActiveTransfer = transfers.some((t) => t.status === 'transferring');
 
-  // Keep phone screen awake and warn on accidental tab close during active transfer
+  const downloadableTransfers = transfers.filter(
+    (t) => t.status === 'completed' && !t.savedToDisk && Boolean(t.blobUrl)
+  );
+
+  // Screen Wake Lock + accidental tab close protection
   useEffect(() => {
     if (!hasActiveTransfer) return;
 
@@ -159,7 +174,6 @@ export const RoomView: React.FC<RoomViewProps> = ({
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Global Ctrl + V Paste Listener
   useEffect(() => {
     const handleGlobalPaste = (e: ClipboardEvent) => {
       const activeEl = document.activeElement as HTMLElement | null;
@@ -220,6 +234,31 @@ export const RoomView: React.FC<RoomViewProps> = ({
       }
     }
     handleCopyLink();
+  };
+
+  const handleDownloadAllZip = async () => {
+    if (downloadableTransfers.length === 0 || isZipping) return;
+    setIsZipping(true);
+    try {
+      const zipBlob = await createZipFromBlobUrls(
+        downloadableTransfers.map((t) => ({ name: t.name, blobUrl: t.blobUrl! }))
+      );
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `bridgik-files-${pin}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      sound.playTransferComplete();
+      setToastMessage(`Архив bridgik-files-${pin}.zip готов`);
+    } catch (err) {
+      console.error('ZIP creation failed:', err);
+      setToastMessage('Не удалось собрать ZIP-архив');
+    } finally {
+      setIsZipping(false);
+    }
   };
 
   const handleCopyText = (id: string, text: string) => {
@@ -291,7 +330,7 @@ export const RoomView: React.FC<RoomViewProps> = ({
 
   return (
     <div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
-      {/* Top Bar: Room Info & Actions */}
+      {/* Top Bar */}
       <div className="bg-[#222222] border border-[#3a3a3a] rounded-xl p-3.5 sm:p-5 mb-5 sm:mb-6 flex flex-col gap-3 shadow-md">
         <div className="flex flex-wrap items-center justify-between gap-2.5 sm:gap-3">
           <div className="flex items-center gap-2.5 sm:gap-3.5">
@@ -314,7 +353,6 @@ export const RoomView: React.FC<RoomViewProps> = ({
             </div>
           </div>
 
-          {/* Quick Room Share & Controls */}
           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
             <button
               onClick={onToggleAutoDownload}
@@ -340,8 +378,9 @@ export const RoomView: React.FC<RoomViewProps> = ({
               </span>
             </button>
 
-            {typeof window !== 'undefined' && 'showDirectoryPicker' in window && (
-              destinationDirName ? (
+            {typeof window !== 'undefined' &&
+              'showDirectoryPicker' in window &&
+              (destinationDirName ? (
                 <div className="flex items-center gap-1.5 bg-[#1c2214] border border-[#789d2a] rounded-lg px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-[#9ac43e]">
                   <FolderDown className="w-4 h-4 text-[#9ac43e] shrink-0" />
                   <span
@@ -367,8 +406,7 @@ export const RoomView: React.FC<RoomViewProps> = ({
                   <FolderDown className="w-4 h-4 text-[#9ac43e]" />
                   <span className="hidden sm:inline">Папка на диске</span>
                 </button>
-              )
-            )}
+              ))}
 
             <button
               onClick={onOpenQR}
@@ -407,7 +445,6 @@ export const RoomView: React.FC<RoomViewProps> = ({
           </div>
         </div>
 
-        {/* Connected devices list */}
         {peers.length > 0 && (
           <div className="flex items-center gap-2 pt-2.5 sm:pt-3 border-t border-[#3a3a3a] w-full flex-wrap text-xs sm:text-sm">
             <span className="text-[#999999] font-semibold mr-1">Устройства в комнате:</span>
@@ -443,6 +480,41 @@ export const RoomView: React.FC<RoomViewProps> = ({
           </div>
         )}
       </div>
+
+      {/* Pending Share Target Banner */}
+      {((pendingSharedFiles && pendingSharedFiles.length > 0) || pendingSharedText) && (
+        <div className="mb-5 p-4 rounded-xl bg-[#1c2214] border-2 border-[#789d2a] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md">
+          <div className="text-sm text-[#ededed] min-w-0">
+            <p className="font-bold text-[#bbf348]">
+              Готово к отправке из системного меню «Поделиться»:
+            </p>
+            <p className="text-xs sm:text-sm text-[#cccccc] truncate">
+              {pendingSharedFiles && pendingSharedFiles.length > 0
+                ? `Файлов: ${pendingSharedFiles.length} (${pendingSharedFiles
+                    .map((f) => f.name)
+                    .join(', ')})`
+                : pendingSharedText}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={onSendSharedBundle}
+              disabled={otherPeers.length === 0}
+              className="px-4 py-2 rounded-lg bg-[#789d2a] hover:bg-[#8cb632] disabled:opacity-50 text-white text-xs sm:text-sm font-bold cursor-pointer"
+            >
+              {otherPeers.length === 0 ? 'Ждём собеседника...' : 'Отправить сейчас'}
+            </button>
+            <button
+              type="button"
+              onClick={onDismissSharedBundle}
+              className="px-3 py-2 rounded-lg bg-[#2d2d2d] hover:bg-[#3a3a3a] text-[#aaaaaa] text-xs sm:text-sm font-bold cursor-pointer"
+            >
+              Скрыть
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Waiting for peer banner */}
       {otherPeers.length === 0 && (
@@ -514,7 +586,6 @@ export const RoomView: React.FC<RoomViewProps> = ({
 
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
-        {/* Left Column: Dropzone & File Transfers */}
         <div className="lg:col-span-7 space-y-5">
           <div
             onDragOver={(e) => {
@@ -557,7 +628,6 @@ export const RoomView: React.FC<RoomViewProps> = ({
               className="hidden"
             />
 
-            {/* Desktop Ctrl + V Hint */}
             <div className="hidden sm:flex items-center justify-center gap-2 mb-4">
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-[#171717] border border-[#3a3a3a] text-sm">
                 <kbd className="px-2 py-0.5 rounded bg-[#2a2a2a] text-[#ededed] font-mono font-bold border border-[#444444] text-xs shadow-inner">
@@ -588,7 +658,6 @@ export const RoomView: React.FC<RoomViewProps> = ({
               Выберите фото, видео или файлы с устройства — они передадутся напрямую без сжатия:
             </p>
 
-            {/* Action Buttons */}
             <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3">
               <button
                 type="button"
@@ -621,7 +690,6 @@ export const RoomView: React.FC<RoomViewProps> = ({
               </button>
             </div>
 
-            {/* Bottom Tag Badges */}
             <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 pt-4 mt-5 sm:mt-6 border-t border-[#3a3a3a]/60 text-xs sm:text-base text-[#aaaaaa]">
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-[#789d2a]" />
@@ -635,16 +703,32 @@ export const RoomView: React.FC<RoomViewProps> = ({
             </div>
           </div>
 
-          {/* Transfers List */}
           {transfers.length > 0 && (
             <div className="bg-[#222222] border border-[#3a3a3a] rounded-xl p-4 sm:p-6 shadow-sm">
-              <h4 className="text-base sm:text-xl font-bold text-[#ededed] mb-3.5 sm:mb-4">
-                Передачи файлов ({transfers.length})
-              </h4>
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3.5 sm:mb-4">
+                <h4 className="text-base sm:text-xl font-bold text-[#ededed]">
+                  Передачи файлов ({transfers.length})
+                </h4>
+
+                {downloadableTransfers.length >= 2 && (
+                  <button
+                    type="button"
+                    onClick={handleDownloadAllZip}
+                    disabled={isZipping}
+                    className="px-3.5 py-1.5 rounded-lg bg-[#789d2a] hover:bg-[#8cb632] disabled:opacity-60 text-white text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+                  >
+                    <Package className="w-4 h-4" />
+                    <span>
+                      {isZipping
+                        ? 'Собираем ZIP...'
+                        : `Скачать всё ZIP (${downloadableTransfers.length})`}
+                    </span>
+                  </button>
+                )}
+              </div>
 
               <div className="space-y-3">
                 {transfers.map((t) => {
-                  // Track duration and average speed
                   const timing = transferTimingRef.current[t.id];
                   if (t.status === 'transferring' && !timing) {
                     transferTimingRef.current[t.id] = { start: Date.now() };
@@ -724,7 +808,9 @@ export const RoomView: React.FC<RoomViewProps> = ({
                               <span>•</span>
                               <span
                                 className={
-                                  t.type === 'upload' ? 'text-[#9ac43e] font-semibold' : 'text-[#ededed]'
+                                  t.type === 'upload'
+                                    ? 'text-[#9ac43e] font-semibold'
+                                    : 'text-[#ededed]'
                                 }
                               >
                                 {t.type === 'upload' ? 'Отправка' : 'Получение'}
@@ -870,7 +956,7 @@ export const RoomView: React.FC<RoomViewProps> = ({
           )}
         </div>
 
-        {/* Right Column: Instant Clipboard & Ephemeral Text */}
+        {/* Right Column: Clipboard & Text */}
         <div className="lg:col-span-5 flex flex-col h-[460px] lg:h-[580px] bg-[#222222] border border-[#3a3a3a] rounded-xl p-4 sm:p-6 shadow-sm">
           <div className="flex items-center justify-between gap-2 mb-3 shrink-0">
             <div className="min-w-0">
@@ -896,7 +982,9 @@ export const RoomView: React.FC<RoomViewProps> = ({
             {messages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center p-6 text-[#aaaaaa]">
                 <FileText className="w-10 h-10 stroke-1 mb-2.5 opacity-40" />
-                <p className="text-base font-semibold text-[#ededed]">Вставьте ссылку или текст ниже</p>
+                <p className="text-base font-semibold text-[#ededed]">
+                  Вставьте ссылку или текст ниже
+                </p>
                 <p className="text-xs sm:text-sm text-[#aaaaaa] mt-1">
                   У собеседника моментально появится кнопка «Скопировать»
                 </p>
@@ -1035,7 +1123,7 @@ export const RoomView: React.FC<RoomViewProps> = ({
         </div>
       </div>
 
-      {/* Media Lightbox Modal */}
+      {/* Media Lightbox */}
       {previewMedia && (
         <div
           className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-4 animate-in fade-in"
@@ -1096,7 +1184,6 @@ export const RoomView: React.FC<RoomViewProps> = ({
         </div>
       )}
 
-      {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-6 right-4 sm:right-6 z-50 px-4 sm:px-5 py-3 rounded-xl bg-[#202020] border border-[#789d2a] text-[#ededed] text-xs sm:text-base font-bold shadow-2xl flex items-center gap-2.5 animate-in slide-in-from-bottom-2 max-w-[90vw]">
           <span className="w-2.5 h-2.5 rounded-full bg-[#789d2a] shrink-0" />

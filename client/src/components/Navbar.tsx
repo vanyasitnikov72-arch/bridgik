@@ -128,9 +128,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <header className="border-b border-white/[0.08] bg-[#171717] sticky top-0 z-40">
       <div className="max-w-5xl mx-auto px-3 sm:px-4">
-        {/* Top Row: Logo + Desktop Nav + Sound & Profile */}
         <div className="h-16 sm:h-20 flex items-center justify-between gap-2">
-          {/* Official Brand Logo */}
           <div
             onClick={goHome}
             className="flex items-center cursor-pointer select-none group py-1 shrink-0"
@@ -144,12 +142,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             />
           </div>
 
-          {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-6 text-lg font-bold">
             {navLinks}
           </nav>
 
-          {/* Right: Sound Toggle & User Identity */}
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <button
               onClick={handleToggleSound}
@@ -181,13 +177,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
               )}
 
-              <div
-                className={`flex items-center gap-1.5 sm:gap-2.5 px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl border text-sm sm:text-base text-[#ededed] transition-all min-w-0 ${
-                  isAdmin
-                    ? 'bg-gradient-to-r from-[#241c10] via-[#1c1c1c] to-[#171717] border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.2)]'
-                    : 'bg-[#222222] border-[#3a3a3a]'
-                }`}
-              >
+              {/* Профиль без внешней рамки */}
+              <div className="flex items-center gap-1.5 sm:gap-2.5 px-1 sm:px-2 py-1 text-sm sm:text-base text-[#ededed] transition-all min-w-0">
                 <button
                   type="button"
                   onClick={() => setIsAvatarPickerOpen(!isAvatarPickerOpen)}
@@ -215,7 +206,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </span>
                   )}
                   <span
-                    className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#222222] ${
+                    className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#171717] ${
                       isConnected ? 'bg-[#789d2a]' : 'bg-[#e8b33c]'
                     }`}
                     title={isConnected ? 'В сети' : 'Подключение...'}
@@ -251,7 +242,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
                       {isAdmin && (
                         <span
-                          className="px-1 sm:px-1.5 py-0.2 rounded text-[9px] sm:text-[10px] font-mono font-black bg-amber-400/20 text-amber-300 border border-amber-400/40 uppercase tracking-wider select-none shadow-[0_0_6px_rgba(245,158,11,0.3)] shrink-0"
+                          className="px-1 sm:px-1.5 py-0.2 rounded text-[9px] sm:text-[10px] font-mono font-black bg-amber-400/20 text-amber-300 border border-amber-400/40 uppercase tracking-wider select-none shrink-0"
                           title="Статус: Создатель сервиса (Root)"
                         >
                           DEV
@@ -269,7 +260,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </button>
                 )}
 
-                {/* Animated Status Emote */}
                 <div className="relative flex items-center shrink-0">
                   {statusEmote ? (
                     <div className="relative group/status flex items-center">
@@ -327,7 +317,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
 
-        {/* Mobile Second Row Navigation */}
         <nav className="flex md:hidden items-center justify-around border-t border-white/[0.06] py-2 text-base font-bold">
           {navLinks}
         </nav>

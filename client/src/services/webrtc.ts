@@ -1,13 +1,13 @@
 import { Socket } from 'socket.io-client';
 import { FileTransfer, TextMessage, WebRTCMessage } from '../types/index.js';
 
-const CHUNK_SIZE = 64 * 1024; // 64 KB (standard safe WebRTC SCTP packet size)
-const READ_BLOCK_SIZE = 1024 * 1024; // 1 MB disk read block
-const BUFFER_HIGH = 4 * 1024 * 1024; // 4 MB backpressure threshold
-const BUFFER_LOW = 1024 * 1024; // 1 MB resume threshold
-const HEADER_SIZE = 40; // 32 bytes fileId + 4 bytes chunkIndex + 4 bytes totalChunks
-const LARGE_FILE_THRESHOLD = 200 * 1024 * 1024; // 200 MB
-const MOBILE_MEMORY_WARN_BYTES = 400 * 1024 * 1024; // 400 MB
+const CHUNK_SIZE = 64 * 1024;
+const READ_BLOCK_SIZE = 1024 * 1024;
+const BUFFER_HIGH = 4 * 1024 * 1024;
+const BUFFER_LOW = 1024 * 1024;
+const HEADER_SIZE = 40;
+const LARGE_FILE_THRESHOLD = 200 * 1024 * 1024;
+const MOBILE_MEMORY_WARN_BYTES = 400 * 1024 * 1024;
 
 export function normalizeMimeType(fileName: string, mime?: string): string {
   const ext = fileName.toLowerCase().split('.').pop() || '';
@@ -109,6 +109,8 @@ export interface WebRTCCallbacks {
   onTransferProgress: (transfer: Partial<FileTransfer> & { id: string }) => void;
   onTransferComplete: (transfer: FileTransfer) => void;
   onRemoteStream: (peerId: string, stream: MediaStream) => void;
+  onLocalStreamChange?: (stream: MediaStream | null) => void;
+  onReaction?: (peerId: string, emoteUrl: string, emoteName?: string) => void;
   onPeerConnectionStateChange: (peerId: string, state: RTCPeerConnectionState) => void;
   onConnectionTypeChange?: (peerId: string, connectionType: 'direct' | 'relay') => void;
   onConnectionFailed?: (peerId: string, reason: 'NAT_BLOCKED' | 'DISCONNECTED') => void;
@@ -131,11 +133,8 @@ export class WebRTCManager {
   private isMicMuted: boolean = false;
   private screenStream: MediaStream | null = null;
   private destinationDirectoryHandle: any = null;
-
-  // Sequential queue for outgoing file streams (prevents parallel buffer races)
   private uploadQueue: Promise<void> = Promise.resolve();
 
-  // Receiving file states: fileId -> state
   private incomingFiles: Map<
     string,
     {
@@ -191,6 +190,10 @@ export class WebRTCManager {
     this.myName = myName;
     if (myAvatar) this.myAvatar = myAvatar;
     this.callbacks = callbacks;
+  }
+
+  public getLocalStream(): MediaStream | null {
+    return this.localStream;
   }
 
   public updateMyAvatar(avatar: string) {
@@ -465,6 +468,8 @@ export class WebRTCManager {
           this.callbacks.onScratchpadSync?.(msg.text, msg.updatedBy);
         } else if (msg.type === 'SCRATCHPAD_TYPING') {
           this.callbacks.onScratchpadTyping?.(msg.updatedBy);
+        } else if (msg.type === 'REACTION') {
+          this.callbacks.onReaction?.(peerId, msg.emoteUrl, msg.emoteName);
         } else if (msg.type === 'FILE_OFFER') {
           this.pendingOffers.set(msg.fileId, { meta: msg, peerId });
 
@@ -567,7 +572,6 @@ export class WebRTCManager {
             status: 'transferring',
           });
 
-          // Immediately complete 0-byte files so they never hang
           if (msg.size === 0 || msg.totalChunks === 0) {
             await this.finalizeReceivedFile(msg.fileId);
           }
@@ -625,7 +629,6 @@ export class WebRTCManager {
           if (incoming.streamToDisk && incoming.writableStream) {
             await incoming.writableStream.write(chunkData);
           } else if (!incoming.receivedChunks[chunkIndex]) {
-            // Preserve chunk in memory if disk initialization failed
             incoming.receivedChunks[chunkIndex] = chunkData;
           }
         });
@@ -663,6 +666,23 @@ export class WebRTCManager {
         await this.finalizeReceivedFile(fileId);
       }
     };
+  }
+
+  public sendReaction(emoteUrl: string, emoteName?: string) {
+    const msg: WebRTCMessage = {
+      type: 'REACTION',
+      id: Math.random().toString(36).substring(2, 10),
+      senderId: this.myPeerId,
+      emoteUrl,
+      emoteName,
+      timestamp: Date.now(),
+    };
+    const payload = JSON.stringify(msg);
+    this.connections.forEach(({ controlChannel }) => {
+      if (controlChannel && controlChannel.readyState === 'open') {
+        controlChannel.send(payload);
+      }
+    });
   }
 
   public sendTextMessage(text: string, isClipboard = false) {
@@ -814,7 +834,6 @@ export class WebRTCManager {
       return;
     }
 
-    // Show immediately in UI as queued/transferring and stream strictly sequentially
     this.callbacks.onTransferProgress({
       id: fileId,
       name: file.name,
@@ -903,7 +922,6 @@ export class WebRTCManager {
       blobUrl: senderBlobUrl,
     });
 
-    // Empty 0-byte file completes right after sending FILE_META
     if (file.size === 0) {
       return;
     }
@@ -952,7 +970,6 @@ export class WebRTCManager {
         const dynamicBufferHigh = isVoiceCallActive ? 512 * 1024 : BUFFER_HIGH;
         const dynamicBufferLow = isVoiceCallActive ? 128 * 1024 : BUFFER_LOW;
 
-        // Safe backpressure check with channel close protection
         for (const b of activeBundles) {
           const ch = b.fileChannel;
           if (ch && ch.readyState === 'open' && ch.bufferedAmount > dynamicBufferHigh) {
@@ -1243,6 +1260,7 @@ export class WebRTCManager {
       } else {
         this.localStream = null;
         this.isMicMuted = false;
+        this.callbacks.onLocalStreamChange?.(null);
       }
     }
 
@@ -1264,7 +1282,6 @@ export class WebRTCManager {
       );
     }
 
-
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({
@@ -1284,7 +1301,7 @@ export class WebRTCManager {
           throw new Error(
             'Доступ к микрофону запрещён. Проверьте настройки разрешений браузера для этого сайта и обновите страницу.'
           );
-          } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
           throw new Error(
             'Микрофон не обнаружен в вашей системе. Подключите гарнитуру или микрофон к компьютеру.'
           );
@@ -1303,11 +1320,13 @@ export class WebRTCManager {
       audioTrack.onended = () => {
         this.localStream = null;
         this.isMicMuted = false;
+        this.callbacks.onLocalStreamChange?.(null);
       };
     }
 
     this.localStream = stream;
     this.isMicMuted = false;
+    this.callbacks.onLocalStreamChange?.(stream);
 
     for (const [peerId, { pc }] of this.connections) {
       try {
@@ -1386,9 +1405,12 @@ export class WebRTCManager {
 
     if (this.localStream) {
       this.localStream.getTracks().forEach((t) => t.stop());
+      this.localStream = null;
+      this.callbacks.onLocalStreamChange?.(null);
     }
     if (this.screenStream) {
       this.screenStream.getTracks().forEach((t) => t.stop());
+      this.screenStream = null;
     }
   }
 }
