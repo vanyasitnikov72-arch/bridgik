@@ -570,24 +570,6 @@ export const PricingView: React.FC<PricingViewProps> = ({
           })}
         </div>
       </div>
-
-      {/* Bottom CTA */}
-      <div className="text-center py-8 px-6 rounded-2xl bg-[#181818] border border-white/[0.08]">
-        <h3 className="text-xl sm:text-2xl font-extrabold text-[#ededed] mb-2">
-          Готовы перекинуть файлы?
-        </h3>
-        <p className="text-sm text-[#888888] mb-5 max-w-md mx-auto">
-          Никаких настроек — откройте bridgik на телефоне или ПК и начните передачу за пару кликов.
-        </p>
-        <button
-          type="button"
-          onClick={handleStartTransfer}
-          className="py-3 px-6 rounded-xl bg-[#789d2a] hover:bg-[#8bb532] text-white font-extrabold text-base transition-all cursor-pointer inline-flex items-center gap-2 shadow-lg shadow-[#789d2a]/25"
-        >
-          <span>Открыть Мост</span>
-          <ArrowRight className="w-4 h-4" />
-        </button>
-      </div>
     </div>
   );
 };

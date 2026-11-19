@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Check } from 'lucide-react';
+import { X } from 'lucide-react';
 import { sound } from '../utils/sound.js';
 
 interface FooterProps {
@@ -12,16 +12,8 @@ type ModalType = 'rules' | 'privacy' | 'terms' | null;
 
 export const Footer: React.FC<FooterProps> = ({ onOpenAbout: _onOpenAbout, onOpenLegal, onOpenPricing }) => {
   const [activeModal, setActiveModal] = useState<ModalType>(null);
-  const [copiedEmail, setCopiedEmail] = useState(false);
   const [pcClicked, setPcClicked] = useState(false);
   const [phoneClicked, setPhoneClicked] = useState(false);
-
-  const handleCopyEmail = () => {
-    navigator.clipboard.writeText('support@bridgik.ru').catch(() => {});
-    setCopiedEmail(true);
-    sound.playClick();
-    setTimeout(() => setCopiedEmail(false), 2000);
-  };
 
   const closeModal = () => {
     setActiveModal(null);
@@ -65,7 +57,8 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAbout: _onOpenAbout, onOpe
 
       <div className="max-w-6xl mx-auto px-4 flex flex-col items-center justify-center text-center relative z-10">
         {/* Top Credits in eblo.id style: Архитектура / Протокол */}
-        <div className="flex items-center justify-center gap-14 sm:gap-24 mb-5 text-center">
+        {/* Top Credits in eblo.id style: Архитектура / Протокол / Разработка */}
+        <div className="flex flex-wrap items-center justify-center gap-10 sm:gap-16 md:gap-24 mb-5 text-center">
           <div>
             <p className="text-xs sm:text-sm text-[#888888] font-bold uppercase tracking-wider mb-0.5">
               Архитектура
@@ -82,9 +75,23 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAbout: _onOpenAbout, onOpe
               WebRTC Direct P2P
             </p>
           </div>
+          <div>
+            <p className="text-xs sm:text-sm text-[#888888] font-bold uppercase tracking-wider mb-0.5">
+              Разработка
+            </p>
+            <a
+              href="https://t.me/IvanchesskO"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-extrabold text-xl sm:text-2xl text-[#ededed] hover:text-[#9ac43e] transition-colors inline-block cursor-pointer hover:underline"
+              title="Telegram разработчика: @IvanchesskO"
+            >
+              tyypicall
+            </a>
+          </div>
         </div>
 
-        {/* Horizontal tabs matching eblo.id style: Правила сайта · Конфиденциальность · Оферта · support@bridgik.ru */}
+        {/* Horizontal tabs matching eblo.id style: Правила сайта · Конфиденциальность · Оферта · Тарифы */}
         <div className="flex flex-wrap items-center justify-center gap-5 sm:gap-9 md:gap-11 text-base sm:text-xl text-[#999999] mb-3 font-semibold">
           <button
             onClick={() => {
@@ -139,20 +146,6 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAbout: _onOpenAbout, onOpe
             className="hover:text-[#ededed] cursor-pointer transition-colors"
           >
             Тарифы
-          </button>
-          <button
-            onClick={handleCopyEmail}
-            className="hover:text-[#9ac43e] cursor-pointer transition-colors flex items-center gap-1.5"
-            title="Нажмите, чтобы скопировать email поддержки"
-          >
-            {copiedEmail ? (
-              <span className="text-[#9ac43e] font-bold flex items-center gap-1">
-                <Check className="w-4 h-4" />
-                <span>Скопировано!</span>
-              </span>
-            ) : (
-              <span>support@bridgik.ru</span>
-            )}
           </button>
         </div>
       </div>
