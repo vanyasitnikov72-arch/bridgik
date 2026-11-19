@@ -380,6 +380,10 @@ app.patch('/api/user/profile', (req, res) => {
   const currentDeviceId = typeof req.query.deviceId === 'string' ? req.query.deviceId : undefined;
   const onlineSet = stickyManager.getOnlineDeviceIds(user.id);
   const profile = toUserProfileDto(updated, currentDeviceId, onlineSet);
+
+  // Broadcast real-time profile update to all devices of this user
+  io.to(`user:${user.id}`).emit('sticky-profile-updated', profile);
+
   return res.json({ success: true, user: profile });
 });
 

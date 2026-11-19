@@ -370,10 +370,9 @@ export function App() {
       (res: any) => {
         if (res?.success && res?.roomId) {
           sound.playConnect();
-          setRoomMode('bridge');
-          setRoomId(res.roomId);
-          setPin(res.pin);
-          setActiveTab('bridge');
+          if (joinRoomRef.current) {
+            joinRoomRef.current(res.roomId, 'bridge');
+          }
         } else {
           alert(res?.error || 'Целевое устройство сейчас не в сети');
         }
@@ -650,14 +649,23 @@ export function App() {
       (data: { roomId: string; pin: string; fromDeviceId: string; fileMeta?: any }) => {
         sound.playConnect();
         const autoAccept = localStorage.getItem('bridgik_sticky_auto_accept') !== 'false';
-        if (autoAccept) {
-          setRoomMode('bridge');
-          setRoomId(data.roomId);
-          setPin(data.pin);
-          setActiveTab('bridge');
+        if (autoAccept && joinRoomRef.current) {
+          joinRoomRef.current(data.roomId, 'bridge');
         }
       }
     );
+
+    // Real-time profile sync across all tabs/devices of the user
+    socketInstance.on('sticky-profile-updated', (data: UserProfile) => {
+      if (data) {
+        saveProfile(data);
+        setUserName(data.displayName);
+        if (data.avatarUrl) setUserAvatar(data.avatarUrl);
+        if (data.activeFrame) setAdminFrame(data.activeFrame);
+        if (data.activeEmote !== undefined) setStatusEmote(data.activeEmote);
+        if (data.defaultRoomTheme) setRoomTheme(data.defaultRoomTheme);
+      }
+    });
 
     setSocket(socketInstance);
 
