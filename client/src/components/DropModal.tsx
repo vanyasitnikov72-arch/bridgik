@@ -46,8 +46,8 @@ export function DropModal({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const f = e.target.files[0];
-      if (f.size > 500 * 1024 * 1024) {
-        setError('Максимальный размер файла для Drop & Go — 500 МБ');
+      if (f.size > 200 * 1024 * 1024) {
+        setError('Максимальный размер файла для Drop & Go — 200 МБ');
         return;
       }
       setError(null);
@@ -60,8 +60,8 @@ export function DropModal({
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const f = e.dataTransfer.files[0];
-      if (f.size > 500 * 1024 * 1024) {
-        setError('Максимальный размер файла для Drop & Go — 500 МБ');
+      if (f.size > 200 * 1024 * 1024) {
+        setError('Максимальный размер файла для Drop & Go — 200 МБ');
         return;
       }
       setError(null);
@@ -255,7 +255,7 @@ export function DropModal({
                   <p className="text-sm font-bold text-white">
                     Перетащите файл сюда или нажмите для выбора
                   </p>
-                  <p className="text-xs text-[#777777]">До 500 МБ · Срок хранения 24 часа</p>
+                  <p className="text-xs text-[#777777]">До 200 МБ · Срок хранения 24 часа</p>
                 </div>
               )}
             </div>

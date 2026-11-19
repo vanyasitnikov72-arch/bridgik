@@ -872,7 +872,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               </div>
               <div className="flex items-center gap-2 text-[#ededed]">
                 <span className="w-5 h-5 rounded-md bg-[#789d2a]/20 text-[#bbf348] flex items-center justify-center font-bold text-xs shrink-0">✓</span>
-                <span><strong>Drop & Go:</strong> буфер до 500 МБ / хранение 48 часов</span>
+                <span><strong>Drop & Go:</strong> буфер до 200 МБ / хранение 24 часа</span>
               </div>
               <div className="flex items-center gap-2 text-[#ededed]">
                 <span className="w-5 h-5 rounded-md bg-[#789d2a]/20 text-[#bbf348] flex items-center justify-center font-bold text-xs shrink-0">✓</span>

@@ -876,7 +876,7 @@ app.get('/api/payment/status/:id', async (req, res) => {
 });
 
 // --- Drop & Go (24h Buffer) Endpoints ---
-const MAX_DROP_SIZE = 500 * 1024 * 1024; // 500 MB max file size for offline buffer
+const MAX_DROP_SIZE = 200 * 1024 * 1024; // 200 MB max file size for offline buffer
 const MAX_TOTAL_DROPS_POOL = 1500 * 1024 * 1024; // 1.5 GB max total storage reserved on SSD
 
 function getTotalDropsPoolSize(): number {
@@ -909,7 +909,7 @@ app.post('/api/drop/upload', async (req, res) => {
   if (fileSize > MAX_DROP_SIZE) {
     return res.status(413).json({
       success: false,
-      error: 'Размер файла превышает лимит буфера Drop & Go (максимум 500 МБ)',
+      error: 'Размер файла превышает лимит буфера Drop & Go (максимум 200 МБ)',
     });
   }
 
@@ -922,7 +922,7 @@ app.post('/api/drop/upload', async (req, res) => {
   }
   const targetDeviceId = req.headers['x-target-device'] as string | undefined;
   const userKey = req.headers['x-user-key'] as string | undefined;
-  const ttlHours = Math.max(1, Math.min(Number(req.headers['x-ttl-hours']) || 24, 72));
+  const ttlHours = Math.max(1, Math.min(Number(req.headers['x-ttl-hours']) || 24, 24)); // max 24 hours
 
   let userId: string | undefined = undefined;
   if (userKey) {
@@ -950,7 +950,7 @@ app.post('/api/drop/upload', async (req, res) => {
         if (!res.headersSent) {
           res.status(413).json({
             success: false,
-            error: 'Размер файла превышает лимит буфера Drop & Go (максимум 500 МБ)',
+            error: 'Размер файла превышает лимит буфера Drop & Go (максимум 200 МБ)',
           });
         }
       }

@@ -41,7 +41,7 @@ const FAQ_ITEMS: FaqItem[] = [
   },
   {
     q: 'Что такое Drop & Go в тарифе Bridgik Pro?',
-    a: 'В обычном P2P оба устройства должны быть онлайн одновременно. Если ваш домашний компьютер выключен, а вам нужно срочно скинуть на него файл или архив до 500 МБ — Pro-функция Drop & Go временно сохранит зашифрованный буфер в безопасном хранилище на 24 часа. Как только домашний ПК появится в сети, файл автоматически загрузится на него.',
+    a: 'В обычном P2P оба устройства должны быть онлайн одновременно. Если ваш домашний компьютер выключен, а вам нужно срочно скинуть на него файл или архив до 200 МБ — Pro-функция Drop & Go временно сохранит зашифрованный буфер в безопасном хранилище на 24 часа. Как только домашний ПК появится в сети, файл автоматически загрузится на него.',
   },
   {
     q: 'Как оплатить подписку Bridgik Pro?',
@@ -306,7 +306,7 @@ export const PricingView: React.FC<PricingViewProps> = ({
               <li className="flex items-start gap-2.5">
                 <Check className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Drop & Go (Офлайн-буфер до 500 МБ):</strong> передача на выключенные устройства с хранением до 24 часов
+                  <strong>Drop & Go (Офлайн-буфер до 200 МБ):</strong> передача на выключенные устройства с хранением до 24 часов
                 </span>
               </li>
               <li className="flex items-start gap-2.5">
@@ -431,7 +431,7 @@ export const PricingView: React.FC<PricingViewProps> = ({
                   0 байт
                 </td>
                 <td className="py-3.5 px-4 text-center font-mono text-[#9ac43e]">
-                  0 байт (+ буфер до 500 МБ)
+                  0 байт (+ буфер до 200 МБ)
                 </td>
               </tr>
               <tr>
@@ -467,7 +467,7 @@ export const PricingView: React.FC<PricingViewProps> = ({
                 <td className="py-3.5 px-4 text-center text-[#666666]">—</td>
                 <td className="py-3.5 px-4 text-center text-[#666666] bg-[#1f2618]/30">—</td>
                 <td className="py-3.5 px-4 text-center font-bold text-amber-400">
-                  До 500 МБ
+                  До 200 МБ
                 </td>
               </tr>
               <tr>
