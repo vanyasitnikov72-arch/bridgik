@@ -96,6 +96,7 @@ const roomManager = new RoomManager();
 
 interface LobbyPeer {
   socketId: string;
+  deviceId?: string;
   name: string;
   deviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown';
   os?: string;
@@ -227,9 +228,10 @@ function broadcastNearbyPeers(subnet: string) {
   const peersInSubnet = Array.from(lobbyPeers.values()).filter((p) => p.subnet === subnet);
   peersInSubnet.forEach((peer) => {
     const others = peersInSubnet
-      .filter((p) => p.socketId !== peer.socketId)
+      .filter((p) => p.socketId !== peer.socketId && (!p.deviceId || !peer.deviceId || p.deviceId !== peer.deviceId))
       .map((p) => ({
         socketId: p.socketId,
+        deviceId: p.deviceId,
         name: p.name,
         deviceType: p.deviceType,
         os: p.os,
@@ -1106,6 +1108,7 @@ io.on('connection', (socket) => {
   // 0. Local Network Discovery
   socket.on('lobby-join', (data: {
     name: string;
+    deviceId?: string;
     deviceType: any;
     os?: string;
     osName?: string;
@@ -1118,6 +1121,7 @@ io.on('connection', (socket) => {
     const currentSubnet = getClientNetworkSubnet(socket);
     lobbyPeers.set(socket.id, {
       socketId: socket.id,
+      deviceId: typeof data?.deviceId === 'string' ? data.deviceId.slice(0, 64) : undefined,
       name: sanitizePeerName(data?.name, 'Устройство'),
       deviceType: data?.deviceType || 'unknown',
       os: typeof data?.os === 'string' ? data.os.slice(0, 20) : undefined,
@@ -1155,14 +1159,18 @@ io.on('connection', (socket) => {
 
   socket.on('lobby-query', () => {
     const currentSubnet = getClientNetworkSubnet(socket);
-    const peersInSubnet = Array.from(lobbyPeers.values()).filter(
-      (p) => p.subnet === currentSubnet && p.socketId !== socket.id
-    );
     const myPeer = lobbyPeers.get(socket.id);
+    const peersInSubnet = Array.from(lobbyPeers.values()).filter(
+      (p) =>
+        p.subnet === currentSubnet &&
+        p.socketId !== socket.id &&
+        (!myPeer?.deviceId || !p.deviceId || p.deviceId !== myPeer.deviceId)
+    );
     socket.emit(
       'nearby-peers',
       peersInSubnet.map((p) => ({
         socketId: p.socketId,
+        deviceId: p.deviceId,
         name: p.name,
         deviceType: p.deviceType,
         os: p.os,

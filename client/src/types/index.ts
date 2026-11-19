@@ -64,6 +64,7 @@ export interface Peer {
 
 export interface NearbyPeer {
   socketId: string;
+  deviceId?: string;
   name: string;
   deviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown';
   os?: 'ios' | 'android' | 'windows' | 'macos' | 'linux' | 'unknown';

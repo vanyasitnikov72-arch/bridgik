@@ -1452,8 +1452,10 @@ export function App() {
     }
     const info = getDetailedDeviceInfo();
     const licenseKey = localStorage.getItem('bridgik_license_key') || undefined;
+    const deviceId = getBrowserDeviceId();
     socket.emit('lobby-join', {
       name: userName,
+      deviceId,
       deviceType: info.deviceType,
       os: info.os,
       osName: info.osName,
