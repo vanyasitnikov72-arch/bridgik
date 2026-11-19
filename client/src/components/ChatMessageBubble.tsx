@@ -34,6 +34,8 @@ interface ChatMessageBubbleProps {
   isAdmin?: boolean;
   adminFrame?: 'gold' | 'rgb' | 'plasma' | 'none';
   senderStatusEmote?: string;
+  isBurner?: boolean;
+  expiresAt?: number;
 }
 
 export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
@@ -46,7 +48,23 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
   isAdmin,
   adminFrame = 'gold',
   senderStatusEmote,
+  isBurner,
+  expiresAt,
 }) => {
+  const [secondsLeft, setSecondsLeft] = useState(() => {
+    if (!expiresAt) return 0;
+    return Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+  });
+
+  React.useEffect(() => {
+    if (!expiresAt) return;
+    const interval = setInterval(() => {
+      const left = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+      setSecondsLeft(left);
+      if (left <= 0) clearInterval(interval);
+    }, 500);
+    return () => clearInterval(interval);
+  }, [expiresAt]);
   if (isSystem || senderName === 'Система') {
     const isJoin = text.includes('присоединился');
     return (
@@ -182,11 +200,15 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
         className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[85%] sm:max-w-[80%]`}
       >
         {isMe ? (
-          time && (
-            <div className="mb-1 px-1">
-              <span className="text-[10px] text-[#666666] font-mono">{time}</span>
-            </div>
-          )
+          <div className="flex items-center gap-2 mb-1 px-1">
+            {isBurner && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400 border border-orange-500/40 text-[9px] font-mono font-bold animate-pulse">
+                <span>🔥</span>
+                <span>{secondsLeft}с</span>
+              </span>
+            )}
+            {time && <span className="text-[10px] text-[#666666] font-mono">{time}</span>}
+          </div>
         ) : (
           <div className="flex items-center gap-2 mb-1 px-1">
             <div className="flex items-center gap-1.5">
@@ -210,6 +232,12 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
                 />
               )}
             </div>
+            {isBurner && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400 border border-orange-500/40 text-[9px] font-mono font-bold animate-pulse">
+                <span>🔥</span>
+                <span>{secondsLeft}с</span>
+              </span>
+            )}
             {time && <span className="text-[10px] text-[#666666] font-mono">{time}</span>}
           </div>
         )}

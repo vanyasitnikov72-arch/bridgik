@@ -14,6 +14,8 @@ import {
   Paperclip,
   Upload,
   Monitor,
+  MonitorOff,
+  Maximize2,
   Smartphone,
   File,
   Settings,
@@ -36,9 +38,14 @@ import {
   Sparkles,
   Bell,
   AlertTriangle,
+  CloudRain,
+  Flame,
+  Code,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { FileTransfer, Peer, TextMessage } from '../types/index.js';
 import { sound } from '../utils/sound.js';
+import { ambientSound, AmbientMode } from '../utils/ambientSound.js';
 import { EmotePicker } from './EmotePicker.js';
 import { ChatMessageBubble } from './ChatMessageBubble.js';
 import { CustomAudioPlayer } from './CustomAudioPlayer.js';
@@ -527,21 +534,26 @@ const EmptyPixelSeat: React.FC<EmptyPixelSeatProps> = ({
       </div>
 
       <div
-        className={`w-7 h-7 sm:w-10 sm:h-10 rounded-full border-2 border-dashed flex items-center justify-center cursor-pointer transition-all duration-200 drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)] ${
+        className={`w-8 h-8 sm:w-11 sm:h-11 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-200 drop-shadow-[0_4px_16px_rgba(0,0,0,0.95)] backdrop-blur-sm ${
           isHovered
-            ? 'scale-125 border-[#bbf348] bg-[#1a2e16] shadow-[0_0_22px_rgba(154,196,62,0.8)] ring-2 ring-[#bbf348]/70'
-            : 'border-[#9ac43e]/70 bg-[#0e140d]/85 shadow-[0_0_10px_rgba(154,196,62,0.3)] ring-1 ring-white/20 hover:border-[#bbf348]'
+            ? 'scale-125 bg-[#1f3714] border-white shadow-[0_0_28px_rgba(187,243,72,0.95)] ring-4 ring-[#bbf348]'
+            : 'bg-[#0f170d]/90 border-white/80 shadow-[0_0_16px_rgba(154,196,62,0.6)] ring-2 ring-[#9ac43e]/80 hover:scale-115'
         }`}
         style={{
-          borderColor: isHovered ? accentColor : undefined,
+          boxShadow: isHovered
+            ? `0 0 28px ${accentColor}, 0 4px 14px rgba(0,0,0,0.9)`
+            : `0 0 16px ${accentColor}88, 0 4px 12px rgba(0,0,0,0.85)`,
         }}
         title={`Свободное место: ${spotName}. Кликните, чтобы пересесть.`}
       >
         <Plus
-          className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform duration-200 ${
+          className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-200 stroke-[2.5] ${
             isHovered ? 'text-white scale-110' : 'text-[#bbf348]'
           }`}
-          style={{ color: isHovered ? '#ffffff' : accentColor }}
+          style={{
+            color: isHovered ? '#ffffff' : accentColor,
+            filter: `drop-shadow(0 0 5px ${accentColor})`,
+          }}
         />
       </div>
     </div>
@@ -589,7 +601,7 @@ interface MeetingRoomViewProps {
   peerConnectionTypes?: Record<string, 'direct' | 'relay'>;
   onUpdateScratchpad: (text: string) => void;
   onSendFiles: (files: FileList | File[]) => void;
-  onSendText: (text: string) => void;
+  onSendText: (text: string, isClipboard?: boolean, isBurner?: boolean) => void;
   onLeaveRoom: () => void;
   onOpenQR: () => void;
   onToggleMic: () => Promise<boolean>;
@@ -645,11 +657,11 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   onLeaveRoom,
   onOpenQR,
   onToggleMic,
-  onToggleScreen: _onToggleScreen,
-  remoteVideoRef: _remoteVideoRef,
+  onToggleScreen,
+  remoteVideoRef,
   isMicActive,
-  isScreenActive: _isScreenActive,
-  hasRemoteVideo: _hasRemoteVideo,
+  isScreenActive = false,
+  hasRemoteVideo = false,
   onAcceptFile,
 }) => {
   const [copiedLink, setCopiedLink] = useState(false);
@@ -657,6 +669,94 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   const [chatInput, setChatInput] = useState('');
   const [activeSideTab, setActiveSideTab] = useState<'notes' | 'chat'>('notes');
   const [meetingSeconds, setMeetingSeconds] = useState(0);
+
+  // Screen Sharing Presentation View & Ambient Audio
+  const [viewMode, setViewMode] = useState<'scene' | 'screen'>('scene');
+  const [isAmbientOpen, setIsAmbientOpen] = useState(false);
+  const [ambientMode, setAmbientMode] = useState<AmbientMode>(() => ambientSound.getMode());
+  const [ambientVolume, setAmbientVolume] = useState<number>(() => ambientSound.getVolume());
+  const [isBurnerChat, setIsBurnerChat] = useState(false);
+  const [isCanvasPreview, setIsCanvasPreview] = useState(false);
+  const [previewCode, setPreviewCode] = useState<{ name: string; content: string } | null>(null);
+  const [copiedCode, setCopiedCode] = useState(false);
+
+  useEffect(() => {
+    if (hasRemoteVideo || isScreenActive) {
+      setViewMode('screen');
+    }
+  }, [hasRemoteVideo, isScreenActive]);
+
+  useEffect(() => {
+    return () => {
+      ambientSound.stop();
+    };
+  }, []);
+
+  const handleCanvasPaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        e.preventDefault();
+        const file = items[i].getAsFile();
+        if (!file) continue;
+
+        try {
+          const img = new Image();
+          const objUrl = URL.createObjectURL(file);
+          img.src = objUrl;
+          await new Promise((res, rej) => {
+            img.onload = () => res(null);
+            img.onerror = rej;
+          });
+          URL.revokeObjectURL(objUrl);
+
+          const maxDim = 800;
+          let { width, height } = img;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const webpData = canvas.toDataURL('image/webp', 0.65);
+            const md = `\n![изображение](${webpData})\n`;
+            onUpdateScratchpad(scratchpadText + md);
+            sound.playMessage();
+          }
+        } catch (err) {
+          console.warn('Canvas paste image failed', err);
+        }
+        return;
+      }
+    }
+  };
+
+  const isCodeOrTextFile = (name: string) => {
+    return /\.(txt|md|json|ts|tsx|js|jsx|py|html|css|log|yml|yaml|sql|sh)$/i.test(name);
+  };
+
+  const handleOpenCodePreview = async (transfer: FileTransfer) => {
+    if (!transfer.blobUrl) return;
+    try {
+      const res = await fetch(transfer.blobUrl);
+      const text = await res.text();
+      setPreviewCode({ name: transfer.name, content: text });
+      sound.playClick();
+    } catch (err) {
+      console.warn('Failed to load code preview', err);
+    }
+  };
 
   const [currentRoomId, setCurrentRoomId] = useState<RoomId>(() => {
     if (roomTheme && roomTheme in ROOM_PRESETS) return roomTheme as RoomId;
@@ -1184,6 +1284,81 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
               </div>
             </div>
 
+            {/* View Mode Switcher if Screen Sharing is Active */}
+            {(hasRemoteVideo || isScreenActive) && (
+              <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-2 bg-[#121218] border-b border-white/10 select-none">
+                <div className="flex items-center gap-1.5 p-1 bg-[#1a1a24] rounded-xl border border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sound.playClick();
+                      setViewMode('scene');
+                    }}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      viewMode === 'scene'
+                        ? 'bg-[#789d2a] text-white shadow-sm'
+                        : 'text-[#aaaaaa] hover:text-[#ededed]'
+                    }`}
+                  >
+                    <Armchair className="w-3.5 h-3.5" />
+                    <span>Сцена 🛋️</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sound.playClick();
+                      setViewMode('screen');
+                    }}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      viewMode === 'screen'
+                        ? 'bg-[#789d2a] text-white shadow-sm'
+                        : 'text-[#aaaaaa] hover:text-[#ededed]'
+                    }`}
+                  >
+                    <Monitor className="w-3.5 h-3.5" />
+                    <span>Экран 🖥️</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
+                  </button>
+                </div>
+                <div className="text-[11px] text-[#888899] font-mono flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  <span>{isScreenActive ? 'Вы транслируете экран' : 'Трансляция активна'}</span>
+                </div>
+              </div>
+            )}
+
+            {viewMode === 'screen' ? (
+              <div className="relative w-full aspect-video max-h-[520px] bg-black flex items-center justify-center overflow-hidden group/screen">
+                <video
+                  ref={remoteVideoRef}
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-contain"
+                />
+                <div className="absolute top-3 left-3 px-3 py-1.5 rounded-xl bg-black/80 border border-white/15 text-xs font-bold text-white flex items-center gap-2 backdrop-blur-md">
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  <span>{isScreenActive ? 'Демонстрация вашего экрана' : 'Экран собеседника'}</span>
+                </div>
+                <div className="absolute top-3 right-3 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (remoteVideoRef?.current) {
+                        if (document.fullscreenElement) {
+                          document.exitFullscreen().catch(() => {});
+                        } else {
+                          remoteVideoRef.current.requestFullscreen().catch(() => {});
+                        }
+                      }
+                    }}
+                    className="p-2 rounded-xl bg-black/80 hover:bg-black text-white border border-white/15 cursor-pointer backdrop-blur-md transition-colors"
+                    title="Во весь экран"
+                  >
+                    <Maximize2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ) : (
             <div className="relative w-full aspect-video max-h-[520px] overflow-hidden flex items-center justify-center">
               <img
                 src={currentRoom.imageSrc}
@@ -1283,6 +1458,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 );
               })}
             </div>
+          )}
 
             {/* Control Dock */}
             <div className="relative sm:absolute sm:bottom-3 sm:left-1/2 sm:-translate-x-1/2 z-30 flex flex-wrap sm:flex-nowrap items-center justify-center gap-1.5 px-2.5 py-2 w-full sm:w-auto bg-[#121218]/95 border-t sm:border border-white/15 sm:rounded-2xl shadow-2xl backdrop-blur-md">
@@ -1305,6 +1481,114 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                   <MicOff className="w-4 h-4" />
                 )}
               </button>
+
+              {/* Screen Sharing Toggle */}
+              {onToggleScreen && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    sound.playClick();
+                    onToggleScreen();
+                  }}
+                  className={`p-2 sm:p-2.5 rounded-xl flex items-center justify-center transition-all cursor-pointer focus:outline-none ${
+                    isScreenActive
+                      ? 'bg-[#789d2a] hover:bg-[#8cb632] text-white shadow-[0_0_15px_rgba(120,157,42,0.6)]'
+                      : 'bg-[#25252c] hover:bg-[#303038] text-[#ededed] border border-white/10'
+                  }`}
+                  title={isScreenActive ? 'Остановить показ экрана' : 'Поделиться экраном'}
+                >
+                  {isScreenActive ? (
+                    <MonitorOff className="w-4 h-4" />
+                  ) : (
+                    <Monitor className="w-4 h-4 text-[#9ac43e]" />
+                  )}
+                </button>
+              )}
+
+              {/* Lo-Fi Web Audio Ambient Atmosphere */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAmbientOpen((prev) => !prev);
+                    setIsReactionPickerOpen(false);
+                    setIsRoomPickerOpen(false);
+                    sound.playClick();
+                  }}
+                  className={`p-2 sm:p-2.5 rounded-xl border flex items-center justify-center transition-colors cursor-pointer focus:outline-none ${
+                    ambientMode !== 'off'
+                      ? 'bg-[#789d2a]/30 border-[#789d2a] text-[#bbf348] shadow-[0_0_12px_rgba(120,157,42,0.4)]'
+                      : 'bg-[#25252c] hover:bg-[#303038] text-[#ededed] border-white/10'
+                  }`}
+                  title="Атмосфера комнаты (Lo-Fi / Эмбиент)"
+                >
+                  <CloudRain className={`w-4 h-4 ${ambientMode !== 'off' ? 'text-[#bbf348]' : 'text-[#aaaaaa]'}`} />
+                </button>
+
+                {isAmbientOpen && (
+                  <div className="absolute bottom-14 left-1/2 -translate-x-1/2 z-50 p-4 rounded-2xl bg-[#14141c] border border-white/15 shadow-2xl w-64 backdrop-blur-xl animate-in fade-in zoom-in-95">
+                    <div className="flex items-center justify-between pb-2 mb-3 border-b border-white/10">
+                      <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                        <CloudRain className="w-3.5 h-3.5 text-[#9ac43e]" />
+                        <span>Атмосфера комнаты</span>
+                      </span>
+                      <button onClick={() => setIsAmbientOpen(false)} className="text-[#888888] hover:text-white p-1 cursor-pointer">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-1.5 mb-3">
+                      {[
+                        { id: 'off', label: 'Тишина', icon: '🔇' },
+                        { id: 'rain', label: 'Дождь', icon: '🌧️' },
+                        { id: 'cozy', label: 'Камин', icon: '🔥' },
+                        { id: 'drone', label: 'Кибер-дрон', icon: '🌌' },
+                      ].map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => {
+                            sound.playClick();
+                            const next = item.id as AmbientMode;
+                            setAmbientMode(next);
+                            ambientSound.play(next, ambientVolume);
+                          }}
+                          className={`p-2 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition-all cursor-pointer ${
+                            ambientMode === item.id
+                              ? 'bg-[#789d2a]/20 border-[#789d2a] text-[#bbf348]'
+                              : 'bg-[#1e1e26] border-[#333340] text-[#aaaaaa] hover:text-white'
+                          }`}
+                        >
+                          <span className="text-base">{item.icon}</span>
+                          <span>{item.label}</span>
+                        </button>
+                      ))}
+                    </div>
+
+                    {ambientMode !== 'off' && (
+                      <div className="space-y-1.5 pt-2 border-t border-white/10">
+                        <div className="flex items-center justify-between text-[11px] text-[#aaaaaa] font-semibold">
+                          <span>Громкость</span>
+                          <span>{Math.round(ambientVolume * 100)}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.05"
+                          value={ambientVolume}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            setAmbientVolume(val);
+                            ambientSound.setVolume(val);
+                          }}
+                          className="w-full accent-[#789d2a] cursor-pointer"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {onSendReaction && (
                 <button
@@ -1599,6 +1883,17 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                         <div className="flex items-center gap-1.5 shrink-0">
                           {t.blobUrl && (
                             <>
+                              {isCodeOrTextFile(t.name) && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenCodePreview(t)}
+                                  className="p-2 rounded-xl bg-[#25252e] hover:bg-[#30303c] text-[#ededed] hover:text-[#9ac43e] border border-white/10 transition-colors cursor-pointer shadow-sm"
+                                  title="Просмотр кода / текста"
+                                >
+                                  <Code className="w-4 h-4 text-[#9ac43e]" />
+                                </button>
+                              )}
+
                               {(isImg || isVid || isAud) && (
                                 <button
                                   type="button"
@@ -1709,9 +2004,25 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
               <div className="flex items-center justify-between mb-3 text-xs sm:text-sm text-[#aaaaaa]">
                 <span className="font-semibold text-[#9ac43e] flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-[#789d2a]" />
-                  <span>Канвас · Синхронизация на лету</span>
+                  <span>Канвас · Синхронизация (Ctrl + V)</span>
                 </span>
                 <div className="flex items-center gap-1.5 sm:gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sound.playClick();
+                      setIsCanvasPreview(!isCanvasPreview);
+                    }}
+                    className={`p-1.5 rounded text-xs flex items-center gap-1 border transition-colors cursor-pointer ${
+                      isCanvasPreview
+                        ? 'bg-[#789d2a]/30 border-[#789d2a] text-[#bbf348]'
+                        : 'bg-[#272727] hover:bg-[#333333] border-[#383838] text-[#aaaaaa]'
+                    }`}
+                    title={isCanvasPreview ? 'Режим редактора' : 'Превью картинок и заметок'}
+                  >
+                    <ImageIcon className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">{isCanvasPreview ? 'Редактор' : 'Превью'}</span>
+                  </button>
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     className="p-1.5 hover:text-white rounded bg-[#272727] hover:bg-[#333333] transition-colors cursor-pointer text-xs flex items-center gap-1 border border-[#383838]"
@@ -1752,27 +2063,48 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 </div>
               )}
 
-              <textarea
-                ref={scratchpadTextareaRef}
-                value={scratchpadText}
-                onChange={(e) => {
-                  const target = e.target;
-                  scratchpadSelectionRef.current = {
-                    start: target.selectionStart,
-                    end: target.selectionEnd,
-                  };
-                  onUpdateScratchpad(target.value);
-                }}
-                onSelect={(e) => {
-                  const target = e.target as HTMLTextAreaElement;
-                  scratchpadSelectionRef.current = {
-                    start: target.selectionStart,
-                    end: target.selectionEnd,
-                  };
-                }}
-                placeholder="Канвас комнаты... Набросайте план, тезисы, ссылки или код. Все изменения моментально видны собеседникам."
-                className="flex-1 w-full bg-[#141414] border border-[#333333] rounded-xl p-3.5 text-base sm:text-lg text-[#ededed] placeholder-[#666666] outline-none focus:border-[#789d2a] resize-none font-mono leading-relaxed transition-colors"
-              />
+              {isCanvasPreview ? (
+                <div className="flex-1 w-full bg-[#141414] border border-[#333333] rounded-xl p-3.5 text-sm sm:text-base text-[#ededed] overflow-y-auto space-y-2 font-mono leading-relaxed select-text">
+                  {scratchpadText ? (
+                    scratchpadText.split('\n').map((line, idx) => {
+                      const imgMatch = line.match(/^!\[(.*?)\]\((.*?)\)$/);
+                      if (imgMatch) {
+                        return (
+                          <div key={idx} className="my-2 max-w-sm rounded-xl overflow-hidden border border-white/10 shadow-lg">
+                            <img src={imgMatch[2]} alt={imgMatch[1] || 'Скриншот'} className="w-full h-auto object-contain max-h-60 bg-black/40" />
+                          </div>
+                        );
+                      }
+                      return <p key={idx} className="min-h-[1.2em]">{line}</p>;
+                    })
+                  ) : (
+                    <div className="text-[#666666] italic">Канвас пуст. Вставьте скриншот (Ctrl + V) или напишите текст.</div>
+                  )}
+                </div>
+              ) : (
+                <textarea
+                  ref={scratchpadTextareaRef}
+                  value={scratchpadText}
+                  onPaste={handleCanvasPaste}
+                  onChange={(e) => {
+                    const target = e.target;
+                    scratchpadSelectionRef.current = {
+                      start: target.selectionStart,
+                      end: target.selectionEnd,
+                    };
+                    onUpdateScratchpad(target.value);
+                  }}
+                  onSelect={(e) => {
+                    const target = e.target as HTMLTextAreaElement;
+                    scratchpadSelectionRef.current = {
+                      start: target.selectionStart,
+                      end: target.selectionEnd,
+                    };
+                  }}
+                  placeholder="Канвас комнаты... Нажмите Ctrl + V, чтобы вставить скриншот или картинку прямо в заметки."
+                  className="flex-1 w-full bg-[#141414] border border-[#333333] rounded-xl p-3.5 text-base sm:text-lg text-[#ededed] placeholder-[#666666] outline-none focus:border-[#789d2a] resize-none font-mono leading-relaxed transition-colors"
+                />
+              )}
 
               <div className="mt-2 text-xs text-[#888888] flex items-center justify-between">
                 <span>Канвас не сохраняется на сервере (P2P)</span>
@@ -1810,6 +2142,8 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                         senderStatusEmote={
                           m.senderStatusEmote || (isMe ? statusEmote || undefined : peer?.statusEmote)
                         }
+                        isBurner={m.isBurner}
+                        expiresAt={m.expiresAt}
                         time={new Date(m.timestamp).toLocaleTimeString([], {
                           hour: '2-digit',
                           minute: '2-digit',
@@ -1862,8 +2196,12 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                     type="text"
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
-                    placeholder="Сообщение или ссылка..."
-                    className="flex-1 min-w-0 w-full bg-[#141414] border border-[#333333] rounded-xl px-3 sm:px-3.5 py-2 text-sm sm:text-base text-[#ededed] placeholder-[#666666] outline-none focus:border-[#789d2a] transition-colors"
+                    placeholder={isBurnerChat ? 'Сгорающее сообщение (10 сек)...' : 'Сообщение или ссылка...'}
+                    className={`flex-1 min-w-0 w-full bg-[#141414] border rounded-xl px-3 sm:px-3.5 py-2 text-sm sm:text-base text-[#ededed] placeholder-[#666666] outline-none transition-colors ${
+                      isBurnerChat
+                        ? 'border-orange-500/80 focus:border-orange-400 shadow-[0_0_10px_rgba(249,115,22,0.2)]'
+                        : 'border-[#333333] focus:border-[#789d2a]'
+                    }`}
                   />
                   <button
                     type="button"
@@ -1886,9 +2224,28 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                     <Smile className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
                   <button
+                    type="button"
+                    onClick={() => {
+                      sound.playClick();
+                      setIsBurnerChat(!isBurnerChat);
+                    }}
+                    className={`p-2 sm:p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-center shrink-0 ${
+                      isBurnerChat
+                        ? 'bg-orange-500/25 border-orange-500 text-orange-400 shadow-[0_0_10px_rgba(249,115,22,0.4)]'
+                        : 'bg-[#222222] border-[#333333] text-[#888888] hover:text-orange-400 hover:border-orange-500/50'
+                    }`}
+                    title={isBurnerChat ? 'Сгорающее сообщение ВКЛ (10 сек)' : 'Сгорающее сообщение (самоуничтожится через 10 сек)'}
+                  >
+                    <Flame className="w-4 h-4 sm:w-5 sm:h-5" />
+                  </button>
+                  <button
                     type="submit"
                     disabled={!chatInput.trim()}
-                    className="px-3 sm:px-4 py-2 sm:py-2.5 bg-[#789d2a] hover:bg-[#8cb632] disabled:opacity-40 text-white rounded-xl font-bold text-sm transition-colors cursor-pointer flex items-center justify-center shrink-0 shadow-md shadow-[#789d2a]/20"
+                    className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl font-bold text-sm transition-colors cursor-pointer flex items-center justify-center shrink-0 shadow-md ${
+                      isBurnerChat
+                        ? 'bg-orange-600 hover:bg-orange-500 text-white shadow-orange-600/30'
+                        : 'bg-[#789d2a] hover:bg-[#8cb632] disabled:opacity-40 text-white shadow-[#789d2a]/20'
+                    }`}
                   >
                     <Send className="w-4 h-4" />
                   </button>
@@ -2382,7 +2739,56 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
           </div>
         </div>
       )}
-      {/* Custom Right-Click Context Menu for Participants & Seats */}
+      {/* Code & Text File Preview Modal */}
+      {previewCode && (
+        <div
+          onClick={() => setPreviewCode(null)}
+          className="fixed inset-0 z-[130] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-3 sm:p-6 animate-in fade-in duration-150"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-3xl flex flex-col max-h-[85vh] rounded-2xl bg-[#121218] border border-white/15 shadow-2xl overflow-hidden"
+          >
+            <div className="p-3.5 sm:p-4 border-b border-white/10 flex items-center justify-between bg-[#161622]">
+              <div className="flex items-center gap-2 min-w-0 pr-3">
+                <Code className="w-4 h-4 text-[#9ac43e] shrink-0" />
+                <span className="font-mono text-sm font-bold text-[#ededed] truncate">
+                  {previewCode.name}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(previewCode.content);
+                    sound.playClick();
+                    setCopiedCode(true);
+                    setTimeout(() => setCopiedCode(false), 2000);
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-[#242432] hover:bg-[#2f2f40] text-xs font-bold text-[#ededed] flex items-center gap-1.5 transition-colors cursor-pointer border border-white/10"
+                >
+                  {copiedCode ? (
+                    <Check className="w-3.5 h-3.5 text-[#9ac43e]" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5" />
+                  )}
+                  <span>{copiedCode ? 'Скопировано!' : 'Копировать код'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewCode(null)}
+                  className="p-1.5 rounded-xl bg-[#242432] hover:bg-[#2f2f40] text-[#aaaaaa] hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <pre className="flex-1 p-4 overflow-auto text-xs sm:text-sm font-mono text-[#dcdcdc] bg-[#0d0d12] whitespace-pre-wrap select-all leading-relaxed scrollbar-thin">
+              {previewCode.content}
+            </pre>
+          </div>
+        </div>
+      )}
       {contextMenu && (
         <div
           ref={contextMenuRef}

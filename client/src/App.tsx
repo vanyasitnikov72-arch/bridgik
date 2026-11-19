@@ -248,6 +248,20 @@ export function App() {
   const [peers, setPeers] = useState<Peer[]>([]);
   const [transfers, setTransfers] = useState<FileTransfer[]>([]);
   const [messages, setMessages] = useState<TextMessage[]>([]);
+
+  // Auto-cleanup burner self-destructing messages
+  useEffect(() => {
+    const hasBurners = messages.some((m) => m.isBurner && m.expiresAt);
+    if (!hasBurners) return;
+    const timer = setInterval(() => {
+      const now = Date.now();
+      setMessages((prev) => {
+        const next = prev.filter((m) => !m.expiresAt || m.expiresAt > now);
+        return next.length !== prev.length ? next : prev;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [messages]);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
@@ -265,6 +279,10 @@ export function App() {
     name: string;
   } | null>(null);
   const participantNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const participantToastsRef = useRef(participantToasts);
+  useEffect(() => {
+    participantToastsRef.current = participantToasts;
+  }, [participantToasts]);
   const peersRef = useRef<Peer[]>(peers);
   useEffect(() => {
     peersRef.current = peers;
@@ -730,9 +748,11 @@ export function App() {
         return [...prev, newPeer];
       });
 
-      setParticipantNotice({ type: 'joined', name: newPeer.name });
-      if (participantNoticeTimerRef.current) clearTimeout(participantNoticeTimerRef.current);
-      participantNoticeTimerRef.current = setTimeout(() => setParticipantNotice(null), 4000);
+      if (participantToastsRef.current) {
+        setParticipantNotice({ type: 'joined', name: newPeer.name });
+        if (participantNoticeTimerRef.current) clearTimeout(participantNoticeTimerRef.current);
+        participantNoticeTimerRef.current = setTimeout(() => setParticipantNotice(null), 4000);
+      }
 
       if (webrtcRef.current) {
         webrtcRef.current.connectToPeer(newPeer.id, true);
@@ -756,9 +776,11 @@ export function App() {
         return next;
       });
 
-      setParticipantNotice({ type: 'left', name: peerName });
-      if (participantNoticeTimerRef.current) clearTimeout(participantNoticeTimerRef.current);
-      participantNoticeTimerRef.current = setTimeout(() => setParticipantNotice(null), 4000);
+      if (participantToastsRef.current) {
+        setParticipantNotice({ type: 'left', name: peerName });
+        if (participantNoticeTimerRef.current) clearTimeout(participantNoticeTimerRef.current);
+        participantNoticeTimerRef.current = setTimeout(() => setParticipantNotice(null), 4000);
+      }
 
       if (webrtcRef.current) {
         webrtcRef.current.removePeer(data.peerId);
@@ -1381,9 +1403,9 @@ export function App() {
     });
   };
 
-  const handleSendText = (text: string, isClipboard = false) => {
+  const handleSendText = (text: string, isClipboard = false, isBurner = false) => {
     if (!webrtcRef.current) return;
-    webrtcRef.current.sendTextMessage(text, isClipboard);
+    webrtcRef.current.sendTextMessage(text, isClipboard, isBurner);
   };
 
   const handleSendSharedBundle = () => {

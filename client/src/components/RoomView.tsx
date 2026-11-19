@@ -23,6 +23,8 @@ import {
   CheckSquare,
   Square,
   Package,
+  Flame,
+  Code,
 } from 'lucide-react';
 import { FileTransfer, Peer, TextMessage } from '../types/index.js';
 import { formatBytes, formatSpeed, getAvatarForName } from '../utils/device.js';
@@ -46,7 +48,7 @@ interface RoomViewProps {
   transfers: FileTransfer[];
   messages: TextMessage[];
   onSendFiles: (files: FileList | File[]) => void;
-  onSendText: (text: string, isClipboard?: boolean) => void;
+  onSendText: (text: string, isClipboard?: boolean, isBurner?: boolean) => void;
   onCancelTransfer: (transferId: string) => void;
   onAcceptFile: (fileId: string) => void;
   onRejectFile: (fileId: string) => void;
@@ -116,6 +118,25 @@ export const RoomView: React.FC<RoomViewProps> = ({
     type: 'image' | 'video' | 'audio';
   } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isBurnerChat, setIsBurnerChat] = useState(false);
+  const [previewCode, setPreviewCode] = useState<{ name: string; content: string } | null>(null);
+  const [copiedCode, setCopiedCode] = useState(false);
+
+  const isCodeOrTextFile = (name: string) => {
+    return /\.(txt|md|json|ts|tsx|js|jsx|py|html|css|log|yml|yaml|sql|sh)$/i.test(name);
+  };
+
+  const handleOpenCodePreview = async (transfer: FileTransfer) => {
+    if (!transfer.blobUrl) return;
+    try {
+      const res = await fetch(transfer.blobUrl);
+      const text = await res.text();
+      setPreviewCode({ name: transfer.name, content: text });
+      sound.playClick();
+    } catch (err) {
+      console.warn('Failed to load code preview', err);
+    }
+  };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
@@ -270,7 +291,7 @@ export const RoomView: React.FC<RoomViewProps> = ({
   const handleTextSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (textInput.trim()) {
-      onSendText(textInput.trim());
+      onSendText(textInput.trim(), false, isBurnerChat);
       setTextInput('');
     }
   };
@@ -558,13 +579,6 @@ export const RoomView: React.FC<RoomViewProps> = ({
                     <Copy className="w-3.5 h-3.5" />
                   )}
                   <span>{copiedLink ? 'Ссылка скопирована' : 'Скопировать ссылку'}</span>
-                </button>
-                <button
-                  onClick={onOpenQR}
-                  className="hidden sm:flex px-3.5 py-1.5 rounded-lg bg-[#272727] hover:bg-[#333333] border border-[#3a3a3a] text-xs font-bold text-[#9ac43e] hover:text-[#bbf348] items-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  <QrCode className="w-3.5 h-3.5" />
-                  <span>Увеличить QR</span>
                 </button>
               </div>
             </div>
@@ -854,6 +868,17 @@ export const RoomView: React.FC<RoomViewProps> = ({
                             </span>
                           )}
 
+                          {t.blobUrl && isCodeOrTextFile(t.name) && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenCodePreview(t)}
+                              className="p-2 rounded-lg bg-[#222222] hover:bg-[#2d2d2d] text-[#ededed] hover:text-[#9ac43e] border border-[#3a3a3a] transition-colors cursor-pointer"
+                              title="Просмотр кода / текста"
+                            >
+                              <Code className="w-4 h-4 text-[#9ac43e]" />
+                            </button>
+                          )}
+
                           {t.blobUrl && (isImage || isVideo || isAudio) && (
                             <button
                               type="button"
@@ -1042,12 +1067,20 @@ export const RoomView: React.FC<RoomViewProps> = ({
                           )}
                         </div>
                       </div>
-                      <span className="shrink-0 ml-2">
-                        {new Date(m.timestamp).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                        {m.isBurner && m.expiresAt && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse">
+                            <Flame className="w-2.5 h-2.5" />
+                            {Math.max(0, Math.ceil((m.expiresAt - Date.now()) / 1000))}с
+                          </span>
+                        )}
+                        <span className="text-xs text-[#888888]">
+                          {new Date(m.timestamp).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
                     </div>
 
                     <p className="text-base sm:text-lg text-[#ededed] break-words whitespace-pre-wrap select-all font-sans leading-relaxed">
@@ -1108,13 +1141,32 @@ export const RoomView: React.FC<RoomViewProps> = ({
                 type="text"
                 value={textInput}
                 onChange={(e) => setTextInput(e.target.value)}
-                placeholder="Вставьте ссылку или текст..."
-                className="flex-1 min-w-0 w-full bg-[#171717] border border-[#3a3a3a] rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base text-[#ededed] placeholder-[#999999] outline-none focus:border-[#789d2a] transition-colors"
+                placeholder={isBurnerChat ? "Сгорающее сообщение (10 сек)..." : "Вставьте ссылку или текст..."}
+                className={`flex-1 min-w-0 w-full bg-[#171717] border rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base text-[#ededed] placeholder-[#999999] outline-none transition-colors ${
+                  isBurnerChat
+                    ? 'border-amber-500/60 focus:border-amber-400 bg-amber-950/10'
+                    : 'border-[#3a3a3a] focus:border-[#789d2a]'
+                }`}
               />
+              <button
+                type="button"
+                onClick={() => setIsBurnerChat(!isBurnerChat)}
+                className={`p-2 sm:px-2.5 sm:py-2 rounded-lg border text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shrink-0 ${
+                  isBurnerChat
+                    ? 'bg-amber-500/20 text-amber-400 border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.2)]'
+                    : 'bg-[#222222] text-[#888888] hover:text-[#cccccc] border-[#3a3a3a]'
+                }`}
+                title="Сгорающее сообщение (исчезнет через 10 сек)"
+              >
+                <Flame className={`w-4 h-4 ${isBurnerChat ? 'animate-bounce text-amber-400' : ''}`} />
+                <span className="hidden sm:inline">10с</span>
+              </button>
               <button
                 type="submit"
                 disabled={!textInput.trim()}
-                className="px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-lg bg-[#789d2a] hover:bg-[#8cb632] text-white font-bold text-sm sm:text-base transition-colors disabled:opacity-40 cursor-pointer shrink-0"
+                className={`px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-lg text-white font-bold text-sm sm:text-base transition-colors disabled:opacity-40 cursor-pointer shrink-0 ${
+                  isBurnerChat ? 'bg-amber-600 hover:bg-amber-500' : 'bg-[#789d2a] hover:bg-[#8cb632]'
+                }`}
               >
                 Отправить
               </button>
@@ -1180,6 +1232,59 @@ export const RoomView: React.FC<RoomViewProps> = ({
                 <CustomAudioPlayer src={previewMedia.url} title={previewMedia.name} autoPlay />
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Code / Text Lightbox */}
+      {previewCode && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setPreviewCode(null)}
+        >
+          <div
+            className="relative max-w-4xl w-full h-[80vh] flex flex-col rounded-2xl bg-[#141419] border border-[#2e2e38] shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#2e2e38] bg-[#1a1a22]">
+              <div className="flex items-center gap-2 truncate">
+                <Code className="w-4 h-4 text-[#9ac43e] shrink-0" />
+                <span className="font-bold text-[#ededed] text-sm sm:text-base truncate">
+                  {previewCode.name}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(previewCode.content);
+                    setCopiedCode(true);
+                    setTimeout(() => setCopiedCode(false), 2000);
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-[#252530] hover:bg-[#30303e] border border-[#3a3a48] text-xs font-bold text-[#ededed] flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  {copiedCode ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-[#9ac43e]" />
+                      <span className="text-[#9ac43e]">Скопировано</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Копировать</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => setPreviewCode(null)}
+                  className="p-1.5 rounded-lg bg-[#252530] border border-[#3a3a48] text-[#aaaaaa] hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto p-4 font-mono text-xs sm:text-sm text-[#d4d4d4] bg-[#0d0d12] leading-relaxed selection:bg-[#789d2a]/30">
+              <pre className="whitespace-pre-wrap break-all">{previewCode.content}</pre>
+            </div>
           </div>
         </div>
       )}

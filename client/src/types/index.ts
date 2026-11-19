@@ -81,6 +81,8 @@ export interface TextMessage {
   timestamp: number;
   isClipboard?: boolean;
   isSystem?: boolean;
+  isBurner?: boolean;
+  expiresAt?: number;
 }
 
 export interface FileTransfer {
@@ -119,6 +121,8 @@ export type WebRTCMessage =
       text: string;
       timestamp: number;
       isClipboard?: boolean;
+      isBurner?: boolean;
+      expiresAt?: number;
     }
   | {
       type: 'FILE_OFFER';

@@ -11,6 +11,9 @@ import {
   Lock,
   Paperclip,
   ChevronDown,
+  Camera,
+  X,
+  QrCode,
 } from 'lucide-react';
 import { NearbyPeer, PairRequest } from '../types/index.js';
 import { BridgeIcon } from './icons/BridgeIcon.js';
@@ -60,6 +63,99 @@ export const HomeView: React.FC<HomeViewProps> = ({
 }) => {
   const [pin, setPin] = useState('');
   const [isMobileInfoOpen, setIsMobileInfoOpen] = useState(false);
+  const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
+  const [scannerError, setScannerError] = useState<string | null>(null);
+  const videoRef = React.useRef<HTMLVideoElement | null>(null);
+  const scannerStreamRef = React.useRef<MediaStream | null>(null);
+
+  React.useEffect(() => {
+    if (!isQrScannerOpen) {
+      if (scannerStreamRef.current) {
+        scannerStreamRef.current.getTracks().forEach((t) => t.stop());
+        scannerStreamRef.current = null;
+      }
+      return;
+    }
+
+    let isCancelled = false;
+    let intervalId: any = null;
+
+    async function startCamera() {
+      try {
+        setScannerError(null);
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' } },
+        });
+        if (isCancelled) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        scannerStreamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play().catch(() => {});
+        }
+
+        const hasBarcodeDetector = typeof window !== 'undefined' && 'BarcodeDetector' in window;
+        let barcodeDetector: any = null;
+        if (hasBarcodeDetector) {
+          try {
+            barcodeDetector = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
+          } catch {}
+        }
+
+        intervalId = setInterval(async () => {
+          if (!videoRef.current || videoRef.current.readyState < 2) return;
+          try {
+            if (barcodeDetector) {
+              const barcodes = await barcodeDetector.detect(videoRef.current);
+              if (barcodes && barcodes.length > 0) {
+                const rawValue = barcodes[0].rawValue;
+                handleScannedCode(rawValue);
+              }
+            }
+          } catch {}
+        }, 350);
+      } catch (err: any) {
+        setScannerError('Не удалось открыть камеру. Разрешите доступ к камере в браузере.');
+      }
+    }
+
+    startCamera();
+
+    return () => {
+      isCancelled = true;
+      if (intervalId) clearInterval(intervalId);
+      if (scannerStreamRef.current) {
+        scannerStreamRef.current.getTracks().forEach((t) => t.stop());
+        scannerStreamRef.current = null;
+      }
+    };
+  }, [isQrScannerOpen]);
+
+  const handleScannedCode = (value: string) => {
+    if (!value) return;
+    sound.playConnect();
+    setIsQrScannerOpen(false);
+
+    let parsedPin = value.trim();
+    try {
+      const url = new URL(value);
+      const queryPin = url.searchParams.get('pin');
+      const pathParts = url.pathname.split('/').filter(Boolean);
+      if (queryPin) {
+        parsedPin = queryPin;
+      } else if (pathParts.length > 0) {
+        parsedPin = pathParts[pathParts.length - 1];
+      }
+    } catch {}
+
+    if (activeMode === 'meeting') {
+      onJoinMeeting(parsedPin);
+    } else {
+      onJoinBridge(parsedPin);
+    }
+  };
 
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -206,6 +302,17 @@ export const HomeView: React.FC<HomeViewProps> = ({
           placeholder="Код (напр. 4819)"
           className="flex-1 min-w-0 w-full bg-[#171717] border border-[#3a3a3a] rounded-lg px-3 sm:px-4 py-2.5 sm:py-3 text-[#ededed] placeholder-[#999999] font-mono text-center tracking-widest text-xl sm:text-2xl outline-none focus:border-[#789d2a] transition-colors"
         />
+        <button
+          type="button"
+          onClick={() => {
+            sound.playClick();
+            setIsQrScannerOpen(true);
+          }}
+          className="px-3 sm:px-3.5 py-2.5 sm:py-3 bg-[#262626] hover:bg-[#333333] border border-[#3a3a3a] hover:border-[#789d2a] text-[#ededed] hover:text-[#9ac43e] rounded-lg transition-colors cursor-pointer flex items-center justify-center shrink-0"
+          title="Сканировать QR-код камерой"
+        >
+          <Camera className="w-5 h-5 sm:w-6 sm:h-6" />
+        </button>
         <button
           type="submit"
           disabled={!pin.trim() || isLoading}
@@ -499,6 +606,63 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </div>
           </div>
           <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6 text-[#666666] group-hover:text-[#9ac43e] transition-colors shrink-0 ml-2" />
+        </div>
+      )}
+
+      {/* In-Page QR Code Scanner Modal */}
+      {isQrScannerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-[#1a1a22] border border-[#3a3a4a] rounded-2xl p-5 max-w-sm w-full shadow-2xl relative">
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <QrCode className="w-5 h-5 text-[#9ac43e]" />
+                <h3 className="text-base font-bold text-[#ededed]">Сканирование QR-кода</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsQrScannerOpen(false)}
+                className="p-1.5 rounded-lg text-[#888888] hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {scannerError ? (
+              <div className="p-4 rounded-xl bg-red-950/40 border border-red-800/40 text-red-200 text-sm text-center">
+                <p className="mb-3">{scannerError}</p>
+                <button
+                  type="button"
+                  onClick={() => setIsQrScannerOpen(false)}
+                  className="px-4 py-2 bg-red-900/60 hover:bg-red-800 text-white rounded-lg text-xs font-bold cursor-pointer"
+                >
+                  Закрыть
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-black border-2 border-[#789d2a]/50 shadow-inner flex items-center justify-center">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover"
+                  />
+                  {/* Cyber viewfinder reticle with scanning beam */}
+                  <div className="absolute inset-8 border-2 border-[#9ac43e]/70 rounded-lg pointer-events-none">
+                    <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-[#bbf348]" />
+                    <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-[#bbf348]" />
+                    <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-[#bbf348]" />
+                    <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-[#bbf348]" />
+                    <div className="w-full h-0.5 bg-[#bbf348] shadow-[0_0_8px_#bbf348] absolute top-1/2 -translate-y-1/2 animate-pulse" />
+                  </div>
+                </div>
+                <p className="text-xs text-center text-[#aaaaaa] leading-relaxed">
+                  Наведите камеру на QR-код на экране другого устройства для мгновенного входа.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

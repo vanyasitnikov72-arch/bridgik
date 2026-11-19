@@ -463,6 +463,8 @@ export class WebRTCManager {
             text: msg.text,
             timestamp: msg.timestamp,
             isClipboard: msg.isClipboard,
+            isBurner: msg.isBurner,
+            expiresAt: msg.expiresAt || (msg.isBurner ? Date.now() + 10000 : undefined),
           });
         } else if (msg.type === 'SCRATCHPAD_SYNC') {
           this.callbacks.onScratchpadSync?.(msg.text, msg.updatedBy);
@@ -685,7 +687,8 @@ export class WebRTCManager {
     });
   }
 
-  public sendTextMessage(text: string, isClipboard = false) {
+  public sendTextMessage(text: string, isClipboard = false, isBurner = false) {
+    const expiresAt = isBurner ? Date.now() + 10000 : undefined;
     const msg: WebRTCMessage = {
       type: 'TEXT',
       id: Math.random().toString(36).substring(2, 10),
@@ -698,6 +701,8 @@ export class WebRTCManager {
       text,
       timestamp: Date.now(),
       isClipboard,
+      isBurner,
+      expiresAt,
     };
 
     const payload = JSON.stringify(msg);
@@ -718,6 +723,8 @@ export class WebRTCManager {
       text,
       timestamp: msg.timestamp,
       isClipboard,
+      isBurner,
+      expiresAt,
     });
   }
 
