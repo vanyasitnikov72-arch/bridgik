@@ -24,6 +24,7 @@ import { MeetingRoomView } from './components/MeetingRoomView.js';
 import { AboutView } from './components/AboutView.js';
 import { LegalView, LegalDocType } from './components/LegalView.js';
 import { PricingView } from './components/PricingView.js';
+import { AdminView } from './components/AdminView.js';
 import { QRCodeModal } from './components/QRCodeModal.js';
 import { AuthModal } from './components/AuthModal.js';
 import { DropModal } from './components/DropModal.js';
@@ -152,11 +153,20 @@ export function App() {
       if (next.licenseKeyPreview) {
         localStorage.setItem('bridgik_license_key', next.licenseKeyPreview);
       }
+      if (next.isAdmin) {
+        setIsAdmin(true);
+      }
     } else {
       localStorage.removeItem('bridgik_demo_profile');
       localStorage.removeItem('bridgik_license_key');
     }
   };
+
+  useEffect(() => {
+    if (userProfile?.isAdmin && !isAdmin) {
+      setIsAdmin(true);
+    }
+  }, [userProfile?.isAdmin, isAdmin]);
 
   const patchBackendProfile = async (updates: {
     displayName?: string;
@@ -2048,7 +2058,9 @@ export function App() {
 
   useEffect(() => {
     let section = 'Мост';
-    if (activeTab === 'legal') {
+    if (activeTab === 'admin') {
+      section = 'Админка';
+    } else if (activeTab === 'legal') {
       section = 'Условия';
     } else if (activeTab === 'pricing') {
       section = 'Тарифы';
@@ -2112,7 +2124,18 @@ export function App() {
         onReturnToRoom={() => setActiveTab(roomMode)}
       />
       <main className="flex-1">
-        {activeTab === 'legal' ? (
+        {activeTab === 'admin' ? (
+          <AdminView
+            userProfile={userProfile}
+            isAdmin={isAdmin}
+            onSelectTab={setActiveTab}
+            onJoinRoom={(targetRoomId) => {
+              if (joinRoomRef.current) {
+                joinRoomRef.current(targetRoomId, 'meeting');
+              }
+            }}
+          />
+        ) : activeTab === 'legal' ? (
           <LegalView onBack={() => setActiveTab('bridge')} defaultDoc={legalDoc} />
         ) : activeTab === 'pricing' ? (
           <PricingView

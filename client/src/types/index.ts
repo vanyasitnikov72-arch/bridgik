@@ -1,5 +1,5 @@
 export type ThemeMode = 'swiss' | 'cyberpunk' | 'lofi';
-export type AppTab = 'bridge' | 'meeting' | 'about' | 'legal' | 'profile' | 'pricing';
+export type AppTab = 'bridge' | 'meeting' | 'about' | 'legal' | 'profile' | 'pricing' | 'admin';
 export type RoomMode = 'bridge' | 'meeting';
 
 export type AuthProvider = 'yandex' | 'telegram' | 'key';
@@ -36,6 +36,84 @@ export interface UserProfile {
   s3QuotaUsedMb: number;
   s3QuotaLimitMb: number;
   devices: StickyDevice[];
+  isAdmin?: boolean;
+}
+
+export interface AdminUser {
+  id: string;
+  licenseKey: string;
+  displayName: string;
+  avatarUrl?: string;
+  tier: UserTier;
+  proUntil?: string;
+  isAdmin: boolean;
+  yandexLogin?: string;
+  telegramUsername?: string;
+  deviceCount: number;
+  s3QuotaUsedMb: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface AdminDrop {
+  id: string;
+  userId?: string;
+  targetDeviceId?: string;
+  roomId?: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  filePath: string;
+  senderName: string;
+  downloadCount: number;
+  maxDownloads: number;
+  expiresAt: number;
+  createdAt: number;
+  isExpired: boolean;
+  isS3: boolean;
+}
+
+export interface AdminStats {
+  server: {
+    uptime: number;
+    nodeVersion: string;
+    platform: string;
+    pid: number;
+    memory: {
+      rssMb: number;
+      heapTotalMb: number;
+      heapUsedMb: number;
+      totalMemMb: number;
+      freeMemMb: number;
+    };
+  };
+  webrtc: {
+    roomsCount: number;
+    peersCount: number;
+    socketsCount: number;
+    rooms: Array<{
+      id: string;
+      mode: string;
+      peerCount: number;
+      createdAt: number;
+    }>;
+  };
+  storage: {
+    s3Enabled: boolean;
+    bucket: string;
+    endpoint: string;
+    region: string;
+    objectCount: number;
+    totalSizeBytes: number;
+  };
+  db: {
+    totalUsers: number;
+    proUsers: number;
+    adminUsers: number;
+    totalDevices: number;
+    totalDrops: number;
+    totalPayments: number;
+  };
 }
 
 export interface DropDto {

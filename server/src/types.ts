@@ -56,6 +56,7 @@ export interface DbUser {
   stars_balance: number;
   s3_quota_used_mb: number;
   s3_quota_limit_mb: number;
+  is_admin?: number;
   created_at: number;
   updated_at: number;
 }
@@ -114,6 +115,84 @@ export interface UserProfileDto {
   s3QuotaUsedMb: number;
   s3QuotaLimitMb: number;
   devices: StickyDeviceDto[];
+  isAdmin?: boolean;
+}
+
+export interface AdminUserDto {
+  id: string;
+  licenseKey: string;
+  displayName: string;
+  avatarUrl?: string;
+  tier: UserTier;
+  proUntil?: string;
+  isAdmin: boolean;
+  yandexLogin?: string;
+  telegramUsername?: string;
+  deviceCount: number;
+  s3QuotaUsedMb: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface AdminDropDto {
+  id: string;
+  userId?: string;
+  targetDeviceId?: string;
+  roomId?: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  filePath: string;
+  senderName: string;
+  downloadCount: number;
+  maxDownloads: number;
+  expiresAt: number;
+  createdAt: number;
+  isExpired: boolean;
+  isS3: boolean;
+}
+
+export interface AdminStatsDto {
+  server: {
+    uptime: number;
+    nodeVersion: string;
+    platform: string;
+    pid: number;
+    memory: {
+      rssMb: number;
+      heapTotalMb: number;
+      heapUsedMb: number;
+      totalMemMb: number;
+      freeMemMb: number;
+    };
+  };
+  webrtc: {
+    roomsCount: number;
+    peersCount: number;
+    socketsCount: number;
+    rooms: Array<{
+      id: string;
+      mode: string;
+      peerCount: number;
+      createdAt: number;
+    }>;
+  };
+  storage: {
+    s3Enabled: boolean;
+    bucket: string;
+    endpoint: string;
+    region: string;
+    objectCount: number;
+    totalSizeBytes: number;
+  };
+  db: {
+    totalUsers: number;
+    proUsers: number;
+    adminUsers: number;
+    totalDevices: number;
+    totalDrops: number;
+    totalPayments: number;
+  };
 }
 
 export interface DbDrop {

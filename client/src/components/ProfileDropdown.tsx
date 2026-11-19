@@ -8,6 +8,7 @@ import {
   Wrench,
   Check,
   Settings,
+  Shield,
 } from 'lucide-react';
 import { UserProfile } from '../types/index.js';
 import { getAvatarForName } from '../utils/device.js';
@@ -19,6 +20,7 @@ interface ProfileDropdownProps {
   profile: UserProfile;
   isAdmin?: boolean;
   onOpenProfile: (tab?: ProfileSectionTab) => void;
+  onOpenAdmin?: () => void;
   onOpenSettings?: () => void;
   onToggleDemoTier?: () => void;
   onOpenLegal: () => void;
@@ -30,6 +32,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
   profile,
   isAdmin,
   onOpenProfile,
+  onOpenAdmin,
   onOpenSettings,
   onToggleDemoTier: _onToggleDemoTier,
   onOpenLegal,
@@ -139,6 +142,21 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
           <User className="w-4 h-4 text-[#a8a8a8] shrink-0" />
           <span>Профиль и кастомизация</span>
         </button>
+
+        {Boolean(isAdmin || profile.isAdmin) && onOpenAdmin && (
+          <button
+            type="button"
+            onClick={() => {
+              sound.playClick();
+              onOpenAdmin();
+              onClose();
+            }}
+            className="w-full px-3 py-2 rounded-xl flex items-center gap-3 text-amber-300 hover:text-amber-200 hover:bg-amber-400/10 border border-amber-400/25 transition-colors cursor-pointer text-left font-bold"
+          >
+            <Shield className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>Панель управления</span>
+          </button>
+        )}
 
         <button
           type="button"

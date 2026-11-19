@@ -1,13 +1,13 @@
-import { S3Client, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, GetObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Upload } from '@aws-sdk/lib-storage';
 import { Readable } from 'stream';
 
-const S3_ENDPOINT = process.env.S3_ENDPOINT || 'https://s3.cloud.ru';
-const S3_REGION = process.env.S3_REGION || 'ru-central-1';
-const S3_BUCKET = process.env.S3_BUCKET || 'bridgik-drops';
-const S3_ACCESS_KEY_ID = process.env.S3_ACCESS_KEY_ID;
-const S3_SECRET_ACCESS_KEY = process.env.S3_SECRET_ACCESS_KEY;
+export const S3_ENDPOINT = process.env.S3_ENDPOINT || 'https://s3.cloud.ru';
+export const S3_REGION = process.env.S3_REGION || 'ru-central-1';
+export const S3_BUCKET = process.env.S3_BUCKET || 'bridgik-drops';
+export const S3_ACCESS_KEY_ID = process.env.S3_ACCESS_KEY_ID;
+export const S3_SECRET_ACCESS_KEY = process.env.S3_SECRET_ACCESS_KEY;
 
 export const isS3Enabled = Boolean(
   S3_ACCESS_KEY_ID && S3_SECRET_ACCESS_KEY && S3_BUCKET
@@ -88,5 +88,21 @@ export async function deleteFromS3(key: string): Promise<boolean> {
   } catch (err) {
     console.warn(`[S3] Failed to delete object '${key}':`, err);
     return false;
+  }
+}
+
+/**
+ * Returns statistics of objects in S3 bucket
+ */
+export async function getS3Stats(): Promise<{ objectCount: number; totalSizeBytes: number }> {
+  if (!s3Client) return { objectCount: 0, totalSizeBytes: 0 };
+  try {
+    const res = await s3Client.send(new ListObjectsV2Command({ Bucket: S3_BUCKET }));
+    const count = res.KeyCount || 0;
+    const totalSize = (res.Contents || []).reduce((acc, obj) => acc + (obj.Size || 0), 0);
+    return { objectCount: count, totalSizeBytes: totalSize };
+  } catch (err) {
+    console.warn('[S3] getS3Stats error:', err);
+    return { objectCount: 0, totalSizeBytes: 0 };
   }
 }

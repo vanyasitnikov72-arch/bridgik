@@ -120,6 +120,14 @@ try {
 try {
   db.exec(`ALTER TABLE users ADD COLUMN yandex_id TEXT`);
 } catch {}
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0`);
+} catch {}
+
+// Automatically promote owner account to Admin & Pro
+try {
+  db.prepare(`UPDATE users SET is_admin = 1, tier = 'pro' WHERE yandex_login = 'vanessosit'`).run();
+} catch {}
 
 /**
  * Generates license key in format BRDG-XXXX-XXXX-XXXX
@@ -507,6 +515,7 @@ export function toUserProfileDto(
     s3QuotaUsedMb: user.s3_quota_used_mb,
     s3QuotaLimitMb: user.s3_quota_limit_mb,
     devices,
+    isAdmin: Boolean(user.is_admin === 1 || user.yandex_login === 'vanessosit'),
   };
 }
 
@@ -777,4 +786,70 @@ export function unlinkProvider(userId: string, provider: 'yandex' | 'telegram'):
   }
   return true;
 }
+
+/**
+ * Gets all users for Admin Panel
+ */
+export function getAllUsersAdmin(): Array<DbUser & { device_count: number }> {
+  const users = db.prepare(`
+    SELECT u.*, 
+      (SELECT COUNT(*) FROM devices d WHERE d.user_id = u.id) as device_count
+    FROM users u 
+    ORDER BY u.created_at DESC
+  `).all();
+  return users as any;
+}
+
+/**
+ * Sets user admin status
+ */
+export function setUserAdmin(userId: string, isAdmin: boolean): boolean {
+  const res = db.prepare(`UPDATE users SET is_admin = ?, updated_at = ? WHERE id = ?`)
+    .run(isAdmin ? 1 : 0, Date.now(), userId);
+  return Number(res.changes) > 0;
+}
+
+/**
+ * Sets user tier (free or pro) with optional expiration date
+ */
+export function setUserTier(userId: string, tier: UserTier, proUntil?: string | null): boolean {
+  const now = Date.now();
+  let unlockedFrames = '["none"]';
+  let activeFrame = 'none';
+
+  if (tier === 'pro') {
+    unlockedFrames = '["none","gold","rgb","plasma"]';
+    activeFrame = 'gold';
+  }
+
+  const res = db.prepare(`
+    UPDATE users 
+    SET tier = ?, pro_until = ?, unlocked_frames = ?, active_frame = ?, updated_at = ? 
+    WHERE id = ?
+  `).run(tier, proUntil || null, unlockedFrames, activeFrame, now, userId);
+
+  return Number(res.changes) > 0;
+}
+
+/**
+ * Gets all drops for Admin Panel
+ */
+export function getAllDropsAdmin(): DbDrop[] {
+  const drops = db.prepare(`SELECT * FROM drops ORDER BY created_at DESC`).all();
+  return drops as unknown as DbDrop[];
+}
+
+/**
+ * Gets overview counts from database
+ */
+export function getDbStats() {
+  const totalUsers = (db.prepare('SELECT COUNT(*) as count FROM users').get() as any)?.count || 0;
+  const proUsers = (db.prepare("SELECT COUNT(*) as count FROM users WHERE tier = 'pro'").get() as any)?.count || 0;
+  const adminUsers = (db.prepare("SELECT COUNT(*) as count FROM users WHERE is_admin = 1").get() as any)?.count || 0;
+  const totalDevices = (db.prepare('SELECT COUNT(*) as count FROM devices').get() as any)?.count || 0;
+  const totalDrops = (db.prepare('SELECT COUNT(*) as count FROM drops').get() as any)?.count || 0;
+  const totalPayments = (db.prepare('SELECT COUNT(*) as count FROM payments').get() as any)?.count || 0;
+  return { totalUsers, proUsers, adminUsers, totalDevices, totalDrops, totalPayments };
+}
+
 

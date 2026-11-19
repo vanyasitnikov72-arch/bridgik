@@ -149,4 +149,13 @@ export class RoomManager {
       activePeers: peerCount,
     };
   }
+
+  public getAllRooms(): Array<{ id: string; mode: string; peerCount: number; createdAt: number }> {
+    return Array.from(this.rooms.values()).map((r) => ({
+      id: r.id,
+      mode: r.mode || 'bridge',
+      peerCount: r.peers.size,
+      createdAt: r.createdAt,
+    }));
+  }
 }
