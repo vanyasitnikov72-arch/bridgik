@@ -401,15 +401,6 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
           </div>
         )}
 
-        {statusEmote && (
-          <img
-            src={statusEmote}
-            alt="status"
-            className="absolute -top-2 -left-1.5 w-4 h-4 sm:w-5 sm:h-5 object-contain select-none z-20 pointer-events-none filter drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)]"
-            title="Эмодзи-статус"
-          />
-        )}
-
         <div
           className={`w-8 h-8 sm:w-12 sm:h-12 rounded-full border-2 flex items-center justify-center transition-all duration-200 shadow-2xl relative cursor-pointer drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)] overflow-hidden ${
             isHovered ? 'scale-115 ring-2 ring-white/50' : 'hover:scale-105'
@@ -2000,14 +1991,14 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
 
           {activeSideTab === 'notes' ? (
             <div className="flex-1 flex flex-col p-4">
-              <div className="flex items-center justify-between mb-3 text-xs sm:text-sm text-[#aaaaaa]">
-                <span className="font-semibold text-[#9ac43e] flex items-center gap-1.5">
+              <div className="flex items-center justify-between mb-3 text-xs sm:text-sm text-[#aaaaaa] gap-2 flex-wrap">
+                <span className="font-semibold text-[#9ac43e] flex items-center gap-1.5 shrink-0" title="Синхронизация по P2P. Нажмите Ctrl + V для вставки скриншота">
                   <span className="w-2 h-2 rounded-full bg-[#789d2a]" />
-                  <span>Канвас · Синхронизация (Ctrl + V)</span>
+                  <span>Канвас</span>
                 </span>
-                <div className="flex items-center gap-1.5 sm:gap-2">
+                <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap justify-end">
                   {/* Segmented Editor vs Preview Switcher */}
-                  <div className="flex items-center bg-[#18181f] p-0.5 rounded-lg border border-[#33333d]">
+                  <div className="flex items-center bg-[#18181f] p-0.5 rounded-lg border border-[#33333d] shrink-0">
                     <button
                       type="button"
                       onClick={() => {
@@ -2024,7 +2015,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                       title="Режим ввода: писать текст, вставлять заметки и скриншоты (Ctrl + V)"
                     >
                       <Edit2 className="w-3 h-3" />
-                      <span>Редактор</span>
+                      <span className="hidden sm:inline">Редактор</span>
                     </button>
                     <button
                       type="button"
@@ -2039,16 +2030,16 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                           ? 'bg-[#789d2a] text-white shadow-xs'
                           : 'text-[#888888] hover:text-[#cccccc]'
                       }`}
-                      title="Режим чистового просмотра: форматирование и отображение картинок"
+                      title="Режим чистового просмотра: форматирование и картинки"
                     >
                       <Eye className="w-3 h-3" />
-                      <span>Превью</span>
+                      <span className="hidden sm:inline">Превью</span>
                     </button>
                   </div>
 
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="p-1.5 hover:text-white rounded bg-[#272727] hover:bg-[#333333] transition-colors cursor-pointer text-xs flex items-center gap-1 border border-[#383838]"
+                    className="p-1 sm:px-2 sm:py-1 hover:text-white rounded bg-[#272727] hover:bg-[#333333] transition-colors cursor-pointer text-xs flex items-center gap-1 border border-[#383838] shrink-0"
                     title="Прикрепить файл к комнате"
                   >
                     <Paperclip className="w-3.5 h-3.5 text-[#9ac43e]" />
@@ -2056,7 +2047,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                   </button>
                   <button
                     onClick={handleCopyNotes}
-                    className="p-1.5 hover:text-white rounded bg-[#272727] hover:bg-[#333333] transition-colors cursor-pointer text-xs flex items-center gap-1 border border-[#383838]"
+                    className="p-1 sm:px-2 sm:py-1 hover:text-white rounded bg-[#272727] hover:bg-[#333333] transition-colors cursor-pointer text-xs flex items-center gap-1 border border-[#383838] shrink-0"
                     title="Скопировать содержимое Канваса"
                   >
                     {copiedNotes ? (
@@ -2064,24 +2055,24 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                     ) : (
                       <Copy className="w-3.5 h-3.5" />
                     )}
-                    <span className="hidden sm:inline">
+                    <span className="hidden md:inline">
                       {copiedNotes ? 'Скопировано' : 'Копировать'}
                     </span>
                   </button>
 
                   {/* Multi-Format Canvas Download */}
-                  <div className="relative" ref={canvasDownloadMenuRef}>
+                  <div className="relative shrink-0" ref={canvasDownloadMenuRef}>
                     <button
                       type="button"
                       onClick={() => {
                         sound.playClick();
                         setIsCanvasDownloadOpen((prev) => !prev);
                       }}
-                      className="p-1.5 hover:text-white rounded bg-[#272727] hover:bg-[#333333] transition-colors cursor-pointer text-xs flex items-center gap-1 border border-[#383838]"
+                      className="p-1 sm:px-2 sm:py-1 hover:text-white rounded bg-[#272727] hover:bg-[#333333] transition-colors cursor-pointer text-xs flex items-center gap-1 border border-[#383838] shrink-0"
                       title="Скачать Канвас (.md, .txt, .html)"
                     >
                       <Download className="w-3.5 h-3.5 text-[#9ac43e]" />
-                      <span className="hidden sm:inline">Скачать</span>
+                      <span>Скачать</span>
                       <ChevronDown className="w-3 h-3 text-[#888888]" />
                     </button>
 
