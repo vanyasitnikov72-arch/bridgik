@@ -215,23 +215,6 @@ export const Navbar: React.FC<NavbarProps> = ({
       >
         Тарифы
       </button>
-
-      {(isAdmin || userProfile?.isAdmin) && (
-        <button
-          onClick={() => {
-            onSelectTab?.('admin');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-          className={`pb-1 whitespace-nowrap cursor-pointer transition-colors flex items-center gap-1.5 font-bold ${
-            activeTab === 'admin'
-              ? 'text-[#bbf348] border-b-2 border-[#bbf348]'
-              : 'text-amber-400/90 hover:text-amber-300'
-          }`}
-          title="Панель администратора Bridgik"
-        >
-          <span>🛡️ Админка</span>
-        </button>
-      )}
     </>
   );
 

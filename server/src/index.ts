@@ -298,7 +298,12 @@ function broadcastNearbyPeers(subnet: string) {
   const peersInSubnet = Array.from(lobbyPeers.values()).filter((p) => p.subnet === subnet);
   peersInSubnet.forEach((peer) => {
     const others = peersInSubnet
-      .filter((p) => p.socketId !== peer.socketId && (!p.deviceId || !peer.deviceId || p.deviceId !== peer.deviceId))
+      .filter((p) => {
+        if (p.socketId === peer.socketId) return false;
+        if (peer.deviceId && p.deviceId && p.deviceId === peer.deviceId) return false;
+        if (peer.name && p.name === peer.name && p.deviceType === peer.deviceType) return false;
+        return true;
+      })
       .map((p) => ({
         socketId: p.socketId,
         deviceId: p.deviceId,
@@ -1596,9 +1601,20 @@ io.on('connection', (socket) => {
     statusEmote?: string;
   }) => {
     const currentSubnet = getClientNetworkSubnet(socket);
+    const cleanDeviceId = typeof data?.deviceId === 'string' ? data.deviceId.slice(0, 64) : undefined;
+
+    // Remove any stale sockets from the same deviceId to prevent ghost self-presence
+    if (cleanDeviceId) {
+      for (const [sId, p] of lobbyPeers.entries()) {
+        if (sId !== socket.id && p.deviceId === cleanDeviceId) {
+          lobbyPeers.delete(sId);
+        }
+      }
+    }
+
     lobbyPeers.set(socket.id, {
       socketId: socket.id,
-      deviceId: typeof data?.deviceId === 'string' ? data.deviceId.slice(0, 64) : undefined,
+      deviceId: cleanDeviceId,
       name: sanitizePeerName(data?.name, 'Устройство'),
       deviceType: data?.deviceType || 'unknown',
       os: typeof data?.os === 'string' ? data.os.slice(0, 20) : undefined,
@@ -1637,12 +1653,12 @@ io.on('connection', (socket) => {
   socket.on('lobby-query', () => {
     const currentSubnet = getClientNetworkSubnet(socket);
     const myPeer = lobbyPeers.get(socket.id);
-    const peersInSubnet = Array.from(lobbyPeers.values()).filter(
-      (p) =>
-        p.subnet === currentSubnet &&
-        p.socketId !== socket.id &&
-        (!myPeer?.deviceId || !p.deviceId || p.deviceId !== myPeer.deviceId)
-    );
+    const peersInSubnet = Array.from(lobbyPeers.values()).filter((p) => {
+      if (p.socketId === socket.id) return false;
+      if (myPeer?.deviceId && p.deviceId && p.deviceId === myPeer.deviceId) return false;
+      if (myPeer?.name && p.name === myPeer.name && p.deviceType === myPeer.deviceType) return false;
+      return p.subnet === currentSubnet;
+    });
     socket.emit(
       'nearby-peers',
       peersInSubnet.map((p) => ({

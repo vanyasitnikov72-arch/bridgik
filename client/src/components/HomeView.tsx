@@ -115,6 +115,7 @@ interface HomeViewProps {
   isLoading: boolean;
   errorMessage?: string;
   nearbyPeers: NearbyPeer[];
+  currentSocketId?: string;
   onPairWithNearby: (socketId: string) => void;
   isPairing: boolean;
   incomingPairRequest: PairRequest | null;
@@ -138,13 +139,14 @@ export const HomeView: React.FC<HomeViewProps> = ({
   isLoading,
   errorMessage,
   nearbyPeers,
+  currentSocketId,
   onPairWithNearby,
   isPairing,
   incomingPairRequest: _incomingPairRequest,
   onAcceptPair: _onAcceptPair,
   onRejectPair: _onRejectPair,
-  myUserName: _myUserName,
-  myDeviceType: _myDeviceType,
+  myUserName,
+  myDeviceType,
   isCustomDeviceName: _isCustomDeviceName,
   onRenameDevice: _onRenameDevice,
   lanIp,
@@ -317,12 +319,18 @@ export const HomeView: React.FC<HomeViewProps> = ({
       ? `http://${lanIp}:${window.location.port}`
       : `http://${lanIp}`;
 
-  const radarCard = (() => {
-    const currentDeviceId = getBrowserDeviceId();
-    const visiblePeers = nearbyPeers.filter(
-      (p) => !p.deviceId || p.deviceId !== currentDeviceId
-    );
+  const currentDeviceId = getBrowserDeviceId();
+  const visiblePeers = nearbyPeers.filter((p) => {
+    // 1. Never show the current device itself in the radar:
+    if (p.deviceId && p.deviceId === currentDeviceId) return false;
+    // 2. Exclude if socketId matches current socket
+    if (currentSocketId && p.socketId === currentSocketId) return false;
+    // 3. Exclude if peer has same name and same deviceType as current user
+    if (myUserName && p.name === myUserName && p.deviceType === myDeviceType) return false;
+    return true;
+  });
 
+  const radarCard = (() => {
     return (
       <div className="bg-[#202020] border border-[#3a3a3a] rounded-xl p-4 sm:p-7 shadow-md">
         <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 mb-4">
@@ -671,7 +679,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
       {/* Action Console Area: Prioritize Create/Join immediately if no nearby devices yet */}
       <div id="mode-actions" className="space-y-5 sm:space-y-6 mb-10">
         {activeMode === 'bridge' ? (
-          nearbyPeers.length > 0 ? (
+          visiblePeers.length > 0 ? (
             <>
               {radarCard}
               {bridgeCreateCard}

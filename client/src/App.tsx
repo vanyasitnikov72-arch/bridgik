@@ -2221,6 +2221,7 @@ export function App() {
             isLoading={isLoading}
             errorMessage={errorMessage}
             nearbyPeers={nearbyPeers}
+            currentSocketId={socket?.id}
             onPairWithNearby={handlePairWithNearby}
             isPairing={isPairing}
             incomingPairRequest={incomingPairRequest}

@@ -18,6 +18,9 @@ import {
   Wrench,
   CreditCard,
   Loader2,
+  AlertTriangle,
+  Unlink,
+  RefreshCw,
 } from 'lucide-react';
 import {
   AuthProvider,
@@ -167,16 +170,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [copiedKey, setCopiedKey] = useState(false);
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
   const [isUnlinking, setIsUnlinking] = useState<string | null>(null);
+  const [confirmUnlinkProvider, setConfirmUnlinkProvider] = useState<'yandex' | 'telegram' | null>(null);
 
-  const handleUnlink = async (provider: 'yandex' | 'telegram') => {
-    const title = provider === 'yandex' ? 'Яндекс ID' : 'Telegram';
-    if (
-      !window.confirm(
-        `Отвязать ${title}? Вы по-прежнему сможете входить по резервному ключу или привязать другой аккаунт.`
-      )
-    ) {
-      return;
-    }
+  const handleUnlinkClick = (provider: 'yandex' | 'telegram') => {
+    sound.playClick();
+    setConfirmUnlinkProvider(provider);
+  };
+
+  const executeUnlink = async (provider: 'yandex' | 'telegram') => {
     const key = profile.licenseKeyPreview || localStorage.getItem('bridgik_license_key');
     if (!key) return;
     setIsUnlinking(provider);
@@ -189,6 +190,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       const data = await res.json();
       if (data?.success) {
         sound.playConnect();
+        setConfirmUnlinkProvider(null);
         onUnlinkProvider?.(provider);
       } else {
         alert(data?.error || 'Не удалось отвязать способ входа');
@@ -973,7 +975,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               {profile.providers.yandex ? (
                 <button
                   type="button"
-                  onClick={() => handleUnlink('yandex')}
+                  onClick={() => handleUnlinkClick('yandex')}
                   disabled={isUnlinking === 'yandex'}
                   className="px-3 py-1.5 rounded-lg bg-red-950/35 hover:bg-red-900/50 border border-red-800/40 text-xs font-bold text-red-200 hover:text-white transition-colors cursor-pointer shrink-0 disabled:opacity-50"
                 >
@@ -1005,7 +1007,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               {profile.providers.telegram ? (
                 <button
                   type="button"
-                  onClick={() => handleUnlink('telegram')}
+                  onClick={() => handleUnlinkClick('telegram')}
                   disabled={isUnlinking === 'telegram'}
                   className="px-3 py-1.5 rounded-lg bg-red-950/35 hover:bg-red-900/50 border border-red-800/40 text-xs font-bold text-red-200 hover:text-white transition-colors cursor-pointer shrink-0 disabled:opacity-50"
                 >
@@ -1058,6 +1060,79 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         profile={profile}
         maxDevices={maxDevices}
       />
+
+      {/* Beautiful Bridgik-styled unlinking confirmation modal */}
+      {confirmUnlinkProvider && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-2xl bg-[#171717] border border-[#2e3725] shadow-[0_24px_60px_rgba(0,0,0,0.95)] p-5 sm:p-6 space-y-4 animate-in zoom-in-95 duration-150 relative">
+            <div className="flex items-start gap-3.5">
+              <div className="w-11 h-11 rounded-xl bg-red-950/40 border border-red-800/50 flex items-center justify-center text-red-400 shrink-0">
+                <Unlink className="w-5 h-5 text-red-400" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="font-extrabold text-lg text-white font-mono">
+                  Отвязать {confirmUnlinkProvider === 'yandex' ? 'Яндекс ID' : 'Telegram'}?
+                </h3>
+                <p className="text-xs text-[#8c9c82] mt-0.5">
+                  {confirmUnlinkProvider === 'yandex'
+                    ? `Аккаунт @${profile.providers.yandex?.handle || 'yandex'} будет отвязан от профиля.`
+                    : `Аккаунт @${profile.providers.telegram?.username || 'telegram'} будет отвязан от профиля.`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConfirmUnlinkProvider(null)}
+                className="p-1 rounded-lg text-[#888888] hover:text-white transition-colors cursor-pointer"
+                title="Закрыть"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-[#1e231b] border border-[#2e3725] text-xs space-y-1.5 font-mono">
+              <div className="flex items-center gap-1.5 text-amber-400 font-bold">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                <span>Вход останется по ключу</span>
+              </div>
+              <p className="text-[#8c9c82]">
+                Вы по-прежнему сможете входить по резервному ключу{' '}
+                <span className="text-white font-bold">{profile.licenseKeyPreview}</span> или привязать другой аккаунт в любое удобное время.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  setConfirmUnlinkProvider(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-[#222222] hover:bg-[#2b2b2b] text-[#cccccc] hover:text-white font-bold text-xs sm:text-sm transition-colors cursor-pointer"
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                disabled={isUnlinking !== null}
+                onClick={() => executeUnlink(confirmUnlinkProvider)}
+                className="px-4 py-2 rounded-xl bg-[#3b1717] hover:bg-[#4d1e1e] border border-red-700/60 text-red-200 hover:text-white font-bold text-xs sm:text-sm transition-all cursor-pointer flex items-center gap-2 shadow-lg disabled:opacity-50"
+              >
+                {isUnlinking ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Отвязка...</span>
+                  </>
+                ) : (
+                  <>
+                    <Unlink className="w-3.5 h-3.5" />
+                    <span>Отвязать {confirmUnlinkProvider === 'yandex' ? 'Яндекс ID' : 'Telegram'}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
