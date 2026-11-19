@@ -436,12 +436,73 @@ export function App() {
     );
   };
 
+  const [activeTab, setActiveTab] = useState<AppTab>(() => {
+    try {
+      const p = new URLSearchParams(window.location.search);
+      if (p.get('tab') === 'profile') return 'profile';
+    } catch {}
+    return 'bridge';
+  });
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const urlAdminKey = params.get('admin');
     if (urlAdminKey) {
       localStorage.setItem('bridgik_admin_key', urlAdminKey);
-      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    if (params.get('tab') === 'profile') {
+      setActiveTab('profile');
+    }
+
+    const paymentParam = params.get('payment');
+    if (paymentParam === 'demo') {
+      const demoKey = params.get('key') || localStorage.getItem('bridgik_license_key');
+      const demoDays = params.get('days') || '30';
+      if (demoKey) {
+        fetch('/api/payment/demo-confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: demoKey, days: Number(demoDays) || 30 }),
+        })
+          .then((r) => r.json())
+          .then((data) => {
+            if (data?.success && data?.user) {
+              saveProfile(data.user);
+              if (data.user.activeFrame) setAdminFrame(data.user.activeFrame);
+              sound.playConnect();
+              setActiveTab('profile');
+            }
+          })
+          .catch((e) => console.error('Demo payment confirm error:', e));
+      }
+    } else if (paymentParam === 'success') {
+      const key = localStorage.getItem('bridgik_license_key');
+      const deviceId = getBrowserDeviceId();
+      if (key) {
+        fetch(`/api/user/profile?key=${encodeURIComponent(key)}&deviceId=${encodeURIComponent(deviceId)}`)
+          .then((r) => r.json())
+          .then((data) => {
+            if (data?.success && data?.user) {
+              saveProfile(data.user);
+              if (data.user.activeFrame) setAdminFrame(data.user.activeFrame);
+              sound.playConnect();
+              setActiveTab('profile');
+            }
+          })
+          .catch((e) => console.error('Profile refresh error:', e));
+      }
+    }
+
+    if (urlAdminKey || paymentParam) {
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete('admin');
+      cleanUrl.searchParams.delete('payment');
+      cleanUrl.searchParams.delete('demo_id');
+      cleanUrl.searchParams.delete('days');
+      cleanUrl.searchParams.delete('key');
+      cleanUrl.searchParams.delete('payment_id');
+      window.history.replaceState({}, document.title, cleanUrl.toString());
     }
   }, []);
 
@@ -449,7 +510,6 @@ export function App() {
   const [isConnected, setIsConnected] = useState(false);
   const [roomId, setRoomId] = useState<string | null>(null);
   const [pin, setPin] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<AppTab>('bridge');
   const [legalDoc, setLegalDoc] = useState<LegalDocType>('rules');
   const [roomMode, setRoomMode] = useState<RoomMode>('bridge');
   const [scratchpadText, setScratchpadText] = useState<string>('');
@@ -727,6 +787,24 @@ export function App() {
     socketInstance.on('sticky-new-drop', (newDrop: DropDto) => {
       sound.playMessage();
       setPendingDrops((prev) => [newDrop, ...prev.filter((d) => d.id !== newDrop.id)]);
+    });
+
+    // Real-time Pro activation notification
+    socketInstance.on('user-pro-activated', (_data: { userId: string; proUntil?: string; tier: string }) => {
+      const key = localStorage.getItem('bridgik_license_key');
+      const deviceId = getBrowserDeviceId();
+      if (key) {
+        fetch(`/api/user/profile?key=${encodeURIComponent(key)}&deviceId=${encodeURIComponent(deviceId)}`)
+          .then((r) => r.json())
+          .then((res) => {
+            if (res?.success && res?.user) {
+              saveProfile(res.user);
+              if (res.user.activeFrame) setAdminFrame(res.user.activeFrame);
+              sound.playConnect();
+            }
+          })
+          .catch(() => {});
+      }
     });
 
     setSocket(socketInstance);

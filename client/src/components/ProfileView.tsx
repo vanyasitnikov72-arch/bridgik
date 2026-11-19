@@ -14,10 +14,11 @@ import {
   KeyRound,
   Smile,
   ArrowRight,
-  Zap,
   X,
   Image as ImageIcon,
   Wrench,
+  CreditCard,
+  Loader2,
 } from 'lucide-react';
 import {
   AuthProvider,
@@ -165,7 +166,55 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
   const isPro = profile.tier === 'pro';
   const hasFullCosmetics = isPro || Boolean(isAdmin);
-  const maxDevices = isPro ? 10 : 2;
+  const maxDevices = isPro ? 4 : 2;
+
+  const [selectedPlan, setSelectedPlan] = useState<'1m' | '3m' | '1y'>('3m');
+  const [isPaymentLoading, setIsPaymentLoading] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [showProExtend, setShowProExtend] = useState(!isPro);
+
+  const PLANS = [
+    { id: '1m' as const, title: '1 месяц', price: '199 ₽', subtitle: '199 ₽/мес', badge: null },
+    { id: '3m' as const, title: '3 месяца', price: '499 ₽', subtitle: '166 ₽/мес', badge: 'Популярно' },
+    { id: '1y' as const, title: '1 год', price: '1 490 ₽', subtitle: '124 ₽/мес', badge: '-38% скидка' },
+  ];
+
+  const handlePayPro = async () => {
+    setIsPaymentLoading(true);
+    setPaymentError(null);
+    try {
+      const licenseKey = profile.licenseKeyPreview || localStorage.getItem('bridgik_license_key');
+      if (!licenseKey) {
+        setPaymentError('Для оформления Pro сначала привяжите ключ или войдите через Яндекс.');
+        setIsPaymentLoading(false);
+        return;
+      }
+
+      const res = await fetch('/api/payment/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: licenseKey,
+          period: selectedPlan,
+          returnUrl: `${window.location.origin}/?tab=profile&payment=success`,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Ошибка создания платежа');
+      }
+
+      if (data.confirmationUrl) {
+        window.location.href = data.confirmationUrl;
+      }
+    } catch (err: any) {
+      console.error('Payment error:', err);
+      setPaymentError(err.message || 'Ошибка связи с платёжным шлюзом');
+    } finally {
+      setIsPaymentLoading(false);
+    }
+  };
 
   const getFrameClass = (frame: AvatarFrameId) => {
     if (frame === 'rgb') return 'border-2 border-sky-400 animate-admin-rgb';
@@ -762,25 +811,123 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       {/* TAB 3: Аккаунт и Pro */}
       {activeTab === 'account' && (
         <div className="space-y-6 animate-in fade-in duration-150">
-          <div className="p-5 rounded-2xl bg-[#1d2216] border border-[#789d2a]/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-1.5 text-xs uppercase font-extrabold text-[#bbf348]">
-                <Crown className="w-3.5 h-3.5" />
-                <span>{isPro ? 'Bridgik Pro активен' : 'Bridgik Pro · от 249 ₽/мес'}</span>
+          {/* Bridgik Pro Subscription Card */}
+          <div className="p-5 sm:p-6 rounded-2xl bg-[#1b2214] border-2 border-[#789d2a] shadow-lg shadow-[#789d2a]/10 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/10">
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#789d2a]/20 border border-[#789d2a]/40 text-xs uppercase font-extrabold text-[#bbf348]">
+                  <Crown className="w-3.5 h-3.5" />
+                  <span>{isPro ? 'Bridgik Pro активен' : 'Подписка Bridgik Pro'}</span>
+                </div>
+                <h3 className="text-lg sm:text-xl font-extrabold text-white">
+                  {isPro
+                    ? `Активен до ${profile.proUntil ? new Date(profile.proUntil).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }) : 'бессрочно'}`
+                    : 'Сдержанный набор возможностей без лишних переплат'}
+                </h3>
               </div>
-              <p className="text-sm text-[#d4d4d4] max-w-xl">
-                <Zap className="w-3.5 h-3.5 inline text-[#bbf348] mr-1" />
-                S3-шлюз «Drop & Go» (20 ГБ/мес, E2EE), Sticky Bridge до 10 устройств, все рамки и локации, 20 мест и 1080p/60fps в Комнате, Turbo-TURN.
-              </p>
+
+              {isPro && (
+                <button
+                  type="button"
+                  onClick={() => setShowProExtend((prev) => !prev)}
+                  className="px-3.5 py-1.5 rounded-xl bg-[#283416] hover:bg-[#34441c] text-[#bbf348] border border-[#789d2a] text-xs font-bold transition-colors cursor-pointer self-start sm:self-auto"
+                >
+                  {showProExtend ? 'Скрыть тарифы' : 'Продлить подписку'}
+                </button>
+              )}
             </div>
-            <a
-              href="tg://resolve?domain=bridgik_bot&start=pro"
-              onClick={() => sound.playClick()}
-              className="px-4 py-2.5 rounded-xl bg-[#789d2a] hover:bg-[#8cb632] text-white font-extrabold text-sm flex items-center justify-center gap-2 transition-colors shrink-0"
-            >
-              <span>{isPro ? 'Управлять в боте' : 'Открыть за Stars'}</span>
-              <ArrowRight className="w-4 h-4" />
-            </a>
+
+            {/* 4 Restrained Pro Perks */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs sm:text-sm">
+              <div className="flex items-center gap-2 text-[#ededed]">
+                <span className="w-5 h-5 rounded-md bg-[#789d2a]/20 text-[#bbf348] flex items-center justify-center font-bold text-xs shrink-0">✓</span>
+                <span><strong>Sticky Bridge:</strong> до 4 устройств в постоянной связке</span>
+              </div>
+              <div className="flex items-center gap-2 text-[#ededed]">
+                <span className="w-5 h-5 rounded-md bg-[#789d2a]/20 text-[#bbf348] flex items-center justify-center font-bold text-xs shrink-0">✓</span>
+                <span><strong>Drop & Go:</strong> буфер до 500 МБ / хранение 48 часов</span>
+              </div>
+              <div className="flex items-center gap-2 text-[#ededed]">
+                <span className="w-5 h-5 rounded-md bg-[#789d2a]/20 text-[#bbf348] flex items-center justify-center font-bold text-xs shrink-0">✓</span>
+                <span><strong>VIP-кастомизация:</strong> все неоновые рамки и переливающийся ник</span>
+              </div>
+              <div className="flex items-center gap-2 text-[#ededed]">
+                <span className="w-5 h-5 rounded-md bg-[#789d2a]/20 text-[#bbf348] flex items-center justify-center font-bold text-xs shrink-0">✓</span>
+                <span><strong>Приоритетный релей:</strong> 100% передача при закрытых портах и NAT</span>
+              </div>
+            </div>
+
+            {/* Plan Selector & Pay Button */}
+            {(!isPro || showProExtend) && (
+              <div className="pt-2 space-y-3.5 border-t border-white/5">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  {PLANS.map((plan) => {
+                    const isSelected = selectedPlan === plan.id;
+                    return (
+                      <div
+                        key={plan.id}
+                        onClick={() => {
+                          sound.playClick();
+                          setSelectedPlan(plan.id);
+                        }}
+                        className={`p-3 rounded-xl border-2 transition-all cursor-pointer relative flex flex-col justify-between ${
+                          isSelected
+                            ? 'bg-[#222d16] border-[#789d2a] shadow-[0_0_15px_rgba(120,157,42,0.25)]'
+                            : 'bg-[#181818] border-[#333333] hover:border-[#444444]'
+                        }`}
+                      >
+                        {plan.badge && (
+                          <span className="absolute -top-2.5 right-2 px-2 py-0.5 rounded-full bg-[#789d2a] text-white text-[10px] font-bold tracking-wide shadow-sm">
+                            {plan.badge}
+                          </span>
+                        )}
+                        <div>
+                          <div className="text-xs text-[#aaaaaa] font-semibold">{plan.title}</div>
+                          <div className="text-lg font-extrabold text-white mt-0.5">{plan.price}</div>
+                        </div>
+                        <div className="text-[11px] font-mono text-[#9ac43e] mt-1.5">{plan.subtitle}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {paymentError && (
+                  <div className="p-3 rounded-xl bg-red-950/40 border border-red-800/40 text-red-200 text-xs">
+                    {paymentError}
+                  </div>
+                )}
+
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={handlePayPro}
+                    disabled={isPaymentLoading}
+                    className="w-full sm:w-auto px-6 py-3 rounded-xl bg-[#789d2a] hover:bg-[#8cb632] disabled:opacity-50 text-white font-extrabold text-sm sm:text-base transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-[#789d2a]/20"
+                  >
+                    {isPaymentLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Создаем счет в ЮKassa...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CreditCard className="w-4 h-4" />
+                        <span>
+                          {isPro ? 'Продлить Pro за ' : 'Оформить Pro за '}
+                          {PLANS.find((p) => p.id === selectedPlan)?.price}
+                        </span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+
+                  <div className="text-[11px] text-[#888888] text-center sm:text-right leading-tight">
+                    <p className="font-semibold text-[#aaaaaa]">Оплата через ЮKassa:</p>
+                    <p>СБП в 1 клик, карты МИР, Visa, Mastercard РФ. Без скрытых списаний.</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="divide-y divide-white/[0.07] border-y border-white/[0.07]">

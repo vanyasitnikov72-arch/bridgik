@@ -76,7 +76,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
       ? 'border-2 border-purple-400 animate-admin-plasma'
       : 'border-2 border-amber-400 animate-admin-gold';
 
-  const maxDevices = isPro ? 10 : 2;
+  const maxDevices = isPro ? 4 : 2;
 
   return (
     <div

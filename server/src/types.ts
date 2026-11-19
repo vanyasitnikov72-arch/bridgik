@@ -44,6 +44,7 @@ export interface DbUser {
   avatar_url?: string;
   tier: UserTier;
   pro_until?: string;
+  yandex_login?: string;
   twitch_handle?: string;
   telegram_id?: string;
   telegram_username?: string;
@@ -79,6 +80,20 @@ export interface StickyDeviceDto {
   lastSeenAt: number;
 }
 
+export interface DbPayment {
+  id: string;
+  user_id: string;
+  license_key: string;
+  amount: number;
+  period: string;
+  days: number;
+  status: string;
+  yookassa_payment_id?: string;
+  payment_url?: string;
+  created_at: number;
+  updated_at: number;
+}
+
 export interface UserProfileDto {
   id: string;
   displayName: string;
@@ -86,6 +101,7 @@ export interface UserProfileDto {
   tier: UserTier;
   proUntil?: string;
   providers: {
+    yandex?: { handle: string; avatarUrl?: string };
     twitch?: { handle: string; avatarUrl?: string };
     telegram?: { username?: string; id?: number };
     hasLicenseKey: boolean;

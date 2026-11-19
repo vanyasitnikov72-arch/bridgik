@@ -26,8 +26,14 @@ import {
   deleteDropRecord,
   cleanExpiredDrops,
   toDropDto,
+  createPaymentRecord,
+  getPaymentById,
+  getPaymentByYookassaId,
+  updatePaymentStatus,
+  upgradeUserToPro,
 } from './db.js';
 import { stickyManager } from './stickyBridge.js';
+import { createYooKassaPayment, getYooKassaPayment } from './yookassa.js';
 
 export function getLocalLanIp(): string {
   const interfaces = os.networkInterfaces();
@@ -418,6 +424,179 @@ app.delete('/api/user/devices/:deviceId', (req, res) => {
   const deviceId = req.params.deviceId;
   const deleted = deleteDevice(user.id, deviceId);
   return res.json({ success: deleted });
+});
+
+// --- Bridgik Pro & YooKassa Payment Endpoints ---
+
+const PRO_PLANS: Record<string, { amount: number; days: number; title: string }> = {
+  '1m': { amount: 199, days: 30, title: 'Bridgik Pro (1 месяц)' },
+  '3m': { amount: 499, days: 90, title: 'Bridgik Pro (3 месяца)' },
+  '1y': { amount: 1490, days: 365, title: 'Bridgik Pro (1 год)' },
+};
+
+// 1. Create payment in YooKassa
+app.post('/api/payment/create', async (req, res) => {
+  try {
+    const { key, period = '1m', returnUrl } = req.body || {};
+    if (!key || typeof key !== 'string') {
+      return res.status(400).json({ error: 'Укажите ключ пользователя' });
+    }
+    const user = getUserByLicenseKey(key);
+    if (!user) {
+      return res.status(404).json({ error: 'Пользователь не найден' });
+    }
+    const plan = PRO_PLANS[period];
+    if (!plan) {
+      return res.status(400).json({ error: 'Неверный тариф. Доступно: 1m, 3m, 1y' });
+    }
+
+    const paymentId = crypto.randomUUID();
+    const effectiveReturnUrl =
+      returnUrl || `${req.protocol}://${req.get('host') || 'bridgik.ru'}/?tab=profile&payment=success`;
+
+    createPaymentRecord({
+      id: paymentId,
+      userId: user.id,
+      licenseKey: user.license_key,
+      amount: plan.amount,
+      period,
+      days: plan.days,
+      status: 'pending',
+    });
+
+    const yooResponse = await createYooKassaPayment({
+      amount: {
+        value: `${plan.amount}.00`,
+        currency: 'RUB',
+      },
+      capture: true,
+      confirmation: {
+        type: 'redirect',
+        return_url: effectiveReturnUrl,
+      },
+      description: `Оплата подписки ${plan.title} для профиля ${user.display_name}`,
+      metadata: {
+        userId: user.id,
+        licenseKey: user.license_key,
+        period,
+        days: plan.days,
+        paymentId,
+      },
+    });
+
+    const confirmationUrl = yooResponse.confirmation?.confirmation_url || effectiveReturnUrl;
+    updatePaymentStatus(paymentId, 'pending', yooResponse.id);
+
+    return res.json({
+      success: true,
+      paymentId,
+      confirmationUrl,
+      yookassaPaymentId: yooResponse.id,
+      amount: plan.amount,
+      planTitle: plan.title,
+    });
+  } catch (err: any) {
+    console.error('Payment creation failed:', err);
+    return res.status(500).json({ error: err.message || 'Ошибка создания платежа' });
+  }
+});
+
+// 2. YooKassa Webhook
+app.post('/api/payment/webhook', async (req, res) => {
+  try {
+    const event = req.body;
+    console.log('[YooKassa Webhook] Event:', event?.event);
+
+    if (event?.event === 'payment.succeeded' && event?.object) {
+      const paymentObj = event.object;
+      const yooId = paymentObj.id;
+      const metadata = paymentObj.metadata || {};
+      const { userId, days, paymentId } = metadata;
+
+      let dbPayment = getPaymentByYookassaId(yooId);
+      if (!dbPayment && paymentId) {
+        dbPayment = getPaymentById(paymentId);
+      }
+
+      const targetUserId = userId || dbPayment?.user_id;
+      const targetDays = Number(days) || dbPayment?.days || 30;
+
+      if (targetUserId) {
+        const updatedUser = upgradeUserToPro(targetUserId, targetDays);
+        if (dbPayment) {
+          updatePaymentStatus(dbPayment.id, 'succeeded', yooId);
+        }
+        console.log(`[YooKassa] Activated Pro for user ${targetUserId} (+${targetDays} days)`);
+
+        io.emit('user-pro-activated', {
+          userId: targetUserId,
+          proUntil: updatedUser?.pro_until,
+          tier: 'pro',
+        });
+      }
+    }
+
+    return res.status(200).send('OK');
+  } catch (err: any) {
+    console.error('[YooKassa Webhook Error]:', err);
+    return res.status(200).send('OK');
+  }
+});
+
+// 3. Demo / Instant confirmation
+app.post('/api/payment/demo-confirm', (req, res) => {
+  try {
+    const { key, days = 30 } = req.body || {};
+    if (!key) return res.status(400).json({ error: 'Укажите ключ' });
+    const user = getUserByLicenseKey(key);
+    if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+
+    const updated = upgradeUserToPro(user.id, Number(days) || 30);
+    const onlineSet = stickyManager.getOnlineDeviceIds(user.id);
+    const profile = toUserProfileDto(updated!, undefined, onlineSet);
+
+    io.emit('user-pro-activated', {
+      userId: user.id,
+      proUntil: updated?.pro_until,
+      tier: 'pro',
+    });
+
+    return res.json({ success: true, user: profile });
+  } catch (err: any) {
+    console.error('Demo payment confirm error:', err);
+    return res.status(500).json({ error: 'Ошибка активации Pro' });
+  }
+});
+
+// 4. Check payment status
+app.get('/api/payment/status/:id', async (req, res) => {
+  try {
+    const payment = getPaymentById(req.params.id);
+    if (!payment) return res.status(404).json({ error: 'Платёж не найден' });
+
+    if (payment.status === 'pending' && payment.yookassa_payment_id) {
+      const yoo = await getYooKassaPayment(payment.yookassa_payment_id);
+      if (yoo?.status === 'succeeded') {
+        upgradeUserToPro(payment.user_id, payment.days);
+        updatePaymentStatus(payment.id, 'succeeded', yoo.id);
+        payment.status = 'succeeded';
+      } else if (yoo?.status === 'canceled') {
+        updatePaymentStatus(payment.id, 'canceled', yoo.id);
+        payment.status = 'canceled';
+      }
+    }
+
+    const user = getUserById(payment.user_id);
+    return res.json({
+      success: true,
+      payment,
+      userTier: user?.tier || 'free',
+      proUntil: user?.pro_until,
+    });
+  } catch (err: any) {
+    console.error('Check payment status error:', err);
+    return res.status(500).json({ error: 'Ошибка проверки платежа' });
+  }
 });
 
 // --- Drop & Go (24h Buffer) Endpoints ---

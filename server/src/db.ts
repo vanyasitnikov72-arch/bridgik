@@ -12,6 +12,7 @@ import {
   StickyDeviceDto,
   AvatarFrameId,
   UserTier,
+  DbPayment,
 } from './types.js';
 
 const DATA_DIR = process.env.DATA_DIR || path.resolve(process.cwd(), 'data');
@@ -93,7 +94,28 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_drops_target ON drops(user_id, target_device_id);
   CREATE INDEX IF NOT EXISTS idx_drops_expires ON drops(expires_at);
+
+  CREATE TABLE IF NOT EXISTS payments (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    license_key TEXT NOT NULL,
+    amount INTEGER NOT NULL,
+    period TEXT NOT NULL,
+    days INTEGER NOT NULL,
+    status TEXT NOT NULL,
+    yookassa_payment_id TEXT UNIQUE,
+    payment_url TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(user_id);
+  CREATE INDEX IF NOT EXISTS idx_payments_yoo ON payments(yookassa_payment_id);
 `);
+
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN yandex_login TEXT`);
+} catch {}
 
 /**
  * Generates license key in format BRDG-XXXX-XXXX-XXXX
@@ -330,6 +352,7 @@ export function toUserProfileDto(
     tier: user.tier,
     proUntil: user.pro_until || undefined,
     providers: {
+      yandex: user.yandex_login ? { handle: user.yandex_login } : undefined,
       twitch: user.twitch_handle
         ? { handle: user.twitch_handle }
         : undefined,
@@ -488,6 +511,87 @@ export function cleanExpiredDrops(): number {
     console.log(`[Drop] Cleaned up ${deletedCount} expired drops.`);
   }
   return deletedCount;
+}
+
+/**
+ * Creates a new payment record in the database
+ */
+export function createPaymentRecord(payment: {
+  id: string;
+  userId: string;
+  licenseKey: string;
+  amount: number;
+  period: string;
+  days: number;
+  status: string;
+  yookassaPaymentId?: string;
+  paymentUrl?: string;
+}): DbPayment {
+  const now = Date.now();
+  db.prepare(`
+    INSERT INTO payments (
+      id, user_id, license_key, amount, period, days, status,
+      yookassa_payment_id, payment_url, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    payment.id,
+    payment.userId,
+    payment.licenseKey,
+    payment.amount,
+    payment.period,
+    payment.days,
+    payment.status,
+    payment.yookassaPaymentId || null,
+    payment.paymentUrl || null,
+    now,
+    now
+  );
+  return getPaymentById(payment.id)!;
+}
+
+export function getPaymentById(id: string): DbPayment | null {
+  const row = db.prepare('SELECT * FROM payments WHERE id = ?').get(id) as unknown as DbPayment | undefined;
+  return row || null;
+}
+
+export function getPaymentByYookassaId(yooId: string): DbPayment | null {
+  const row = db.prepare('SELECT * FROM payments WHERE yookassa_payment_id = ?').get(yooId) as unknown as DbPayment | undefined;
+  return row || null;
+}
+
+export function updatePaymentStatus(id: string, status: string, yooId?: string): void {
+  const now = Date.now();
+  if (yooId) {
+    db.prepare('UPDATE payments SET status = ?, yookassa_payment_id = ?, updated_at = ? WHERE id = ?')
+      .run(status, yooId, now, id);
+  } else {
+    db.prepare('UPDATE payments SET status = ?, updated_at = ? WHERE id = ?')
+      .run(status, now, id);
+  }
+}
+
+/**
+ * Upgrades user to Pro tier and extends expiration
+ */
+export function upgradeUserToPro(userId: string, durationDays: number): DbUser | null {
+  const user = getUserById(userId);
+  if (!user) return null;
+  const now = Date.now();
+  const currentProUntil = user.pro_until ? new Date(user.pro_until).getTime() : 0;
+  const baseTime = currentProUntil > now ? currentProUntil : now;
+  const newProUntil = new Date(baseTime + durationDays * 24 * 60 * 60 * 1000).toISOString();
+
+  // Unlock VIP frames for Pro
+  const frames: AvatarFrameId[] = ['none', 'gold', 'rgb', 'plasma'];
+  const activeFrame = user.active_frame && user.active_frame !== 'none' ? user.active_frame : 'gold';
+
+  db.prepare(`
+    UPDATE users 
+    SET tier = 'pro', pro_until = ?, unlocked_frames = ?, active_frame = ?, updated_at = ?
+    WHERE id = ?
+  `).run(newProUntil, JSON.stringify(frames), activeFrame, now, userId);
+
+  return getUserById(userId);
 }
 
 /**
