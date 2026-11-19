@@ -605,6 +605,21 @@ app.post('/api/auth/telegram/bot-webhook', (req, res) => {
         });
       }
     }
+
+    // Send friendly reply in Telegram
+    const { botToken } = getTelegramBotCredentials();
+    if (botToken && message?.chat?.id) {
+      const chatId = message.chat.id;
+      let replyText = `👋 Привет, ${from?.first_name || 'друг'}!\n\n✅ Вход в Bridgik выполнен успешно! Твой браузер подключён к аккаунту.\nМожешь вернуться на https://bridgik.ru.`;
+      if (!text.startsWith('/start auth_')) {
+        replyText = `👋 Привет, ${from?.first_name || 'друг'}!\n\nЯ официальный бот Bridgik (@bridgik_login_bot).\nЧтобы войти на сайт, открой https://bridgik.ru и нажми «Войти через Telegram».`;
+      }
+      fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, text: replyText }),
+      }).catch((e) => console.error('[Telegram SendMessage Error]', e));
+    }
     return res.json({ ok: true });
   } catch (err) {
     console.error('[Telegram Bot Webhook Error]', err);
