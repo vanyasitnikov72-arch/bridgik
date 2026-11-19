@@ -30,6 +30,7 @@ import { AvatarPicker } from './AvatarPicker.js';
 import { EmotePicker } from './EmotePicker.js';
 import { YandexIcon, TelegramIcon } from './AuthModal.js';
 import { ProfileSectionTab } from './ProfileDropdown.js';
+import { LinkDeviceModal } from './LinkDeviceModal.js';
 import { getAvatarForName } from '../utils/device.js';
 import { sound } from '../utils/sound.js';
 
@@ -163,6 +164,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [isAvatarOpen, setIsAvatarOpen] = useState(false);
   const [isEmoteOpen, setIsEmoteOpen] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
+  const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
 
   const isPro = profile.tier === 'pro';
   const hasFullCosmetics = isPro || Boolean(isAdmin);
@@ -709,7 +711,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </p>
             <button
               type="button"
-              onClick={() => onOpenAuthModal('telegram')}
+              onClick={() => {
+                sound.playClick();
+                setIsLinkModalOpen(true);
+              }}
               className="px-3.5 py-2 rounded-xl bg-[#283216] hover:bg-[#33411c] border border-[#789d2a]/70 text-[#ededed] font-bold text-sm flex items-center justify-center gap-2 cursor-pointer shrink-0"
             >
               <Plus className="w-4 h-4 text-[#9ac43e]" />
@@ -797,7 +802,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             {profile.devices.length < maxDevices && (
               <button
                 type="button"
-                onClick={() => onOpenAuthModal('key')}
+                onClick={() => {
+                  sound.playClick();
+                  setIsLinkModalOpen(true);
+                }}
                 className="p-4 rounded-xl border border-dashed border-[#333333] hover:border-[#789d2a]/60 bg-[#181818] flex items-center justify-center gap-2 text-[#888888] hover:text-[#ededed] text-sm font-bold cursor-pointer transition-colors"
               >
                 <Plus className="w-4 h-4" />
@@ -1002,6 +1010,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </div>
         </div>
       )}
+
+      <LinkDeviceModal
+        isOpen={isLinkModalOpen}
+        onClose={() => setIsLinkModalOpen(false)}
+        profile={profile}
+        maxDevices={maxDevices}
+      />
     </div>
   );
 };

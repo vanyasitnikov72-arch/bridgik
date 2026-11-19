@@ -359,7 +359,7 @@ export const AboutView: React.FC<AboutViewProps> = ({ onBack: _onBack }) => {
                   Telegram
                 </p>
                 <p className="text-sm sm:text-base text-[#aaaaaa]">
-                  @IvanchesskO · связь с разработчиком
+                  tyypicall · связь с разработчиком
                 </p>
               </div>
             </div>

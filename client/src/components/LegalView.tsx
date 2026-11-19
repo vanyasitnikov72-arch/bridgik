@@ -237,7 +237,7 @@ export const LegalView: React.FC<LegalViewProps> = ({ onBack, defaultDoc = 'rule
                     rel="noopener noreferrer"
                     className="text-[#9ac43e] hover:underline font-bold"
                   >
-                    @IvanchesskO
+                    tyypicall
                   </a>
                 </div>
               </section>

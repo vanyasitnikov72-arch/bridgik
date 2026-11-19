@@ -493,8 +493,9 @@ export function App() {
     }
 
     const authParam = params.get('auth');
-    if (authParam === 'success') {
-      const urlKey = params.get('key') || localStorage.getItem('bridgik_license_key');
+    const directKey = params.get('key');
+    if (authParam === 'success' || directKey) {
+      const urlKey = directKey || localStorage.getItem('bridgik_license_key');
       if (urlKey) {
         localStorage.setItem('bridgik_license_key', urlKey);
         const deviceId = getBrowserDeviceId();
@@ -553,7 +554,7 @@ export function App() {
       }
     }
 
-    if (urlAdminKey || paymentParam || authParam) {
+    if (urlAdminKey || paymentParam || authParam || directKey) {
       const cleanUrl = new URL(window.location.href);
       cleanUrl.searchParams.delete('admin');
       cleanUrl.searchParams.delete('payment');
