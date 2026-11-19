@@ -258,15 +258,23 @@ export function upsertYandexUser(profile: {
     db.prepare(`
       UPDATE users 
       SET yandex_id = ?, yandex_login = ?, 
-          display_name = COALESCE(?, display_name),
-          avatar_url = COALESCE(?, avatar_url),
+          display_name = CASE 
+            WHEN display_name IS NOT NULL AND display_name != '' AND display_name != 'Пользователь' AND display_name != 'Пользователь Яндекса'
+            THEN display_name 
+            ELSE ? 
+          END,
+          avatar_url = CASE 
+            WHEN avatar_url IS NOT NULL AND avatar_url != '' 
+            THEN avatar_url 
+            ELSE ? 
+          END,
           updated_at = ?
       WHERE id = ?
     `).run(
       String(profile.id),
       profile.login.toLowerCase(),
       profile.displayName || profile.login,
-      profile.avatarUrl || user.avatar_url || null,
+      profile.avatarUrl || '/mascots/dino_avatar.jpg',
       now,
       user.id
     );
@@ -317,15 +325,23 @@ export function upsertTelegramUser(profile: {
     db.prepare(`
       UPDATE users 
       SET telegram_id = ?, telegram_username = ?,
-          display_name = COALESCE(?, display_name),
-          avatar_url = COALESCE(?, avatar_url),
+          display_name = CASE 
+            WHEN display_name IS NOT NULL AND display_name != '' AND display_name != 'Пользователь' AND display_name != 'Пользователь Telegram'
+            THEN display_name 
+            ELSE ? 
+          END,
+          avatar_url = CASE 
+            WHEN avatar_url IS NOT NULL AND avatar_url != '' 
+            THEN avatar_url 
+            ELSE ? 
+          END,
           updated_at = ?
       WHERE id = ?
     `).run(
       tgIdStr,
       profile.username || user.telegram_username || null,
-      rawName || user.display_name,
-      profile.photoUrl || user.avatar_url || null,
+      rawName,
+      profile.photoUrl || '/mascots/dino_avatar.jpg',
       now,
       user.id
     );
