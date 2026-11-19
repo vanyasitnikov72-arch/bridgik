@@ -2,7 +2,7 @@ export type ThemeMode = 'swiss' | 'cyberpunk' | 'lofi';
 export type AppTab = 'bridge' | 'meeting' | 'about' | 'legal' | 'profile';
 export type RoomMode = 'bridge' | 'meeting';
 
-export type AuthProvider = 'twitch' | 'telegram' | 'key';
+export type AuthProvider = 'yandex' | 'telegram' | 'key';
 export type UserTier = 'free' | 'pro';
 export type AvatarFrameId = 'none' | 'gold' | 'rgb' | 'plasma';
 
@@ -23,7 +23,7 @@ export interface UserProfile {
   tier: UserTier;
   proUntil?: string;
   providers: {
-    twitch?: { handle: string; avatarUrl?: string };
+    yandex?: { handle: string; avatarUrl?: string };
     telegram?: { username?: string; id?: number };
     hasLicenseKey?: boolean;
   };

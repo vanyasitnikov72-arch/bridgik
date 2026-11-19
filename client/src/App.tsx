@@ -113,7 +113,7 @@ export function App() {
     }
   });
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authModalProvider, setAuthModalProvider] = useState<AuthProvider>('twitch');
+  const [authModalProvider, setAuthModalProvider] = useState<AuthProvider>('yandex');
   const [profileSectionTab, setProfileSectionTab] = useState<ProfileSectionTab>('appearance');
 
   // Drop & Go (24h Buffer) State
@@ -309,7 +309,7 @@ export function App() {
     } else {
       const base: UserProfile = userProfile || {
         id: 'preview-user-1',
-        displayName: provider === 'twitch' ? 'tyypicall' : userName,
+        displayName: provider === 'yandex' ? 'Пользователь Яндекса' : userName,
         avatarUrl: userAvatar,
         tier: 'free',
         providers: {},
@@ -336,9 +336,9 @@ export function App() {
       const nextProviders = { ...base.providers };
       let nextName = base.displayName;
 
-      if (provider === 'twitch') {
-        nextProviders.twitch = { handle: 'tyypicall' };
-        if (!userProfile) nextName = 'tyypicall';
+      if (provider === 'yandex') {
+        nextProviders.yandex = { handle: 'yandex.user' };
+        if (!userProfile) nextName = 'Пользователь Яндекса';
       } else if (provider === 'telegram') {
         nextProviders.telegram = { username: 'bridgik_user', id: 100001 };
       }
@@ -1890,7 +1890,7 @@ export function App() {
         activeTab={activeTab}
         onSelectTab={setActiveTab}
         userProfile={userProfile}
-        onOpenAuthModal={(provider = 'twitch') => {
+        onOpenAuthModal={(provider = 'yandex') => {
           setAuthModalProvider(provider);
           setIsAuthModalOpen(true);
         }}
@@ -1948,7 +1948,7 @@ export function App() {
               saveProfile({ ...userProfile, defaultRoomTheme: themeId });
               patchBackendProfile({ defaultRoomTheme: themeId });
             }}
-            onOpenAuthModal={(provider = 'twitch') => {
+            onOpenAuthModal={(provider = 'yandex') => {
               setAuthModalProvider(provider);
               setIsAuthModalOpen(true);
             }}

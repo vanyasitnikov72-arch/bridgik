@@ -53,7 +53,7 @@ export function formatLicenseKeyMask(val: string): string {
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
-  initialProvider = 'twitch',
+  initialProvider = 'yandex',
   onClose,
   onAuthSuccess,
   onOpenLegal,
@@ -188,16 +188,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               type="button"
               onClick={() => {
                 sound.playClick();
-                setTab('twitch');
+                setTab('yandex');
               }}
               className={`py-2 px-2 rounded-lg text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                tab === 'twitch'
-                  ? 'bg-[#9146FF] text-white shadow-md shadow-[#9146FF]/25'
+                tab === 'yandex'
+                  ? 'bg-[#FC3F1D] text-white shadow-md shadow-[#FC3F1D]/25'
                   : 'text-[#aaaaaa] hover:text-white hover:bg-white/[0.04]'
               }`}
             >
-              <TwitchIcon className="w-4 h-4 shrink-0" />
-              <span>Twitch</span>
+              <YandexIcon className="w-4 h-4 shrink-0" />
+              <span>Яндекс</span>
             </button>
 
             <button
@@ -236,14 +236,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Tab Body */}
         <div className="p-5 space-y-4">
-          {tab === 'twitch' && (
+          {tab === 'yandex' && (
             <div className="space-y-4">
               <div className="p-4 rounded-xl bg-[#222222] border border-white/[0.06] space-y-2">
                 <p className="text-base font-bold text-[#ededed]">
-                  Мгновенный вход в 1 клик (как на eblo.id)
+                  Мгновенный вход через Яндекс ID
                 </p>
                 <p className="text-sm text-[#a8a8a8]">
-                  Подтянем твой ник и аватарку с Twitch, привяжем устройства и рамки. Работает стабильно без VPN.
+                  Подтянем имя и аватарку, привяжем устройства и рамки. 100% стабильно работает в РФ без VPN и прокси.
                 </p>
               </div>
 
@@ -251,17 +251,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 type="button"
                 onClick={() => {
                   sound.playConnect();
-                  onAuthSuccess('twitch');
+                  onAuthSuccess('yandex');
                   onClose();
                 }}
-                className="w-full py-3 px-4 rounded-xl bg-[#9146FF] hover:bg-[#7e2ff2] text-white font-extrabold text-lg transition-all cursor-pointer flex items-center justify-center gap-2.5 shadow-lg shadow-[#9146FF]/25 active:scale-[0.99]"
+                className="w-full py-3 px-4 rounded-xl bg-[#FC3F1D] hover:bg-[#e03414] text-white font-extrabold text-lg transition-all cursor-pointer flex items-center justify-center gap-2.5 shadow-lg shadow-[#FC3F1D]/25 active:scale-[0.99]"
               >
-                <TwitchIcon className="w-5 h-5" />
-                <span>Войти через Twitch</span>
+                <YandexIcon className="w-5 h-5" />
+                <span>Войти с Яндекс ID</span>
               </button>
 
               <p className="text-xs text-center text-[#888888]">
-                Позже в профиле можно допривязать Telegram для оплаты Stars и уведомлений.
+                Вход безопасен и не требует ввода паролей на сторонних сайтах.
               </p>
             </div>
           )}
@@ -499,10 +499,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   );
 };
 
-export function TwitchIcon({ className = 'w-4 h-4' }: { className?: string }) {
+export function YandexIcon({ className = 'w-4 h-4' }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
-      <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0 1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" />
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true">
+      <circle cx="12" cy="12" r="11.5" fill="#FC3F1D" />
+      <path
+        d="M14.7 18H12.4V13.8H10.1L8.2 18H6L8.1 13.3C7 12.7 6.3 11.6 6.3 10.1C6.3 7.8 8.1 6 10.6 6H14.7V18ZM12.4 8.1H10.6C9.3 8.1 8.5 8.9 8.5 10.1C8.5 11.3 9.3 12 10.6 12H12.4V8.1Z"
+        fill="#FFFFFF"
+      />
     </svg>
   );
 }

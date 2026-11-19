@@ -27,7 +27,7 @@ import {
 } from '../types/index.js';
 import { AvatarPicker } from './AvatarPicker.js';
 import { EmotePicker } from './EmotePicker.js';
-import { TwitchIcon, TelegramIcon } from './AuthModal.js';
+import { YandexIcon, TelegramIcon } from './AuthModal.js';
 import { ProfileSectionTab } from './ProfileDropdown.js';
 import { getAvatarForName } from '../utils/device.js';
 import { sound } from '../utils/sound.js';
@@ -297,10 +297,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </div>
 
             <div className="flex flex-wrap items-center gap-2 pt-0.5">
-              {profile.providers.twitch && (
+              {profile.providers.yandex && (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#242424] text-xs font-bold text-[#e5e5e5]">
-                  <TwitchIcon className="w-3.5 h-3.5 text-[#9146FF]" />
-                  <span>{profile.providers.twitch.handle}</span>
+                  <YandexIcon className="w-3.5 h-3.5" />
+                  <span>{profile.providers.yandex.handle}</span>
                 </span>
               )}
               {profile.providers.telegram && (
@@ -786,22 +786,22 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <div className="divide-y divide-white/[0.07] border-y border-white/[0.07]">
             <div className="py-3.5 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
-                <TwitchIcon className="w-5 h-5 text-[#9146FF] shrink-0" />
+                <YandexIcon className="w-5 h-5 shrink-0" />
                 <div className="min-w-0">
-                  <p className="font-bold text-base text-[#ededed]">Twitch</p>
+                  <p className="font-bold text-base text-[#ededed]">Яндекс ID</p>
                   <p className="text-xs text-[#888888] truncate">
-                    {profile.providers.twitch
-                      ? `Подключён аккаунт ${profile.providers.twitch.handle}`
-                      : 'Быстрый вход в 1 клик без паролей'}
+                    {profile.providers.yandex
+                      ? `Подключён аккаунт ${profile.providers.yandex.handle}`
+                      : 'Вход в 1 клик, 100% стабильно в РФ без VPN'}
                   </p>
                 </div>
               </div>
               <button
                 type="button"
-                onClick={() => onOpenAuthModal('twitch')}
+                onClick={() => onOpenAuthModal('yandex')}
                 className="px-3.5 py-1.5 rounded-lg bg-[#242424] hover:bg-[#2f2f2f] text-xs font-bold text-[#ededed] cursor-pointer shrink-0"
               >
-                {profile.providers.twitch ? 'Обновить' : 'Привязать'}
+                {profile.providers.yandex ? 'Обновить' : 'Привязать'}
               </button>
             </div>
 

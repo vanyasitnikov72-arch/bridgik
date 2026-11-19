@@ -56,8 +56,8 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
     };
   }, [onClose]);
 
-  const handleLabel = profile.providers.twitch
-    ? `@${profile.providers.twitch.handle}`
+  const handleLabel = profile.providers.yandex
+    ? `@${profile.providers.yandex.handle}`
     : profile.providers.telegram?.username
     ? `@${profile.providers.telegram.username}`
     : profile.licenseKeyPreview || 'Анонимный профиль';

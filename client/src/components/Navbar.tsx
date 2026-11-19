@@ -326,7 +326,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   type="button"
                   onClick={() => {
                     sound.playClick();
-                    onOpenAuthModal('twitch');
+                    onOpenAuthModal('yandex');
                   }}
                   className="px-3.5 sm:px-4 py-2 rounded-xl bg-[#283216] hover:bg-[#33411c] border border-[#789d2a]/75 hover:border-[#9ac43e] text-[#ededed] font-extrabold text-sm sm:text-base transition-all cursor-pointer flex items-center gap-1.5 shadow-md shadow-black/30 shrink-0"
                 >
