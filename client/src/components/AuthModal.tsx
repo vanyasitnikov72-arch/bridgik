@@ -74,40 +74,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [keyError, setKeyError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Handle OAuth Popup
-  const openOAuthPopup = (url: string, name: string) => {
-    sound.playClick();
-    const w = 560;
-    const h = 680;
-    const y = window.top ? window.top.outerHeight / 2 + window.top.screenY - h / 2 : 100;
-    const x = window.top ? window.top.outerWidth / 2 + window.top.screenX - w / 2 : 100;
-    const popup = window.open(
-      url,
-      name,
-      `toolbar=no, location=no, directories=no, status=no, menubar=no, scrollbars=yes, resizable=yes, copyhistory=no, width=${w}, height=${h}, top=${y}, left=${x}`
-    );
-    if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-      window.location.href = url;
-    }
-  };
-
-  // Listen for popup auth success
-  useEffect(() => {
-    const handleMessage = (e: MessageEvent) => {
-      if (e.data?.type === 'BRIDGIK_AUTH_SUCCESS') {
-        const { provider, key, user } = e.data;
-        sound.playConnect();
-        if (key) {
-          localStorage.setItem('bridgik_license_key', key);
-        }
-        onAuthSuccess(provider, { key, user });
-        onClose();
-      }
-    };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [onAuthSuccess, onClose]);
-
   // Fetch telegram bot session on open
   useEffect(() => {
     if (!isOpen || tab !== 'telegram') return;
@@ -272,21 +238,37 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Provider Tabs */}
         <div className="px-5 pt-4">
-          <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-[#141414] border border-white/[0.06]">
+          <div className="grid grid-cols-4 gap-1 p-1 rounded-xl bg-[#141414] border border-white/[0.06]">
             <button
               type="button"
               onClick={() => {
                 sound.playClick();
                 setTab('yandex');
               }}
-              className={`py-2 px-2 rounded-lg text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+              className={`py-2 px-1 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                 tab === 'yandex'
                   ? 'bg-[#FC3F1D] text-white shadow-md shadow-[#FC3F1D]/25'
                   : 'text-[#aaaaaa] hover:text-white hover:bg-white/[0.04]'
               }`}
             >
-              <YandexIcon className="w-4 h-4 shrink-0" />
+              <YandexIcon className="w-3.5 h-3.5 shrink-0" />
               <span>Яндекс</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                sound.playClick();
+                setTab('twitch');
+              }}
+              className={`py-2 px-1 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                tab === 'twitch'
+                  ? 'bg-[#9146FF] text-white shadow-md shadow-[#9146FF]/25'
+                  : 'text-[#aaaaaa] hover:text-white hover:bg-white/[0.04]'
+              }`}
+            >
+              <TwitchIcon className="w-3.5 h-3.5 shrink-0" />
+              <span>Twitch</span>
             </button>
 
             <button
@@ -295,13 +277,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 sound.playClick();
                 setTab('telegram');
               }}
-              className={`py-2 px-2 rounded-lg text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+              className={`py-2 px-1 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                 tab === 'telegram'
                   ? 'bg-[#229ED9] text-white shadow-md shadow-[#229ED9]/25'
                   : 'text-[#aaaaaa] hover:text-white hover:bg-white/[0.04]'
               }`}
             >
-              <TelegramIcon className="w-4 h-4 shrink-0" />
+              <TelegramIcon className="w-3.5 h-3.5 shrink-0" />
               <span>Telegram</span>
             </button>
 
@@ -311,13 +293,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 sound.playClick();
                 setTab('key');
               }}
-              className={`py-2 px-2 rounded-lg text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+              className={`py-2 px-1 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                 tab === 'key'
                   ? 'bg-[#283216] border border-[#789d2a] text-[#ededed]'
                   : 'text-[#aaaaaa] hover:text-white hover:bg-white/[0.04]'
               }`}
             >
-              <KeyRound className="w-4 h-4 shrink-0 text-[#9ac43e]" />
+              <KeyRound className="w-3.5 h-3.5 shrink-0 text-[#9ac43e]" />
               <span>Ключ</span>
             </button>
           </div>
@@ -331,56 +313,84 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <div className="flex items-center gap-2">
                   <YandexIcon className="w-5 h-5 shrink-0" />
                   <p className="text-base font-bold text-[#ededed]">
-                    Вход через Яндекс ID (OAuth 2.0)
+                    Официальный вход через Яндекс ID
                   </p>
                 </div>
                 <p className="text-sm text-[#a8a8a8]">
-                  Откроет окно авторизации Яндекса с подтверждением прав (как на eblo.id). Подтянет имя и аватарку, привяжет устройства.
+                  Прямой переход на официальную страницу <strong>oauth.yandex.ru</strong> для подтверждения входа. 100% стабильно работает в РФ без VPN.
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={() => openOAuthPopup('/api/auth/yandex', 'YandexAuth')}
+              <a
+                href="/api/auth/yandex"
+                onClick={() => sound.playClick()}
                 className="w-full py-3 px-4 rounded-xl bg-[#FC3F1D] hover:bg-[#e03414] text-white font-extrabold text-lg transition-all cursor-pointer flex items-center justify-center gap-2.5 shadow-lg shadow-[#FC3F1D]/25 active:scale-[0.99]"
               >
                 <YandexIcon className="w-5 h-5" />
-                <span>Войти с Яндекс ID</span>
+                <span>Перейти на oauth.yandex.ru</span>
                 <ExternalLink className="w-4 h-4 opacity-80" />
-              </button>
+              </a>
 
               <p className="text-xs text-center text-[#888888]">
-                100% стабильно работает в РФ без VPN и прокси. Пароли не передаются.
+                Прямая официальная ссылка OAuth 2.0. Никаких паролей на Bridgik не вводится.
+              </p>
+            </div>
+          )}
+
+          {tab === 'twitch' && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-xl bg-[#222222] border border-white/[0.06] space-y-2">
+                <div className="flex items-center gap-2">
+                  <TwitchIcon className="w-5 h-5 text-[#9146FF] shrink-0" />
+                  <p className="text-base font-bold text-[#ededed]">
+                    Официальный вход через Twitch
+                  </p>
+                </div>
+                <p className="text-sm text-[#a8a8a8]">
+                  Прямой переход на официальную страницу <strong>auth.twitch.tv/authorize</strong> (как на eblo.id). Подтянет ник и аватарку.
+                </p>
+              </div>
+
+              <a
+                href="/api/auth/twitch"
+                onClick={() => sound.playClick()}
+                className="w-full py-3 px-4 rounded-xl bg-[#9146FF] hover:bg-[#772ce8] text-white font-extrabold text-lg transition-all cursor-pointer flex items-center justify-center gap-2.5 shadow-lg shadow-[#9146FF]/25 active:scale-[0.99]"
+              >
+                <TwitchIcon className="w-5 h-5" />
+                <span>Перейти на auth.twitch.tv</span>
+                <ExternalLink className="w-4 h-4 opacity-80" />
+              </a>
+
+              <p className="text-xs text-center text-[#888888]">
+                Официальная страница авторизации Twitch OAuth 2.0.
               </p>
             </div>
           )}
 
           {tab === 'telegram' && (
             <div className="space-y-3.5">
-              {/* Option 1: Official OAuth Popup Window */}
               <div className="p-4 rounded-xl bg-[#222222] border border-white/[0.06] space-y-3">
                 <div className="flex items-center gap-2">
                   <TelegramIcon className="w-5 h-5 text-[#229ED9] shrink-0" />
                   <p className="text-base font-bold text-[#ededed]">
-                    Окно авторизации Telegram
+                    Официальный вход через Telegram
                   </p>
                 </div>
                 <p className="text-sm text-[#a8a8a8]">
-                  Откроет окно Telegram с подтверждением доступа (как на примере). Мгновенный вход в 1 клик.
+                  Прямой переход на официальную страницу <strong>oauth.telegram.org</strong>.
                 </p>
 
-                <button
-                  type="button"
-                  onClick={() => openOAuthPopup('/api/auth/telegram', 'TelegramAuth')}
+                <a
+                  href="/api/auth/telegram"
+                  onClick={() => sound.playClick()}
                   className="w-full py-2.5 px-4 rounded-xl bg-[#229ED9] hover:bg-[#1b8ec4] text-white font-extrabold text-base transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-[#229ED9]/20"
                 >
                   <TelegramIcon className="w-4 h-4" />
-                  <span>Войти через окно Telegram</span>
+                  <span>Перейти на oauth.telegram.org</span>
                   <ExternalLink className="w-4 h-4 opacity-80" />
-                </button>
+                </a>
               </div>
 
-              {/* Divider */}
               <div className="relative flex items-center justify-center">
                 <div className="border-t border-white/[0.08] w-full" />
                 <span className="bg-[#1c1c1c] px-2.5 text-[11px] font-semibold text-[#777777] uppercase tracking-wider">
@@ -389,7 +399,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <div className="border-t border-white/[0.08] w-full" />
               </div>
 
-              {/* Option 2: Telegram App Deep Link & QR */}
               <div className="p-3.5 rounded-xl bg-[#161616] border border-white/[0.06] space-y-3">
                 <div className="flex items-center gap-3">
                   <div className="w-16 h-16 p-1.5 rounded-lg bg-white shrink-0 grid grid-cols-7 gap-0.5">
@@ -405,7 +414,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       Прямо в приложении Telegram
                     </p>
                     <p className="text-xs text-[#888888] leading-tight">
-                      Нажмите кнопку ниже или отсканируйте QR. Бот мгновенно авторизует этот браузер.
+                      Откройте бота в приложении Telegram, чтобы связать этот браузер.
                     </p>
                   </div>
                 </div>
@@ -608,6 +617,14 @@ export function TelegramIcon({ className = 'w-4 h-4' }: { className?: string }) 
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
       <path d="M21.94 3.45a1.5 1.5 0 0 0-1.56-.21L2.63 10.61a1.35 1.35 0 0 0 .08 2.52l4.47 1.48 1.66 5.29a1.1 1.1 0 0 0 1.85.44l2.53-2.58 4.44 3.28a1.45 1.45 0 0 0 2.27-.88l2.54-15.1a1.5 1.5 0 0 0-.53-1.61ZM9.8 14.37l-.34 3.1-1.08-3.46 9.57-6.19-8.15 6.55Z" />
+    </svg>
+  );
+}
+
+export function TwitchIcon({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z" />
     </svg>
   );
 }

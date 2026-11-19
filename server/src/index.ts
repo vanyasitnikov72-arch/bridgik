@@ -32,6 +32,7 @@ import {
   updatePaymentStatus,
   upgradeUserToPro,
   upsertYandexUser,
+  upsertTwitchUser,
   upsertTelegramUser,
   getUserByYandex,
   getUserByTelegramId,
@@ -41,6 +42,8 @@ import { createYooKassaPayment, getYooKassaPayment } from './yookassa.js';
 import {
   getYandexClientCredentials,
   exchangeYandexCode,
+  getTwitchClientCredentials,
+  exchangeTwitchCode,
   getTelegramBotCredentials,
   verifyTelegramAuthData,
   renderOAuthConsentScreen,
@@ -442,64 +445,34 @@ app.delete('/api/user/devices/:deviceId', (req, res) => {
 
 // --- Yandex ID & Telegram OAuth Endpoints ---
 
-// 1. Initiate Yandex login
+// 1. Initiate Yandex login (official redirect to oauth.yandex.ru)
 app.get('/api/auth/yandex', (req, res) => {
-  const state = (req.query.state as string) || crypto.randomUUID();
   const host = req.get('host') || 'bridgik.ru';
   const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
   const redirectUri = `${protocol}://${host}/api/auth/yandex/callback`;
+  const { clientId } = getYandexClientCredentials();
 
-  const { clientId, isConfigured } = getYandexClientCredentials();
-
-  if (isConfigured && clientId) {
-    const yandexUrl = `https://oauth.yandex.ru/authorize?response_type=code&client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}&force_confirm=yes`;
-    return res.redirect(yandexUrl);
+  if (!clientId) {
+    return res.status(400).send(`
+      <!DOCTYPE html>
+      <html>
+      <head><title>Настройка Яндекс ID</title><meta charset="utf-8"></head>
+      <body style="background:#171717;color:#fff;font-family:sans-serif;padding:40px;max-width:600px;margin:auto;text-align:center;">
+        <h2 style="color:#FC3F1D;margin-bottom:12px;">Не указан YANDEX_CLIENT_ID</h2>
+        <p style="color:#aaa;margin-bottom:20px;">Для перехода на официальную страницу <code>oauth.yandex.ru/authorize</code> укажите параметры в файле <code>.env</code> на сервере:</p>
+        <pre style="background:#222;padding:15px;border-radius:8px;text-align:left;color:#9ac43e;">YANDEX_CLIENT_ID=ваш_client_id\nYANDEX_CLIENT_SECRET=ваш_secret</pre>
+        <p style="margin-top:20px;"><a href="/?tab=profile" style="color:#9ac43e;text-decoration:none;">← Вернуться на Bridgik</a></p>
+      </body>
+      </html>
+    `);
   }
 
-  // Fallback to simulated Yandex consent window
-  return res.redirect(`/api/auth/yandex/authorize-demo?state=${encodeURIComponent(state)}`);
-});
-
-// 2. Demo Yandex Consent Window (Styled like official Yandex OAuth)
-app.get('/api/auth/yandex/authorize-demo', (req, res) => {
   const state = (req.query.state as string) || crypto.randomUUID();
-  const html = renderOAuthConsentScreen({
-    provider: 'yandex',
-    confirmActionUrl: '/api/auth/yandex/confirm-demo',
-    cancelUrl: '/?tab=profile&auth=canceled',
-    state,
-    defaultLogin: 'yandex.user@yandex.ru',
-    defaultName: 'Пользователь Яндекса',
-  });
-  return res.setHeader('Content-Type', 'text/html; charset=utf-8').send(html);
+  const yandexUrl = `https://oauth.yandex.ru/authorize?response_type=code&client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}&force_confirm=yes`;
+  return res.redirect(yandexUrl);
 });
 
-// 3. Demo Yandex Consent Form submit
-app.post('/api/auth/yandex/confirm-demo', (req, res) => {
-  const { login, displayName, avatarUrl } = req.body || {};
-  const cleanLogin = (login || 'yandex.user').replace(/@.*$/, '');
-  const cleanName = displayName || 'Пользователь Яндекса';
-  const cleanAvatar = avatarUrl || '/mascots/dino_avatar.jpg';
-
-  const user = upsertYandexUser({
-    id: `demo_ya_${cleanLogin}`,
-    login: cleanLogin,
-    displayName: cleanName,
-    avatarUrl: cleanAvatar,
-  });
-
-  const onlineSet = stickyManager.getOnlineDeviceIds(user.id);
-  const profileDto = toUserProfileDto(user, undefined, onlineSet);
-
-  const html = renderAuthSuccessCallback({
-    provider: 'yandex',
-    licenseKey: user.license_key,
-    userProfile: profileDto,
-  });
-  return res.setHeader('Content-Type', 'text/html; charset=utf-8').send(html);
-});
-
-// 4. Real Yandex OAuth Callback
+// 2. Real Yandex OAuth Callback
 app.get('/api/auth/yandex/callback', async (req, res) => {
   try {
     const code = req.query.code as string;
@@ -518,78 +491,95 @@ app.get('/api/auth/yandex/callback', async (req, res) => {
     const profile = await exchangeYandexCode(code, redirectUri);
     const user = upsertYandexUser(profile);
 
-    const onlineSet = stickyManager.getOnlineDeviceIds(user.id);
-    const profileDto = toUserProfileDto(user, undefined, onlineSet);
-
-    const html = renderAuthSuccessCallback({
-      provider: 'yandex',
-      licenseKey: user.license_key,
-      userProfile: profileDto,
-    });
-    return res.setHeader('Content-Type', 'text/html; charset=utf-8').send(html);
+    return res.redirect(`/?tab=profile&auth=success&key=${encodeURIComponent(user.license_key)}`);
   } catch (err: any) {
     console.error('[Yandex Auth Error]', err);
-    return res.status(500).send(`Ошибка авторизации через Яндекс: ${err.message}`);
+    return res.redirect(`/?tab=profile&auth=error&message=${encodeURIComponent(err.message)}`);
   }
 });
 
-// 5. Initiate Telegram login
+// 3. Initiate Twitch login (official redirect to auth.twitch.tv)
+app.get('/api/auth/twitch', (req, res) => {
+  const host = req.get('host') || 'bridgik.ru';
+  const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
+  const redirectUri = `${protocol}://${host}/api/auth/twitch/callback`;
+  const { clientId } = getTwitchClientCredentials();
+
+  if (!clientId) {
+    return res.status(400).send(`
+      <!DOCTYPE html>
+      <html>
+      <head><title>Настройка Twitch OAuth</title><meta charset="utf-8"></head>
+      <body style="background:#171717;color:#fff;font-family:sans-serif;padding:40px;max-width:600px;margin:auto;text-align:center;">
+        <h2 style="color:#9146FF;margin-bottom:12px;">Не указан TWITCH_CLIENT_ID</h2>
+        <p style="color:#aaa;margin-bottom:20px;">Для перехода на официальную страницу <code>auth.twitch.tv/authorize</code> укажите параметры в файле <code>.env</code> на сервере:</p>
+        <pre style="background:#222;padding:15px;border-radius:8px;text-align:left;color:#9ac43e;">TWITCH_CLIENT_ID=ваш_client_id\nTWITCH_CLIENT_SECRET=ваш_secret</pre>
+        <p style="margin-top:20px;"><a href="/?tab=profile" style="color:#9ac43e;text-decoration:none;">← Вернуться на Bridgik</a></p>
+      </body>
+      </html>
+    `);
+  }
+
+  const state = (req.query.state as string) || crypto.randomUUID();
+  const twitchUrl = `https://id.twitch.tv/oauth2/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=user:read:email&state=${encodeURIComponent(state)}`;
+  return res.redirect(twitchUrl);
+});
+
+// 4. Real Twitch Callback
+app.get('/api/auth/twitch/callback', async (req, res) => {
+  try {
+    const code = req.query.code as string;
+    const error = req.query.error as string;
+    if (error) {
+      return res.redirect(`/?tab=profile&auth=error&message=${encodeURIComponent(error)}`);
+    }
+    if (!code) {
+      return res.status(400).send('Код авторизации отсутствует');
+    }
+
+    const host = req.get('host') || 'bridgik.ru';
+    const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
+    const redirectUri = `${protocol}://${host}/api/auth/twitch/callback`;
+
+    const profile = await exchangeTwitchCode(code, redirectUri);
+    const user = upsertTwitchUser(profile);
+
+    return res.redirect(`/?tab=profile&auth=success&key=${encodeURIComponent(user.license_key)}`);
+  } catch (err: any) {
+    console.error('[Twitch Auth Error]', err);
+    return res.redirect(`/?tab=profile&auth=error&message=${encodeURIComponent(err.message)}`);
+  }
+});
+
+// 5. Initiate Telegram login (official redirect to oauth.telegram.org)
 app.get('/api/auth/telegram', (req, res) => {
   const host = req.get('host') || 'bridgik.ru';
   const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
   const origin = `${protocol}://${host}`;
   const callbackUrl = `${origin}/api/auth/telegram/callback`;
 
-  const { botId, isConfigured } = getTelegramBotCredentials();
+  const { botId } = getTelegramBotCredentials();
 
-  if (isConfigured && botId) {
-    const tgUrl = `https://oauth.telegram.org/auth?bot_id=${encodeURIComponent(botId)}&origin=${encodeURIComponent(origin)}&return_to=${encodeURIComponent(callbackUrl)}&request_access=write`;
-    return res.redirect(tgUrl);
+  if (!botId) {
+    return res.status(400).send(`
+      <!DOCTYPE html>
+      <html>
+      <head><title>Настройка Telegram OAuth</title><meta charset="utf-8"></head>
+      <body style="background:#171717;color:#fff;font-family:sans-serif;padding:40px;max-width:600px;margin:auto;text-align:center;">
+        <h2 style="color:#229ED9;margin-bottom:12px;">Не указан TELEGRAM_BOT_TOKEN</h2>
+        <p style="color:#aaa;margin-bottom:20px;">Для перехода на официальную страницу <code>oauth.telegram.org</code> укажите токен бота в файле <code>.env</code> на сервере:</p>
+        <pre style="background:#222;padding:15px;border-radius:8px;text-align:left;color:#9ac43e;">TELEGRAM_BOT_TOKEN=123456789:ABC...\nTELEGRAM_BOT_USERNAME=bridgik_bot</pre>
+        <p style="margin-top:20px;"><a href="/?tab=profile" style="color:#9ac43e;text-decoration:none;">← Вернуться на Bridgik</a></p>
+      </body>
+      </html>
+    `);
   }
 
-  // Fallback to simulated Telegram consent window
-  return res.redirect(`/api/auth/telegram/authorize-demo`);
+  const tgUrl = `https://oauth.telegram.org/auth?bot_id=${encodeURIComponent(botId)}&origin=${encodeURIComponent(origin)}&return_to=${encodeURIComponent(callbackUrl)}&request_access=write`;
+  return res.redirect(tgUrl);
 });
 
-// 6. Demo Telegram Consent Window
-app.get('/api/auth/telegram/authorize-demo', (req, res) => {
-  const state = (req.query.state as string) || crypto.randomUUID();
-  const html = renderOAuthConsentScreen({
-    provider: 'telegram',
-    confirmActionUrl: '/api/auth/telegram/confirm-demo',
-    cancelUrl: '/?tab=profile&auth=canceled',
-    state,
-    defaultLogin: '@bridgik_user',
-    defaultName: 'Пользователь Telegram',
-  });
-  return res.setHeader('Content-Type', 'text/html; charset=utf-8').send(html);
-});
-
-// 7. Demo Telegram Confirm
-app.post('/api/auth/telegram/confirm-demo', (req, res) => {
-  const { login, displayName, avatarUrl } = req.body || {};
-  const cleanUsername = (login || 'bridgik_user').replace(/^@/, '');
-  const cleanName = displayName || 'Пользователь Telegram';
-
-  const user = upsertTelegramUser({
-    id: 100000000 + Math.floor(Math.random() * 900000),
-    username: cleanUsername,
-    firstName: cleanName,
-    photoUrl: avatarUrl,
-  });
-
-  const onlineSet = stickyManager.getOnlineDeviceIds(user.id);
-  const profileDto = toUserProfileDto(user, undefined, onlineSet);
-
-  const html = renderAuthSuccessCallback({
-    provider: 'telegram',
-    licenseKey: user.license_key,
-    userProfile: profileDto,
-  });
-  return res.setHeader('Content-Type', 'text/html; charset=utf-8').send(html);
-});
-
-// 8. Real Telegram Callback
+// 6. Real Telegram Callback
 app.get('/api/auth/telegram/callback', (req, res) => {
   try {
     const query = req.query as Record<string, string>;
@@ -615,18 +605,10 @@ app.get('/api/auth/telegram/callback', (req, res) => {
       photoUrl: photo_url,
     });
 
-    const onlineSet = stickyManager.getOnlineDeviceIds(user.id);
-    const profileDto = toUserProfileDto(user, undefined, onlineSet);
-
-    const html = renderAuthSuccessCallback({
-      provider: 'telegram',
-      licenseKey: user.license_key,
-      userProfile: profileDto,
-    });
-    return res.setHeader('Content-Type', 'text/html; charset=utf-8').send(html);
+    return res.redirect(`/?tab=profile&auth=success&key=${encodeURIComponent(user.license_key)}`);
   } catch (err: any) {
     console.error('[Telegram Auth Callback Error]', err);
-    return res.status(500).send(`Ошибка авторизации через Telegram: ${err.message}`);
+    return res.redirect(`/?tab=profile&auth=error&message=${encodeURIComponent(err.message)}`);
   }
 });
 
