@@ -49,11 +49,13 @@ import {
 } from './types/index.js';
 import {
   detectDeviceType,
-  generateRandomName,
   getRandomAvatar,
   getBrowserDeviceId,
   getBrowserLabel,
   formatBytes,
+  getDetailedDeviceInfo,
+  getEffectiveDeviceName,
+  saveCustomDeviceName,
 } from './utils/device.js';
 import {
   getSharedAudioContext,
@@ -77,12 +79,10 @@ export function App() {
   }
 
   const [userName, setUserName] = useState<string>(() => {
-    return (
-      localStorage.getItem('bridgik_username') ||
-      localStorage.getItem('bridgit_username') ||
-      localStorage.getItem('airbridge_username') ||
-      generateRandomName()
-    );
+    return getEffectiveDeviceName().name;
+  });
+  const [isCustomDeviceName, setIsCustomDeviceName] = useState<boolean>(() => {
+    return getEffectiveDeviceName().isCustom;
   });
   const [userAvatar, setUserAvatar] = useState<string>(() => {
     const saved = localStorage.getItem('bridgik_user_avatar');
@@ -1000,6 +1000,7 @@ export function App() {
   const handleUpdateUserName = (name: string) => {
     setUserName(name);
     localStorage.setItem('bridgik_username', name);
+    setIsCustomDeviceName(true);
     if (webrtcRef.current) {
       webrtcRef.current.updateMyName(name);
     }
@@ -1008,7 +1009,24 @@ export function App() {
       socket.emit('update-peer-name', { roomId, name });
     }
     if (socket && !roomId) {
-      socket.emit('lobby-update-name', { name });
+      socket.emit('lobby-update-name', { name, isCustomName: true });
+    }
+  };
+
+  const handleRenameDevice = (newName: string) => {
+    const trimmed = newName.trim();
+    if (!trimmed) return;
+    saveCustomDeviceName(trimmed);
+    setUserName(trimmed);
+    setIsCustomDeviceName(true);
+    if (webrtcRef.current) {
+      webrtcRef.current.updateMyName(trimmed);
+    }
+    if (socket && roomId) {
+      socket.emit('update-peer-name', { roomId, name: trimmed });
+    }
+    if (socket && !roomId) {
+      socket.emit('lobby-update-name', { name: trimmed, isCustomName: true });
     }
   };
 
@@ -1429,12 +1447,20 @@ export function App() {
   useEffect(() => {
     if (!socket || !isConnected || roomId) return;
     if (!radarVisible) {
-   socket.emit('lobby-leave');
-   return;
- }
+      socket.emit('lobby-leave');
+      return;
+    }
+    const info = getDetailedDeviceInfo();
+    const licenseKey = localStorage.getItem('bridgik_license_key') || undefined;
     socket.emit('lobby-join', {
       name: userName,
-      deviceType,
+      deviceType: info.deviceType,
+      os: info.os,
+      osName: info.osName,
+      browser: info.browser,
+      deviceModel: info.deviceModel,
+      isCustomName: isCustomDeviceName,
+      licenseKey,
       statusEmote: statusEmote || undefined,
     });
     socket.emit('lobby-query');
@@ -1483,7 +1509,7 @@ export function App() {
       socket.off('pair-request-cancelled', handlePairCancelled);
       socket.off('direct-pair-result', handlePairResult);
     };
-  }, [socket, isConnected, roomId, userName, deviceType, radarVisible]);
+  }, [socket, isConnected, roomId, userName, deviceType, radarVisible, isCustomDeviceName]);
 
   useEffect(() => {
     if (!socket || !isConnected) return;
@@ -2166,6 +2192,8 @@ export function App() {
             onRejectPair={handleRejectPair}
             myUserName={userName}
             myDeviceType={deviceType}
+            isCustomDeviceName={isCustomDeviceName}
+            onRenameDevice={handleRenameDevice}
             lanIp={lanIp}
             onOpenAbout={() => setActiveTab('about')}
           />

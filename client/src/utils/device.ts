@@ -14,6 +14,139 @@ export function generateRandomName(): string {
   return `${adj} ${noun}`;
 }
 
+export function isRandomAnimalName(name: string): boolean {
+  if (!name || typeof name !== 'string') return false;
+  const parts = name.trim().split(/\s+/);
+  if (parts.length !== 2) return false;
+  return ADJECTIVES.includes(parts[0]) && NOUNS.includes(parts[1]);
+}
+
+export interface DetailedDeviceInfo {
+  deviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown';
+  os: 'ios' | 'android' | 'windows' | 'macos' | 'linux' | 'unknown';
+  osName: string;
+  browser: string;
+  deviceModel: string;
+  defaultName: string;
+}
+
+export function getDetailedDeviceInfo(): DetailedDeviceInfo {
+  if (typeof window === 'undefined') {
+    return {
+      deviceType: 'desktop',
+      os: 'unknown',
+      osName: 'Web',
+      browser: 'Браузер',
+      deviceModel: 'Компьютер',
+      defaultName: 'Этот ПК',
+    };
+  }
+
+  const ua = navigator.userAgent;
+  let deviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown' = 'desktop';
+  if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) {
+    deviceType = 'tablet';
+  } else if (/Mobile|Android|iP(hone|od)|IEMobile|BlackBerry|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/i.test(ua)) {
+    deviceType = 'mobile';
+  }
+
+  // OS & Model
+  let os: 'ios' | 'android' | 'windows' | 'macos' | 'linux' | 'unknown' = 'unknown';
+  let osName = 'Система';
+  let deviceModel = 'Устройство';
+
+  if (/iPhone/i.test(ua)) {
+    os = 'ios';
+    osName = 'iOS';
+    deviceModel = 'iPhone';
+    deviceType = 'mobile';
+  } else if (/iPad/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) {
+    os = 'ios';
+    osName = 'iPadOS';
+    deviceType = 'tablet';
+    deviceModel = 'iPad';
+  } else if (/Android/i.test(ua)) {
+    os = 'android';
+    osName = 'Android';
+    if (deviceType === 'tablet') {
+      deviceModel = 'Android Планшет';
+    } else {
+      if (/Samsung|SM-[A-Z0-9]+/i.test(ua)) deviceModel = 'Samsung Galaxy';
+      else if (/Pixel/i.test(ua)) deviceModel = 'Google Pixel';
+      else if (/Xiaomi|Redmi|POCO/i.test(ua)) deviceModel = 'Xiaomi';
+      else if (/Huawei|Honor/i.test(ua)) deviceModel = 'Huawei';
+      else deviceModel = 'Android Смартфон';
+    }
+  } else if (/Windows NT/i.test(ua)) {
+    os = 'windows';
+    osName = 'Windows';
+    if (/Windows NT 10.0/i.test(ua)) osName = 'Windows 10/11';
+    else if (/Windows NT 6.3/i.test(ua)) osName = 'Windows 8.1';
+    else if (/Windows NT 6.1/i.test(ua)) osName = 'Windows 7';
+    deviceModel = 'Windows ПК';
+  } else if (/Macintosh|Mac OS X/i.test(ua)) {
+    os = 'macos';
+    osName = 'macOS';
+    deviceModel = 'MacBook / Mac';
+  } else if (/Linux/i.test(ua)) {
+    os = 'linux';
+    osName = 'Linux';
+    deviceModel = 'Linux ПК';
+  }
+
+  // Browser
+  let browser = 'Браузер';
+  if (/YaBrowser\/(\d+)/i.test(ua)) browser = 'Яндекс Браузер';
+  else if (/Edg\/(\d+)/i.test(ua)) browser = 'Edge';
+  else if (/Chrome\/(\d+)/i.test(ua) && !/Chromium\//i.test(ua)) browser = 'Chrome';
+  else if (/Safari\/(\d+)/i.test(ua) && !/Chrome\//i.test(ua)) browser = 'Safari';
+  else if (/Firefox\/(\d+)/i.test(ua)) browser = 'Firefox';
+  else if (/Opera|OPR\//i.test(ua)) browser = 'Opera';
+
+  // Default display name
+  const defaultName = deviceModel;
+
+  return {
+    deviceType,
+    os,
+    osName,
+    browser,
+    deviceModel,
+    defaultName,
+  };
+}
+
+export function getEffectiveDeviceName(): { name: string; isCustom: boolean } {
+  if (typeof window === 'undefined') return { name: 'Устройство', isCustom: false };
+
+  // 1. Explicitly saved custom device name
+  const custom = localStorage.getItem('bridgik_custom_device_name');
+  if (custom && custom.trim()) {
+    return { name: custom.trim(), isCustom: true };
+  }
+
+  // 2. Saved username if not an old random animal name
+  const savedUser = localStorage.getItem('bridgik_username') || localStorage.getItem('bridgit_username');
+  if (savedUser && savedUser.trim() && !isRandomAnimalName(savedUser.trim())) {
+    return { name: savedUser.trim(), isCustom: true };
+  }
+
+  // 3. Fallback: intelligent detected device model
+  const info = getDetailedDeviceInfo();
+  return { name: info.defaultName, isCustom: false };
+}
+
+export function saveCustomDeviceName(name: string): void {
+  if (typeof window === 'undefined') return;
+  const trimmed = name.trim();
+  if (trimmed) {
+    localStorage.setItem('bridgik_custom_device_name', trimmed);
+    localStorage.setItem('bridgik_username', trimmed);
+  } else {
+    localStorage.removeItem('bridgik_custom_device_name');
+  }
+}
+
 export function detectDeviceType(): 'desktop' | 'mobile' | 'tablet' | 'unknown' {
   const ua = navigator.userAgent;
   if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) {

@@ -66,6 +66,12 @@ export interface NearbyPeer {
   socketId: string;
   name: string;
   deviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown';
+  os?: 'ios' | 'android' | 'windows' | 'macos' | 'linux' | 'unknown';
+  osName?: string;
+  browser?: string;
+  deviceModel?: string;
+  isCustomName?: boolean;
+  isSameAccount?: boolean;
   isAdmin?: boolean;
   statusEmote?: string;
 }
@@ -74,6 +80,9 @@ export interface PairRequest {
   fromSocketId: string;
   fromName: string;
   fromDevice: 'desktop' | 'mobile' | 'tablet' | 'unknown';
+  fromOs?: string;
+  fromBrowser?: string;
+  fromModel?: string;
   roomId: string;
   pin: string;
   isAdmin?: boolean;

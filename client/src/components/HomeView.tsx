@@ -4,6 +4,9 @@ import {
   Wifi,
   Monitor,
   Smartphone,
+  Tablet,
+  Apple,
+  Terminal,
   Send,
   Radio,
   Mic,
@@ -14,12 +17,77 @@ import {
   Camera,
   X,
   QrCode,
+  Edit3,
 } from 'lucide-react';
 import { NearbyPeer, PairRequest } from '../types/index.js';
 import { BridgeIcon } from './icons/BridgeIcon.js';
 import { RoomLoungeIcon } from './icons/RoomLoungeIcon.js';
 import { sound } from '../utils/sound.js';
 import jsQR from 'jsqr';
+
+function getPlatformBadge(peer: NearbyPeer) {
+  const os = peer.os || (peer.deviceType === 'mobile' ? 'mobile' : 'desktop');
+  if (
+    os === 'ios' ||
+    os === 'macos' ||
+    peer.deviceModel?.includes('Mac') ||
+    peer.deviceModel?.includes('iPhone') ||
+    peer.deviceModel?.includes('iPad')
+  ) {
+    return {
+      bg: 'bg-white/10 text-white border-white/20',
+      icon: <Apple className="w-5 h-5 shrink-0" />,
+      label: 'Apple',
+    };
+  }
+  if (os === 'windows' || peer.deviceModel?.includes('Windows')) {
+    return {
+      bg: 'bg-[#0078d4]/15 text-[#60cdff] border-[#0078d4]/30',
+      icon: (
+        <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-13.051-1.802" />
+        </svg>
+      ),
+      label: 'Windows',
+    };
+  }
+  if (
+    os === 'android' ||
+    peer.deviceModel?.includes('Android') ||
+    peer.deviceModel?.includes('Samsung') ||
+    peer.deviceModel?.includes('Pixel') ||
+    peer.deviceModel?.includes('Xiaomi')
+  ) {
+    return {
+      bg: 'bg-[#3ddc84]/15 text-[#3ddc84] border-[#3ddc84]/30',
+      icon: (
+        <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-1.0003 0-.5517.4482-1.0003.9993-1.0003.5517 0 .9997.4486.9997 1.0003 0 .5517-.448.1003-.9997 1.0003m-11.046 0c-.5511 0-.9993-.4486-.9993-1.0003 0-.5517.4482-1.0003.9993-1.0003.5517 0 .9997.4486.9997 1.0003 0 .5517-.448.1003-.9997 1.0003m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.4116 13.8533 8.081 12 8.081c-1.8533 0-3.5902.3306-5.1367.8687L4.841 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396" />
+        </svg>
+      ),
+      label: 'Android',
+    };
+  }
+  if (os === 'linux') {
+    return {
+      bg: 'bg-[#f5a623]/15 text-[#f5a623] border-[#f5a623]/30',
+      icon: <Terminal className="w-5 h-5 shrink-0" />,
+      label: 'Linux',
+    };
+  }
+  return {
+    bg: 'bg-[#222222] text-[#9ac43e] border-[#3a3a3a]',
+    icon:
+      peer.deviceType === 'mobile' ? (
+        <Smartphone className="w-5 h-5 shrink-0" />
+      ) : peer.deviceType === 'tablet' ? (
+        <Tablet className="w-5 h-5 shrink-0" />
+      ) : (
+        <Monitor className="w-5 h-5 shrink-0" />
+      ),
+    label: peer.deviceType === 'mobile' ? 'Телефон' : 'Компьютер',
+  };
+}
 
 interface HomeViewProps {
   onCreateBridge: () => void;
@@ -38,6 +106,8 @@ interface HomeViewProps {
   onRejectPair: () => void;
   myUserName: string;
   myDeviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown';
+  isCustomDeviceName?: boolean;
+  onRenameDevice?: (newName: string) => void;
   lanIp?: string | null;
   onOpenAbout?: () => void;
 }
@@ -57,8 +127,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
   incomingPairRequest: _incomingPairRequest,
   onAcceptPair: _onAcceptPair,
   onRejectPair: _onRejectPair,
-  myUserName: _myUserName,
+  myUserName,
   myDeviceType: _myDeviceType,
+  isCustomDeviceName,
+  onRenameDevice,
   lanIp,
   onOpenAbout,
 }) => {
@@ -66,6 +138,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const [isMobileInfoOpen, setIsMobileInfoOpen] = useState(false);
   const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
   const [scannerError, setScannerError] = useState<string | null>(null);
+  const [isEditingMyName, setIsEditingMyName] = useState(false);
+  const [editingNameValue, setEditingNameValue] = useState('');
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
   const scannerStreamRef = React.useRef<MediaStream | null>(null);
 
@@ -229,9 +303,22 @@ export const HomeView: React.FC<HomeViewProps> = ({
       ? `http://${lanIp}:${window.location.port}`
       : `http://${lanIp}`;
 
+  const handleStartRename = () => {
+    setEditingNameValue(myUserName);
+    setIsEditingMyName(true);
+  };
+
+  const handleSaveRename = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingNameValue.trim() && onRenameDevice) {
+      onRenameDevice(editingNameValue.trim());
+    }
+    setIsEditingMyName(false);
+  };
+
   const radarCard = (
     <div className="bg-[#202020] border border-[#3a3a3a] rounded-xl p-4 sm:p-7 shadow-md">
-      <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 mb-3 sm:mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 mb-3">
         <div className="flex items-center gap-2.5">
           <div className="relative flex items-center justify-center w-3 h-3">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#789d2a] opacity-75"></span>
@@ -247,49 +334,109 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </div>
       </div>
 
+      {/* Local device status and rename line */}
+      <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-[#aaaaaa] mb-4 pb-3 border-b border-[#2d2d2d]">
+        <span>Это устройство:</span>
+        {isEditingMyName ? (
+          <form onSubmit={handleSaveRename} className="inline-flex items-center gap-1.5">
+            <input
+              type="text"
+              value={editingNameValue}
+              onChange={(e) => setEditingNameValue(e.target.value)}
+              className="px-2 py-0.5 rounded bg-[#171717] border border-[#789d2a] text-[#ededed] text-xs font-bold focus:outline-none"
+              autoFocus
+              maxLength={24}
+              placeholder="Назовите устройство..."
+            />
+            <button
+              type="submit"
+              className="px-2.5 py-0.5 bg-[#789d2a] hover:bg-[#8cb632] text-white rounded text-xs font-bold cursor-pointer transition-colors"
+            >
+              Сохранить
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsEditingMyName(false)}
+              className="px-1.5 py-0.5 text-[#888888] hover:text-[#ededed] text-xs cursor-pointer"
+            >
+              Отмена
+            </button>
+          </form>
+        ) : (
+          <button
+            onClick={handleStartRename}
+            className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#171717] border border-[#3a3a3a] hover:border-[#789d2a] text-[#ededed] hover:text-[#9ac43e] font-bold text-xs sm:text-sm transition-colors cursor-pointer group"
+            title="Нажмите, чтобы переименовать это устройство"
+          >
+            <span>{myUserName}</span>
+            <Edit3 className="w-3 h-3 text-[#777777] group-hover:text-[#9ac43e]" />
+          </button>
+        )}
+        <span className="text-[11px] text-[#777777]">
+          {isCustomDeviceName ? '(собственное имя сохранено)' : '(определено автоматически)'}
+        </span>
+      </div>
+
       {nearbyPeers.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-          {nearbyPeers.map((peer) => (
-            <div
-              key={peer.socketId}
-              className="p-3.5 sm:p-4 rounded-lg bg-[#171717] border border-[#3a3a3a] flex items-center justify-between gap-3 hover:border-[#789d2a]/50 transition-colors"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-md bg-[#222222] border border-[#3a3a3a] flex items-center justify-center text-[#9ac43e] shrink-0">
-                  {peer.deviceType === 'mobile' ? (
-                    <Smartphone className="w-5 h-5" />
-                  ) : (
-                    <Monitor className="w-5 h-5" />
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-base sm:text-lg font-bold text-[#ededed] truncate flex items-center gap-1.5">
-                    <span className="truncate">{peer.name}</span>
-                    {peer.statusEmote && (
-                      <img
-                        src={peer.statusEmote}
-                        alt="status"
-                        className="w-4 h-4 object-contain shrink-0 filter drop-shadow-[0_0_4px_rgba(255,255,255,0.3)]"
-                      />
-                    )}
-                  </p>
-                  <p className="text-xs sm:text-sm text-[#9ac43e] flex items-center gap-1.5 font-semibold">
-                    <span className="w-2 h-2 rounded-full bg-[#789d2a]" />
-                    <span>Готов к приему</span>
-                  </p>
-                </div>
-              </div>
+          {nearbyPeers.map((peer) => {
+            const badge = getPlatformBadge(peer);
+            const specs = [peer.osName, peer.browser].filter(Boolean).join(' · ');
 
-              <button
-                onClick={() => onPairWithNearby(peer.socketId)}
-                disabled={isPairing}
-                className="px-3.5 sm:px-4 py-2 rounded-lg bg-[#789d2a] hover:bg-[#8cb632] text-white text-sm font-bold shrink-0 transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+            return (
+              <div
+                key={peer.socketId}
+                className="p-3.5 sm:p-4 rounded-lg bg-[#171717] border border-[#3a3a3a] flex items-center justify-between gap-3 hover:border-[#789d2a]/50 transition-colors"
               >
-                <Send className="w-4 h-4" />
-                <span>{isPairing ? 'Запрос...' : 'Передать'}</span>
-              </button>
-            </div>
-          ))}
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className={`w-11 h-11 rounded-lg border flex items-center justify-center shrink-0 ${badge.bg}`}
+                    title={badge.label}
+                  >
+                    {badge.icon}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <p className="text-base sm:text-lg font-bold text-[#ededed] truncate">
+                        {peer.name}
+                      </p>
+                      {peer.isSameAccount && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#789d2a]/20 text-[#9ac43e] border border-[#789d2a]/40 shrink-0">
+                          ⭐ Своё
+                        </span>
+                      )}
+                      {peer.statusEmote && (
+                        <img
+                          src={peer.statusEmote}
+                          alt="status"
+                          className="w-4 h-4 object-contain shrink-0 filter drop-shadow-[0_0_4px_rgba(255,255,255,0.3)]"
+                        />
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[#888888] font-medium">
+                      {specs && <span className="text-[#aaaaaa]">{specs}</span>}
+                      {peer.isCustomName && peer.deviceModel && peer.deviceModel !== peer.name && (
+                        <span className="text-[#666666]">({peer.deviceModel})</span>
+                      )}
+                      <span className="text-[#9ac43e] flex items-center gap-1 font-semibold">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#789d2a]" />
+                        <span>Готов</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => onPairWithNearby(peer.socketId)}
+                  disabled={isPairing}
+                  className="px-3.5 sm:px-4 py-2 rounded-lg bg-[#789d2a] hover:bg-[#8cb632] text-white text-sm font-bold shrink-0 transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <Send className="w-4 h-4" />
+                  <span>{isPairing ? 'Запрос...' : peer.isSameAccount ? 'Отправить себе' : 'Передать'}</span>
+                </button>
+              </div>
+            );
+          })}
         </div>
       ) : (
         <div className="py-5 px-4 rounded-lg bg-[#171717]/60 border border-[#3a3a3a]/60 text-center">

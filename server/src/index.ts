@@ -98,6 +98,12 @@ interface LobbyPeer {
   socketId: string;
   name: string;
   deviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown';
+  os?: string;
+  osName?: string;
+  browser?: string;
+  deviceModel?: string;
+  isCustomName?: boolean;
+  licenseKey?: string;
   subnet: string;
   ip: string;
   isAdmin?: boolean;
@@ -226,6 +232,12 @@ function broadcastNearbyPeers(subnet: string) {
         socketId: p.socketId,
         name: p.name,
         deviceType: p.deviceType,
+        os: p.os,
+        osName: p.osName,
+        browser: p.browser,
+        deviceModel: p.deviceModel,
+        isCustomName: p.isCustomName,
+        isSameAccount: Boolean(peer.licenseKey && p.licenseKey && peer.licenseKey === p.licenseKey),
         isAdmin: p.isAdmin,
         statusEmote: p.statusEmote,
       }));
@@ -1092,12 +1104,28 @@ io.on('connection', (socket) => {
   );
 
   // 0. Local Network Discovery
-  socket.on('lobby-join', (data: { name: string; deviceType: any; statusEmote?: string }) => {
+  socket.on('lobby-join', (data: {
+    name: string;
+    deviceType: any;
+    os?: string;
+    osName?: string;
+    browser?: string;
+    deviceModel?: string;
+    isCustomName?: boolean;
+    licenseKey?: string;
+    statusEmote?: string;
+  }) => {
     const currentSubnet = getClientNetworkSubnet(socket);
     lobbyPeers.set(socket.id, {
       socketId: socket.id,
       name: sanitizePeerName(data?.name, 'Устройство'),
       deviceType: data?.deviceType || 'unknown',
+      os: typeof data?.os === 'string' ? data.os.slice(0, 20) : undefined,
+      osName: typeof data?.osName === 'string' ? data.osName.slice(0, 30) : undefined,
+      browser: typeof data?.browser === 'string' ? data.browser.slice(0, 30) : undefined,
+      deviceModel: typeof data?.deviceModel === 'string' ? data.deviceModel.slice(0, 40) : undefined,
+      isCustomName: Boolean(data?.isCustomName),
+      licenseKey: typeof data?.licenseKey === 'string' ? data.licenseKey.slice(0, 64) : undefined,
       subnet: currentSubnet,
       ip: clientIp,
       isAdmin: socket.data.isAdmin,
@@ -1106,10 +1134,13 @@ io.on('connection', (socket) => {
     broadcastNearbyPeers(currentSubnet);
   });
 
-  socket.on('lobby-update-name', (data: { name: string }) => {
+  socket.on('lobby-update-name', (data: { name: string; isCustomName?: boolean }) => {
     const peer = lobbyPeers.get(socket.id);
     if (peer) {
       peer.name = sanitizePeerName(data?.name, 'Устройство');
+      if (typeof data?.isCustomName === 'boolean') {
+        peer.isCustomName = data.isCustomName;
+      }
       broadcastNearbyPeers(peer.subnet);
     }
   });
@@ -1127,12 +1158,19 @@ io.on('connection', (socket) => {
     const peersInSubnet = Array.from(lobbyPeers.values()).filter(
       (p) => p.subnet === currentSubnet && p.socketId !== socket.id
     );
+    const myPeer = lobbyPeers.get(socket.id);
     socket.emit(
       'nearby-peers',
       peersInSubnet.map((p) => ({
         socketId: p.socketId,
         name: p.name,
         deviceType: p.deviceType,
+        os: p.os,
+        osName: p.osName,
+        browser: p.browser,
+        deviceModel: p.deviceModel,
+        isCustomName: p.isCustomName,
+        isSameAccount: Boolean(myPeer?.licenseKey && p.licenseKey && myPeer.licenseKey === p.licenseKey),
         isAdmin: p.isAdmin,
         statusEmote: p.statusEmote,
       }))
@@ -1160,10 +1198,14 @@ io.on('connection', (socket) => {
 
     socket.data.pendingPairRoomId = room.id;
 
+    const fromPeer = lobbyPeers.get(socket.id);
     io.to(data.toSocketId).emit('incoming-pair-request', {
       fromSocketId: socket.id,
       fromName: sanitizePeerName(data.myName, 'Устройство'),
       fromDevice: data.myDevice,
+      fromOs: fromPeer?.os,
+      fromBrowser: fromPeer?.browser,
+      fromModel: fromPeer?.deviceModel,
       roomId: room.id,
       pin: room.pin,
       isAdmin: socket.data.isAdmin,
