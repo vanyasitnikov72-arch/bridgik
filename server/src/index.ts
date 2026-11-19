@@ -497,7 +497,26 @@ app.post('/api/drop/upload', (req, res) => {
   });
 });
 
-// 2. Metadata for a Drop
+// 2. Pending Drops for current user device (MUST BE BEFORE /:id)
+app.get('/api/drop/pending', (req, res) => {
+  const key =
+    (req.query.key as string) || req.headers.authorization?.replace(/^Bearer\s+/i, '');
+  const deviceId = req.query.deviceId as string;
+
+  if (!key || !deviceId) {
+    return res.json({ success: true, drops: [] });
+  }
+
+  const user = getUserByLicenseKey(key);
+  if (!user) {
+    return res.status(401).json({ success: false, error: 'Неверный ключ' });
+  }
+
+  const drops = getPendingDropsForDevice(user.id, deviceId);
+  return res.json({ success: true, drops: drops.map(toDropDto) });
+});
+
+// 3. Metadata for a Drop
 app.get('/api/drop/:id', (req, res) => {
   const drop = getDropRecord(req.params.id);
   if (!drop || drop.expires_at < Date.now()) {
@@ -506,7 +525,7 @@ app.get('/api/drop/:id', (req, res) => {
   return res.json({ success: true, drop: toDropDto(drop) });
 });
 
-// 3. Download a Drop file
+// 4. Download a Drop file
 app.get('/api/drop/:id/download', (req, res) => {
   const drop = getDropRecord(req.params.id);
   if (!drop || drop.expires_at < Date.now() || !fs.existsSync(drop.file_path)) {
@@ -525,25 +544,6 @@ app.get('/api/drop/:id/download', (req, res) => {
 
   const stream = fs.createReadStream(drop.file_path);
   stream.pipe(res);
-});
-
-// 4. Pending Drops for current user device
-app.get('/api/drop/pending', (req, res) => {
-  const key =
-    (req.query.key as string) || req.headers.authorization?.replace(/^Bearer\s+/i, '');
-  const deviceId = req.query.deviceId as string;
-
-  if (!key || !deviceId) {
-    return res.json({ success: true, drops: [] });
-  }
-
-  const user = getUserByLicenseKey(key);
-  if (!user) {
-    return res.status(401).json({ success: false, error: 'Неверный ключ' });
-  }
-
-  const drops = getPendingDropsForDevice(user.id, deviceId);
-  return res.json({ success: true, drops: drops.map(toDropDto) });
 });
 
 // 5. Delete a Drop
