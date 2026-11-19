@@ -528,7 +528,7 @@ const EmptyPixelSeat: React.FC<EmptyPixelSeatProps> = ({
         <div className="px-3 py-1.5 rounded-xl bg-[#0b120a]/95 border border-[#9ac43e]/50 shadow-[0_0_15px_rgba(0,0,0,0.9)] backdrop-blur-md flex items-center gap-1.5 whitespace-nowrap">
           <span className="w-1.5 h-1.5 rounded-full bg-[#9ac43e] animate-ping" />
           <span className="text-xs font-bold text-[#bbf348] font-mono">{spotName}</span>
-          <span className="text-[10px] text-[#88aa55] font-sans">· занять место</span>
+          <span className="text-[10px] text-[#88aa55]">· занять место</span>
         </div>
         <div className="w-2 h-1 bg-[#0b120a] border-r border-b border-[#9ac43e]/50 rotate-45 -mt-0.5" />
       </div>

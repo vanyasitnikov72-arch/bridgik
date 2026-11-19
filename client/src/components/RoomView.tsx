@@ -1083,7 +1083,7 @@ export const RoomView: React.FC<RoomViewProps> = ({
                       </div>
                     </div>
 
-                    <p className="text-base sm:text-lg text-[#ededed] break-words whitespace-pre-wrap select-all font-sans leading-relaxed">
+                    <p className="text-base sm:text-lg text-[#ededed] break-words whitespace-pre-wrap select-all leading-relaxed">
                       {m.text}
                     </p>
 
