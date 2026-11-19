@@ -876,6 +876,24 @@ app.get('/api/payment/status/:id', async (req, res) => {
 
 // --- Drop & Go (24h Buffer) Endpoints ---
 const MAX_DROP_SIZE = 500 * 1024 * 1024; // 500 MB max file size for offline buffer
+const MAX_TOTAL_DROPS_POOL = 1500 * 1024 * 1024; // 1.5 GB max total storage reserved on SSD
+
+function getTotalDropsPoolSize(): number {
+  try {
+    if (!fs.existsSync(DROPS_DIR)) return 0;
+    const files = fs.readdirSync(DROPS_DIR);
+    let total = 0;
+    for (const f of files) {
+      try {
+        const stat = fs.statSync(path.join(DROPS_DIR, f));
+        if (stat.isFile()) total += stat.size;
+      } catch {}
+    }
+    return total;
+  } catch {
+    return 0;
+  }
+}
 
 // 1. Upload file to Drop buffer (streamed directly to disk)
 app.post('/api/drop/upload', (req, res) => {
@@ -891,6 +909,14 @@ app.post('/api/drop/upload', (req, res) => {
     return res.status(413).json({
       success: false,
       error: 'Размер файла превышает лимит буфера Drop & Go (максимум 500 МБ)',
+    });
+  }
+
+  const currentPool = getTotalDropsPoolSize();
+  if (currentPool + Math.max(fileSize, 1024 * 1024) > MAX_TOTAL_DROPS_POOL) {
+    return res.status(507).json({
+      success: false,
+      error: 'Офлайн-буфер сервера временно заполнен. Пожалуйста, используйте прямую передачу P2P (Мост) или подождите, пока адресаты скачают полученные файлы.',
     });
   }
 
@@ -921,7 +947,7 @@ app.post('/api/drop/upload', (req, res) => {
 
   req.on('data', (chunk) => {
     bytesWritten += chunk.length;
-    if (bytesWritten > MAX_DROP_SIZE && !exceeded) {
+    if ((bytesWritten > MAX_DROP_SIZE || currentPool + bytesWritten > MAX_TOTAL_DROPS_POOL) && !exceeded) {
       exceeded = true;
       req.unpipe(writeStream);
       writeStream.destroy();
@@ -931,9 +957,9 @@ app.post('/api/drop/upload', (req, res) => {
         console.warn('[Drop] Failed to delete oversized file:', e);
       }
       if (!res.headersSent) {
-        res.status(413).json({
+        res.status(507).json({
           success: false,
-          error: 'Размер файла превышает лимит буфера Drop & Go (максимум 500 МБ)',
+          error: 'Превышен доступный лимит буфера Drop & Go.',
         });
       }
     }
@@ -1024,6 +1050,19 @@ app.get('/api/drop/:id/download', (req, res) => {
 
   const stream = fs.createReadStream(drop.file_path);
   stream.pipe(res);
+
+  res.on('finish', () => {
+    // If targeted to a specific device, clean up from SSD 10s after download completes
+    if (drop.target_device_id) {
+      setTimeout(() => {
+        try {
+          deleteDropRecord(drop.id);
+        } catch (e) {
+          console.warn('[Drop] Auto-cleanup after download failed:', e);
+        }
+      }, 10000);
+    }
+  });
 });
 
 // 5. Delete a Drop
