@@ -38,14 +38,12 @@ import {
   Sparkles,
   Bell,
   AlertTriangle,
-  CloudRain,
   Flame,
   Code,
   Package,
 } from 'lucide-react';
 import { FileTransfer, Peer, TextMessage } from '../types/index.js';
 import { sound } from '../utils/sound.js';
-import { ambientSound, AmbientMode } from '../utils/ambientSound.js';
 import { createZipFromBlobUrls } from '../utils/zip.js';
 import { useScreenWakeLock } from '../utils/wakeLock.js';
 import { EmotePicker } from './EmotePicker.js';
@@ -644,11 +642,8 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   const [activeSideTab, setActiveSideTab] = useState<'notes' | 'chat'>('notes');
   const [meetingSeconds, setMeetingSeconds] = useState(0);
 
-  // Screen Sharing Presentation View & Ambient Audio
+  // Screen Sharing Presentation View
   const [viewMode, setViewMode] = useState<'scene' | 'screen'>('scene');
-  const [isAmbientOpen, setIsAmbientOpen] = useState(false);
-  const [ambientMode, setAmbientMode] = useState<AmbientMode>(() => ambientSound.getMode());
-  const [ambientVolume, setAmbientVolume] = useState<number>(() => ambientSound.getVolume());
   const [isBurnerChat, setIsBurnerChat] = useState(false);
   const [isCanvasPreview, setIsCanvasPreview] = useState(false);
   const [isCanvasDownloadOpen, setIsCanvasDownloadOpen] = useState(false);
@@ -675,12 +670,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
       setViewMode('screen');
     }
   }, [hasRemoteVideo, isScreenActive]);
-
-  useEffect(() => {
-    return () => {
-      ambientSound.stop();
-    };
-  }, []);
 
   const handleCanvasPaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = e.clipboardData?.items;
@@ -1533,90 +1522,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 </button>
               )}
 
-              {/* Lo-Fi Web Audio Ambient Atmosphere */}
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsAmbientOpen((prev) => !prev);
-                    setIsReactionPickerOpen(false);
-                    setIsRoomPickerOpen(false);
-                    sound.playClick();
-                  }}
-                  className={`p-2 sm:p-2.5 rounded-xl border flex items-center justify-center transition-colors cursor-pointer focus:outline-none ${
-                    ambientMode !== 'off'
-                      ? 'bg-[#789d2a]/30 border-[#789d2a] text-[#bbf348] shadow-[0_0_12px_rgba(120,157,42,0.4)]'
-                      : 'bg-[#25252c] hover:bg-[#303038] text-[#ededed] border-white/10'
-                  }`}
-                  title="Атмосфера комнаты (Lo-Fi / Эмбиент)"
-                >
-                  <CloudRain className={`w-4 h-4 ${ambientMode !== 'off' ? 'text-[#bbf348]' : 'text-[#aaaaaa]'}`} />
-                </button>
 
-                {isAmbientOpen && (
-                  <div className="absolute bottom-14 left-1/2 -translate-x-1/2 z-50 p-4 rounded-2xl bg-[#14141c] border border-white/15 shadow-2xl w-64 backdrop-blur-xl animate-in fade-in zoom-in-95">
-                    <div className="flex items-center justify-between pb-2 mb-3 border-b border-white/10">
-                      <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                        <CloudRain className="w-3.5 h-3.5 text-[#9ac43e]" />
-                        <span>Атмосфера комнаты</span>
-                      </span>
-                      <button onClick={() => setIsAmbientOpen(false)} className="text-[#888888] hover:text-white p-1 cursor-pointer">
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-1.5 mb-3">
-                      {[
-                        { id: 'off', label: 'Тишина', icon: '🔇' },
-                        { id: 'rain', label: 'Дождь', icon: '🌧️' },
-                        { id: 'cozy', label: 'Камин', icon: '🔥' },
-                        { id: 'drone', label: 'Кибер-дрон', icon: '🌌' },
-                      ].map((item) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => {
-                            sound.playClick();
-                            const next = item.id as AmbientMode;
-                            setAmbientMode(next);
-                            ambientSound.play(next, ambientVolume);
-                          }}
-                          className={`p-2 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition-all cursor-pointer ${
-                            ambientMode === item.id
-                              ? 'bg-[#789d2a]/20 border-[#789d2a] text-[#bbf348]'
-                              : 'bg-[#1e1e26] border-[#333340] text-[#aaaaaa] hover:text-white'
-                          }`}
-                        >
-                          <span className="text-base">{item.icon}</span>
-                          <span>{item.label}</span>
-                        </button>
-                      ))}
-                    </div>
-
-                    {ambientMode !== 'off' && (
-                      <div className="space-y-1.5 pt-2 border-t border-white/10">
-                        <div className="flex items-center justify-between text-[11px] text-[#aaaaaa] font-semibold">
-                          <span>Громкость</span>
-                          <span>{Math.round(ambientVolume * 100)}%</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max="1"
-                          step="0.05"
-                          value={ambientVolume}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value);
-                            setAmbientVolume(val);
-                            ambientSound.setVolume(val);
-                          }}
-                          className="w-full accent-[#789d2a] cursor-pointer"
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
 
               {onSendReaction && (
                 <button
