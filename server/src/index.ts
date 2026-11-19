@@ -875,6 +875,7 @@ app.get('/api/payment/status/:id', async (req, res) => {
 });
 
 // --- Drop & Go (24h Buffer) Endpoints ---
+const MAX_DROP_SIZE = 500 * 1024 * 1024; // 500 MB max file size for offline buffer
 
 // 1. Upload file to Drop buffer (streamed directly to disk)
 app.post('/api/drop/upload', (req, res) => {
@@ -886,6 +887,13 @@ app.post('/api/drop/upload', (req, res) => {
     fileName = rawName;
   }
   const fileSize = Number(req.headers['x-file-size']) || 0;
+  if (fileSize > MAX_DROP_SIZE) {
+    return res.status(413).json({
+      success: false,
+      error: 'Размер файла превышает лимит буфера Drop & Go (максимум 500 МБ)',
+    });
+  }
+
   const mimeType = (req.headers['x-mime-type'] as string) || 'application/octet-stream';
   let senderName = 'Гость';
   try {
@@ -909,14 +917,32 @@ app.post('/api/drop/upload', (req, res) => {
 
   const writeStream = fs.createWriteStream(filePath);
   let bytesWritten = 0;
+  let exceeded = false;
 
   req.on('data', (chunk) => {
     bytesWritten += chunk.length;
+    if (bytesWritten > MAX_DROP_SIZE && !exceeded) {
+      exceeded = true;
+      req.unpipe(writeStream);
+      writeStream.destroy();
+      try {
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      } catch (e) {
+        console.warn('[Drop] Failed to delete oversized file:', e);
+      }
+      if (!res.headersSent) {
+        res.status(413).json({
+          success: false,
+          error: 'Размер файла превышает лимит буфера Drop & Go (максимум 500 МБ)',
+        });
+      }
+    }
   });
 
   req.pipe(writeStream);
 
   writeStream.on('finish', () => {
+    if (exceeded) return;
     const expiresAt = Date.now() + ttlHours * 60 * 60 * 1000;
     const finalSize = fileSize > 0 ? fileSize : bytesWritten;
 
