@@ -46,7 +46,6 @@ export interface DbUser {
   pro_until?: string;
   yandex_id?: string;
   yandex_login?: string;
-  twitch_handle?: string;
   telegram_id?: string;
   telegram_username?: string;
   unlocked_frames: string;
@@ -103,7 +102,6 @@ export interface UserProfileDto {
   proUntil?: string;
   providers: {
     yandex?: { handle: string; avatarUrl?: string };
-    twitch?: { handle: string; avatarUrl?: string };
     telegram?: { username?: string; id?: number };
     hasLicenseKey: boolean;
   };

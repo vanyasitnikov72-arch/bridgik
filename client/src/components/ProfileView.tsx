@@ -28,7 +28,7 @@ import {
 } from '../types/index.js';
 import { AvatarPicker } from './AvatarPicker.js';
 import { EmotePicker } from './EmotePicker.js';
-import { YandexIcon, TwitchIcon, TelegramIcon } from './AuthModal.js';
+import { YandexIcon, TelegramIcon } from './AuthModal.js';
 import { ProfileSectionTab } from './ProfileDropdown.js';
 import { getAvatarForName } from '../utils/device.js';
 import { sound } from '../utils/sound.js';
@@ -350,12 +350,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#242424] text-xs font-bold text-[#e5e5e5]">
                   <YandexIcon className="w-3.5 h-3.5" />
                   <span>{profile.providers.yandex.handle}</span>
-                </span>
-              )}
-              {profile.providers.twitch && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#242424] text-xs font-bold text-[#e5e5e5]">
-                  <TwitchIcon className="w-3.5 h-3.5 text-[#9146FF]" />
-                  <span>{profile.providers.twitch.handle}</span>
                 </span>
               )}
               {profile.providers.telegram && (
@@ -955,27 +949,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 className="px-3.5 py-1.5 rounded-lg bg-[#242424] hover:bg-[#2f2f2f] text-xs font-bold text-[#ededed] cursor-pointer shrink-0"
               >
                 {profile.providers.yandex ? 'Обновить' : 'Привязать'}
-              </button>
-            </div>
-
-            <div className="py-3.5 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <TwitchIcon className="w-5 h-5 text-[#9146FF] shrink-0" />
-                <div className="min-w-0">
-                  <p className="font-bold text-base text-[#ededed]">Twitch</p>
-                  <p className="text-xs text-[#888888] truncate">
-                    {profile.providers.twitch
-                      ? `Подключён аккаунт ${profile.providers.twitch.handle}`
-                      : 'Вход через Twitch OAuth (как на eblo.id)'}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => onOpenAuthModal('twitch')}
-                className="px-3.5 py-1.5 rounded-lg bg-[#242424] hover:bg-[#2f2f2f] text-xs font-bold text-[#ededed] cursor-pointer shrink-0"
-              >
-                {profile.providers.twitch ? 'Обновить' : 'Привязать'}
               </button>
             </div>
 

@@ -492,9 +492,6 @@ export function toUserProfileDto(
     proUntil: user.pro_until || undefined,
     providers: {
       yandex: user.yandex_login ? { handle: user.yandex_login } : undefined,
-      twitch: user.twitch_handle
-        ? { handle: user.twitch_handle }
-        : undefined,
       telegram: user.telegram_id
         ? { id: Number(user.telegram_id), username: user.telegram_username || undefined }
         : undefined,
@@ -747,59 +744,5 @@ export function toDropDto(drop: DbDrop): DropDto {
     expiresAt: drop.expires_at,
     targetDeviceId: drop.target_device_id,
   };
-}
-
-/**
- * Upserts user logging in with Twitch
- */
-export function upsertTwitchUser(profile: {
-  id: string;
-  login: string;
-  displayName: string;
-  avatarUrl?: string;
-}): DbUser {
-  const user = db.prepare('SELECT * FROM users WHERE twitch_handle = ?').get(profile.login.toLowerCase()) as unknown as DbUser | undefined;
-  const now = Date.now();
-  if (user) {
-    db.prepare(`
-      UPDATE users 
-      SET twitch_handle = ?,
-          display_name = COALESCE(?, display_name),
-          avatar_url = COALESCE(?, avatar_url),
-          updated_at = ?
-      WHERE id = ?
-    `).run(
-      profile.login.toLowerCase(),
-      profile.displayName || profile.login,
-      profile.avatarUrl || user.avatar_url || null,
-      now,
-      user.id
-    );
-    return getUserById(user.id)!;
-  }
-
-  // Create new user
-  const id = `usr_${crypto.randomUUID()}`;
-  const key = generateLicenseKey();
-  const displayName = profile.displayName || profile.login || 'Пользователь Twitch';
-  const avatarUrl = profile.avatarUrl || '/mascots/dino_avatar.jpg';
-
-  db.prepare(`
-    INSERT INTO users (
-      id, license_key, display_name, avatar_url, tier,
-      twitch_handle,
-      unlocked_frames, unlocked_themes, active_frame,
-      default_room_theme, stars_balance, s3_quota_used_mb, s3_quota_limit_mb,
-      created_at, updated_at
-    ) VALUES (
-      ?, ?, ?, ?, 'free',
-      ?,
-      '["none"]', '["cyber-lounge","cozy-loft","skyline-penthouse","retro-lounge"]', 'none',
-      'cyber-lounge', 0, 0, 0,
-      ?, ?
-    )
-  `).run(id, key, displayName, avatarUrl, profile.login.toLowerCase(), now, now);
-
-  return getUserById(id)!;
 }
 

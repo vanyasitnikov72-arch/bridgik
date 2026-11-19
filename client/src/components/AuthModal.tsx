@@ -238,37 +238,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Provider Tabs */}
         <div className="px-5 pt-4">
-          <div className="grid grid-cols-4 gap-1 p-1 rounded-xl bg-[#141414] border border-white/[0.06]">
+          <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-[#141414] border border-white/[0.06]">
             <button
               type="button"
               onClick={() => {
                 sound.playClick();
                 setTab('yandex');
               }}
-              className={`py-2 px-1 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+              className={`py-2 px-2 rounded-lg text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                 tab === 'yandex'
                   ? 'bg-[#FC3F1D] text-white shadow-md shadow-[#FC3F1D]/25'
                   : 'text-[#aaaaaa] hover:text-white hover:bg-white/[0.04]'
               }`}
             >
-              <YandexIcon className="w-3.5 h-3.5 shrink-0" />
+              <YandexIcon className="w-4 h-4 shrink-0" />
               <span>Яндекс</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                sound.playClick();
-                setTab('twitch');
-              }}
-              className={`py-2 px-1 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                tab === 'twitch'
-                  ? 'bg-[#9146FF] text-white shadow-md shadow-[#9146FF]/25'
-                  : 'text-[#aaaaaa] hover:text-white hover:bg-white/[0.04]'
-              }`}
-            >
-              <TwitchIcon className="w-3.5 h-3.5 shrink-0" />
-              <span>Twitch</span>
             </button>
 
             <button
@@ -277,13 +261,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 sound.playClick();
                 setTab('telegram');
               }}
-              className={`py-2 px-1 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+              className={`py-2 px-2 rounded-lg text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                 tab === 'telegram'
                   ? 'bg-[#229ED9] text-white shadow-md shadow-[#229ED9]/25'
                   : 'text-[#aaaaaa] hover:text-white hover:bg-white/[0.04]'
               }`}
             >
-              <TelegramIcon className="w-3.5 h-3.5 shrink-0" />
+              <TelegramIcon className="w-4 h-4 shrink-0" />
               <span>Telegram</span>
             </button>
 
@@ -293,13 +277,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 sound.playClick();
                 setTab('key');
               }}
-              className={`py-2 px-1 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+              className={`py-2 px-2 rounded-lg text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                 tab === 'key'
                   ? 'bg-[#283216] border border-[#789d2a] text-[#ededed]'
                   : 'text-[#aaaaaa] hover:text-white hover:bg-white/[0.04]'
               }`}
             >
-              <KeyRound className="w-3.5 h-3.5 shrink-0 text-[#9ac43e]" />
+              <KeyRound className="w-4 h-4 shrink-0 text-[#9ac43e]" />
               <span>Ключ</span>
             </button>
           </div>
@@ -333,36 +317,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
               <p className="text-xs text-center text-[#888888]">
                 Прямая официальная ссылка OAuth 2.0. Никаких паролей на Bridgik не вводится.
-              </p>
-            </div>
-          )}
-
-          {tab === 'twitch' && (
-            <div className="space-y-4">
-              <div className="p-4 rounded-xl bg-[#222222] border border-white/[0.06] space-y-2">
-                <div className="flex items-center gap-2">
-                  <TwitchIcon className="w-5 h-5 text-[#9146FF] shrink-0" />
-                  <p className="text-base font-bold text-[#ededed]">
-                    Официальный вход через Twitch
-                  </p>
-                </div>
-                <p className="text-sm text-[#a8a8a8]">
-                  Прямой переход на официальную страницу <strong>auth.twitch.tv/authorize</strong> (как на eblo.id). Подтянет ник и аватарку.
-                </p>
-              </div>
-
-              <a
-                href="/api/auth/twitch"
-                onClick={() => sound.playClick()}
-                className="w-full py-3 px-4 rounded-xl bg-[#9146FF] hover:bg-[#772ce8] text-white font-extrabold text-lg transition-all cursor-pointer flex items-center justify-center gap-2.5 shadow-lg shadow-[#9146FF]/25 active:scale-[0.99]"
-              >
-                <TwitchIcon className="w-5 h-5" />
-                <span>Перейти на auth.twitch.tv</span>
-                <ExternalLink className="w-4 h-4 opacity-80" />
-              </a>
-
-              <p className="text-xs text-center text-[#888888]">
-                Официальная страница авторизации Twitch OAuth 2.0.
               </p>
             </div>
           )}
@@ -617,14 +571,6 @@ export function TelegramIcon({ className = 'w-4 h-4' }: { className?: string }) 
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
       <path d="M21.94 3.45a1.5 1.5 0 0 0-1.56-.21L2.63 10.61a1.35 1.35 0 0 0 .08 2.52l4.47 1.48 1.66 5.29a1.1 1.1 0 0 0 1.85.44l2.53-2.58 4.44 3.28a1.45 1.45 0 0 0 2.27-.88l2.54-15.1a1.5 1.5 0 0 0-.53-1.61ZM9.8 14.37l-.34 3.1-1.08-3.46 9.57-6.19-8.15 6.55Z" />
-    </svg>
-  );
-}
-
-export function TwitchIcon({ className = 'w-4 h-4' }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
-      <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z" />
     </svg>
   );
 }

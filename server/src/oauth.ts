@@ -98,71 +98,7 @@ export async function exchangeYandexCode(
 }
 
 /**
- * 2. TWITCH HELPERS
- */
-export function getTwitchClientCredentials() {
-  const clientId = process.env.TWITCH_CLIENT_ID;
-  const clientSecret = process.env.TWITCH_CLIENT_SECRET;
-  return { clientId, clientSecret, isConfigured: Boolean(clientId && clientSecret) };
-}
-
-export async function exchangeTwitchCode(
-  code: string,
-  redirectUri: string
-): Promise<SocialAuthProfile> {
-  const { clientId, clientSecret, isConfigured } = getTwitchClientCredentials();
-
-  if (!isConfigured) {
-    throw new Error('Twitch OAuth credentials not configured in environment');
-  }
-
-  const params = new URLSearchParams({
-    grant_type: 'authorization_code',
-    code,
-    client_id: clientId!,
-    client_secret: clientSecret!,
-    redirect_uri: redirectUri,
-  });
-
-  const tokenResp = await fetch('https://id.twitch.tv/oauth2/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: params.toString(),
-  });
-
-  if (!tokenResp.ok) {
-    const errText = await tokenResp.text();
-    throw new Error(`Twitch token exchange failed (${tokenResp.status}): ${errText}`);
-  }
-
-  const tokenData = await tokenResp.json();
-  const accessToken = tokenData.access_token;
-
-  const userResp = await fetch('https://api.twitch.tv/helix/users', {
-    headers: {
-      'Client-Id': clientId!,
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-
-  if (!userResp.ok) {
-    throw new Error(`Failed to fetch Twitch user profile (${userResp.status})`);
-  }
-
-  const raw = await userResp.json();
-  const user = raw.data?.[0];
-  if (!user) throw new Error('No Twitch user data returned');
-
-  return {
-    id: String(user.id),
-    login: user.login,
-    displayName: user.display_name || user.login,
-    avatarUrl: user.profile_image_url,
-  };
-}
-
-/**
- * 3. TELEGRAM HELPERS
+ * 2. TELEGRAM HELPERS
  */
 export function getTelegramBotCredentials() {
   const botToken = process.env.TELEGRAM_BOT_TOKEN;

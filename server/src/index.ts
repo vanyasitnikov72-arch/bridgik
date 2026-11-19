@@ -32,7 +32,6 @@ import {
   updatePaymentStatus,
   upgradeUserToPro,
   upsertYandexUser,
-  upsertTwitchUser,
   upsertTelegramUser,
   getUserByYandex,
   getUserByTelegramId,
@@ -42,8 +41,6 @@ import { createYooKassaPayment, getYooKassaPayment } from './yookassa.js';
 import {
   getYandexClientCredentials,
   exchangeYandexCode,
-  getTwitchClientCredentials,
-  exchangeTwitchCode,
   getTelegramBotCredentials,
   verifyTelegramAuthData,
   renderOAuthConsentScreen,
@@ -498,60 +495,7 @@ app.get('/api/auth/yandex/callback', async (req, res) => {
   }
 });
 
-// 3. Initiate Twitch login (official redirect to auth.twitch.tv)
-app.get('/api/auth/twitch', (req, res) => {
-  const host = req.get('host') || 'bridgik.ru';
-  const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
-  const redirectUri = `${protocol}://${host}/api/auth/twitch/callback`;
-  const { clientId } = getTwitchClientCredentials();
-
-  if (!clientId) {
-    return res.status(400).send(`
-      <!DOCTYPE html>
-      <html>
-      <head><title>Настройка Twitch OAuth</title><meta charset="utf-8"></head>
-      <body style="background:#171717;color:#fff;font-family:sans-serif;padding:40px;max-width:600px;margin:auto;text-align:center;">
-        <h2 style="color:#9146FF;margin-bottom:12px;">Не указан TWITCH_CLIENT_ID</h2>
-        <p style="color:#aaa;margin-bottom:20px;">Для перехода на официальную страницу <code>auth.twitch.tv/authorize</code> укажите параметры в файле <code>.env</code> на сервере:</p>
-        <pre style="background:#222;padding:15px;border-radius:8px;text-align:left;color:#9ac43e;">TWITCH_CLIENT_ID=ваш_client_id\nTWITCH_CLIENT_SECRET=ваш_secret</pre>
-        <p style="margin-top:20px;"><a href="/?tab=profile" style="color:#9ac43e;text-decoration:none;">← Вернуться на Bridgik</a></p>
-      </body>
-      </html>
-    `);
-  }
-
-  const state = (req.query.state as string) || crypto.randomUUID();
-  const twitchUrl = `https://id.twitch.tv/oauth2/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=user:read:email&state=${encodeURIComponent(state)}`;
-  return res.redirect(twitchUrl);
-});
-
-// 4. Real Twitch Callback
-app.get('/api/auth/twitch/callback', async (req, res) => {
-  try {
-    const code = req.query.code as string;
-    const error = req.query.error as string;
-    if (error) {
-      return res.redirect(`/?tab=profile&auth=error&message=${encodeURIComponent(error)}`);
-    }
-    if (!code) {
-      return res.status(400).send('Код авторизации отсутствует');
-    }
-
-    const host = req.get('host') || 'bridgik.ru';
-    const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
-    const redirectUri = `${protocol}://${host}/api/auth/twitch/callback`;
-
-    const profile = await exchangeTwitchCode(code, redirectUri);
-    const user = upsertTwitchUser(profile);
-
-    return res.redirect(`/?tab=profile&auth=success&key=${encodeURIComponent(user.license_key)}`);
-  } catch (err: any) {
-    console.error('[Twitch Auth Error]', err);
-    return res.redirect(`/?tab=profile&auth=error&message=${encodeURIComponent(err.message)}`);
-  }
-});
-
-// 5. Initiate Telegram login (official redirect to oauth.telegram.org)
+// 3. Initiate Telegram login (official redirect to oauth.telegram.org)
 app.get('/api/auth/telegram', (req, res) => {
   const host = req.get('host') || 'bridgik.ru';
   const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
