@@ -23,6 +23,7 @@ import { RoomView } from './components/RoomView.js';
 import { MeetingRoomView } from './components/MeetingRoomView.js';
 import { AboutView } from './components/AboutView.js';
 import { LegalView, LegalDocType } from './components/LegalView.js';
+import { PricingView } from './components/PricingView.js';
 import { QRCodeModal } from './components/QRCodeModal.js';
 import { AuthModal } from './components/AuthModal.js';
 import { DropModal } from './components/DropModal.js';
@@ -2020,6 +2021,8 @@ export function App() {
     let section = 'Мост';
     if (activeTab === 'legal') {
       section = 'Условия';
+    } else if (activeTab === 'pricing') {
+      section = 'Тарифы';
     } else if (activeTab === 'about') {
       section = 'О сервисе';
     } else if (activeTab === 'profile') {
@@ -2082,6 +2085,20 @@ export function App() {
       <main className="flex-1">
         {activeTab === 'legal' ? (
           <LegalView onBack={() => setActiveTab('bridge')} defaultDoc={legalDoc} />
+        ) : activeTab === 'pricing' ? (
+          <PricingView
+            onBack={() => setActiveTab('bridge')}
+            onOpenAuth={(provider = 'yandex') => {
+              setAuthModalProvider(provider);
+              setIsAuthModalOpen(true);
+            }}
+            onOpenProfile={(tab = 'pro') => {
+              setProfileSectionTab(tab);
+              setActiveTab('profile');
+            }}
+            onGoToBridge={() => setActiveTab('bridge')}
+            userProfile={userProfile}
+          />
         ) : activeTab === 'about' ? (
           <AboutView onBack={() => setActiveTab('bridge')} />
         ) : activeTab === 'profile' && userProfile ? (
@@ -2669,6 +2686,7 @@ export function App() {
           setLegalDoc(doc);
           setActiveTab('legal');
         }}
+        onOpenPricing={() => setActiveTab('pricing')}
       />
 
       {audioAutoplayBlocked && Object.keys(remoteAudioStreams).length > 0 && (

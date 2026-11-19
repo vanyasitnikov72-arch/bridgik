@@ -5,11 +5,12 @@ import { sound } from '../utils/sound.js';
 interface FooterProps {
   onOpenAbout?: () => void;
   onOpenLegal?: (doc: 'rules' | 'privacy' | 'terms') => void;
+  onOpenPricing?: () => void;
 }
 
 type ModalType = 'rules' | 'privacy' | 'terms' | null;
 
-export const Footer: React.FC<FooterProps> = ({ onOpenAbout: _onOpenAbout, onOpenLegal }) => {
+export const Footer: React.FC<FooterProps> = ({ onOpenAbout: _onOpenAbout, onOpenLegal, onOpenPricing }) => {
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [pcClicked, setPcClicked] = useState(false);
@@ -126,6 +127,18 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAbout: _onOpenAbout, onOpe
             className="hover:text-[#ededed] cursor-pointer transition-colors"
           >
             Оферта
+          </button>
+          <button
+            onClick={() => {
+              if (onOpenPricing) {
+                onOpenPricing();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }
+              sound.playClick();
+            }}
+            className="hover:text-[#ededed] cursor-pointer transition-colors"
+          >
+            Тарифы
           </button>
           <button
             onClick={handleCopyEmail}

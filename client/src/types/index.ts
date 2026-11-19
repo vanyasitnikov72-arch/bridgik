@@ -1,5 +1,5 @@
 export type ThemeMode = 'swiss' | 'cyberpunk' | 'lofi';
-export type AppTab = 'bridge' | 'meeting' | 'about' | 'legal' | 'profile';
+export type AppTab = 'bridge' | 'meeting' | 'about' | 'legal' | 'profile' | 'pricing';
 export type RoomMode = 'bridge' | 'meeting';
 
 export type AuthProvider = 'yandex' | 'telegram' | 'key';

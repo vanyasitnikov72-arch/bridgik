@@ -111,7 +111,8 @@ export const Navbar: React.FC<NavbarProps> = ({
     Boolean(roomId) &&
     activeTab !== 'about' &&
     activeTab !== 'legal' &&
-    activeTab !== 'profile';
+    activeTab !== 'profile' &&
+    activeTab !== 'pricing';
 
   const activeSessionLabel = `${roomMode === 'meeting' ? 'Комната' : 'Мост'}${
     roomPin ? ` #${roomPin}` : ''
@@ -200,6 +201,19 @@ export const Navbar: React.FC<NavbarProps> = ({
         }`}
       >
         Условия
+      </button>
+      <button
+        onClick={() => {
+          onSelectTab?.('pricing');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        className={`pb-1 whitespace-nowrap cursor-pointer transition-colors ${
+          activeTab === 'pricing'
+            ? 'text-[#ededed] border-b-2 border-[#789d2a]'
+            : 'text-[#aaaaaa] hover:text-[#ededed]'
+        }`}
+      >
+        Тарифы
       </button>
     </>
   );

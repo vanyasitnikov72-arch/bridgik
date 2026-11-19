@@ -184,16 +184,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md h-[550px] max-h-[92vh] rounded-2xl bg-[#1c1c1c] border border-white/[0.1] shadow-[0_24px_70px_rgba(0,0,0,0.85)] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
+        className="w-full max-w-md h-[580px] max-h-[94vh] rounded-2xl bg-[#1c1c1c] border border-white/[0.1] shadow-[0_24px_70px_rgba(0,0,0,0.85)] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-5 pt-5 pb-4 border-b border-white/[0.07] flex items-start justify-between gap-3 shrink-0">
+        <div className="px-5 pt-4 pb-3 border-b border-white/[0.07] flex items-start justify-between gap-3 shrink-0">
           <div>
-            <h2 className="text-xl sm:text-2xl font-extrabold text-[#ededed] leading-tight">
+            <h2 className="text-xl font-extrabold text-[#ededed] leading-tight">
               Вход и создание профиля
             </h2>
-            <p className="text-xs sm:text-sm text-[#a8a8a8] mt-1">
+            <p className="text-xs text-[#a8a8a8] mt-1">
               Для передачи файлов вход не нужен — профиль открывает Sticky Bridge и кастомизацию.
             </p>
           </div>
@@ -208,7 +208,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </div>
 
         {/* Provider Tabs */}
-        <div className="px-5 pt-3.5 shrink-0">
+        <div className="px-5 pt-3 shrink-0">
           <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-[#141414] border border-white/[0.06]">
             <button
               type="button"
@@ -261,26 +261,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </div>
 
         {/* Tab Body */}
-        <div className="p-5 flex-1 flex flex-col justify-between overflow-y-auto">
+        <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between overflow-y-auto">
           {tab === 'yandex' && (
             <div className="flex-1 flex flex-col justify-between">
-              <div className="p-4 rounded-xl bg-[#222222] border border-white/[0.06] space-y-2">
+              <div className="p-3.5 rounded-xl bg-[#222222] border border-white/[0.06] space-y-1.5">
                 <div className="flex items-center gap-2">
                   <YandexIcon className="w-5 h-5 shrink-0" />
                   <p className="text-base font-bold text-[#ededed]">
                     Официальный вход через Яндекс ID
                   </p>
                 </div>
-                <p className="text-sm text-[#a8a8a8]">
+                <p className="text-xs sm:text-sm text-[#a8a8a8]">
                   Быстрый и безопасный вход в 1 клик через ваш профиль Яндекс. 100% стабильно работает в РФ без VPN.
                 </p>
               </div>
 
-              <div className="space-y-2.5 mt-auto pt-4">
+              <div className="space-y-2 mt-auto pt-4">
                 <a
                   href="/api/auth/yandex"
                   onClick={() => sound.playClick()}
-                  className="w-full py-3 px-4 rounded-xl bg-[#FC3F1D] hover:bg-[#e03414] text-white font-extrabold text-lg transition-all cursor-pointer flex items-center justify-center gap-2.5 shadow-lg shadow-[#FC3F1D]/25 active:scale-[0.99]"
+                  className="w-full py-2.5 sm:py-3 px-4 rounded-xl bg-[#FC3F1D] hover:bg-[#e03414] text-white font-extrabold text-base sm:text-lg transition-all cursor-pointer flex items-center justify-center gap-2.5 shadow-lg shadow-[#FC3F1D]/25 active:scale-[0.99]"
                 >
                   <YandexIcon className="w-5 h-5" />
                   <span>Войти через Яндекс ID</span>
@@ -296,28 +296,28 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
           {tab === 'telegram' && (
             <div className="flex-1 flex flex-col justify-between">
-              <div className="p-3.5 rounded-xl bg-[#222222] border border-white/[0.06] space-y-1.5">
+              <div className="p-3 rounded-xl bg-[#222222] border border-white/[0.06] space-y-1">
                 <div className="flex items-center gap-2">
-                  <TelegramIcon className="w-5 h-5 text-[#229ED9] shrink-0" />
-                  <p className="text-base font-bold text-[#ededed]">
+                  <TelegramIcon className="w-4 h-4 text-[#229ED9] shrink-0" />
+                  <p className="text-sm sm:text-base font-bold text-[#ededed]">
                     Вход через Telegram (@{botUsername})
                   </p>
                 </div>
-                <p className="text-xs sm:text-sm text-[#a8a8a8]">
+                <p className="text-xs text-[#a8a8a8]">
                   Нажмите кнопку ниже или отсканируйте QR-код камерой телефона.
                 </p>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-[#161616] border border-white/[0.06] flex items-center gap-4 text-left my-auto">
+              <div className="p-3 rounded-xl bg-[#161616] border border-white/[0.06] flex items-center gap-3.5 text-left my-auto">
                 <div className="p-2 bg-white rounded-xl shadow-md shrink-0">
                   <QRCodeSVG
                     value={effectiveBotUrl || 'https://t.me/bridgik_login_bot'}
-                    size={96}
+                    size={84}
                     level="M"
                     includeMargin={false}
                   />
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1 min-w-0">
                   <p className="text-sm font-bold text-[#ededed]">
                     Или отсканируйте QR-код
                   </p>
@@ -327,13 +327,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               </div>
 
-              <div className="space-y-2 mt-auto pt-2">
+              <div className="space-y-1.5 mt-auto pt-2">
                 <a
                   href={effectiveBotUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => sound.playClick()}
-                  className="w-full py-3 px-4 rounded-xl bg-[#229ED9] hover:bg-[#1b8ec4] text-white font-extrabold text-lg transition-all cursor-pointer flex items-center justify-center gap-2.5 shadow-lg shadow-[#229ED9]/25 active:scale-[0.99]"
+                  className="w-full py-2.5 sm:py-3 px-4 rounded-xl bg-[#229ED9] hover:bg-[#1b8ec4] text-white font-extrabold text-base sm:text-lg transition-all cursor-pointer flex items-center justify-center gap-2.5 shadow-lg shadow-[#229ED9]/25 active:scale-[0.99]"
                 >
                   <TelegramIcon className="w-5 h-5" />
                   <span>Войти через Telegram</span>
@@ -345,7 +345,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
           {tab === 'key' && (
             <div className="flex-1 flex flex-col justify-between">
-              <div className="space-y-3.5">
+              <div className="space-y-3">
                 <div className="flex gap-2">
                   <button
                     type="button"
@@ -353,7 +353,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       setKeyMode('create');
                       setKeyError('');
                     }}
-                    className={`flex-1 py-2 rounded-lg text-sm font-bold border cursor-pointer transition-colors ${
+                    className={`flex-1 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold border cursor-pointer transition-colors ${
                       keyMode === 'create'
                         ? 'bg-[#283216] border-[#789d2a] text-[#ededed]'
                         : 'bg-[#222222] border-[#333333] text-[#a8a8a8]'
@@ -367,7 +367,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       setKeyMode('enter');
                       setKeyError('');
                     }}
-                    className={`flex-1 py-2 rounded-lg text-sm font-bold border cursor-pointer transition-colors ${
+                    className={`flex-1 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold border cursor-pointer transition-colors ${
                       keyMode === 'enter'
                         ? 'bg-[#283216] border-[#789d2a] text-[#ededed]'
                         : 'bg-[#222222] border-[#333333] text-[#a8a8a8]'
@@ -378,7 +378,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
 
                 {keyMode === 'create' ? (
-                  <div className="p-3.5 rounded-xl bg-[#161616] border border-[#333333] space-y-2.5">
+                  <div className="p-3 sm:p-3.5 rounded-xl bg-[#161616] border border-[#333333] space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-[#a8a8a8]">
                         Анонимный пропуск (без соцсетей и почты)
@@ -445,19 +445,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       autoComplete="off"
                       autoCorrect="off"
                       spellCheck={false}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#161616] border border-[#3a3a3a] focus:border-[#789d2a] outline-none text-[#ededed] font-mono font-bold tracking-wider text-base sm:text-lg uppercase"
+                      className="w-full px-3.5 py-2 sm:py-2.5 rounded-xl bg-[#161616] border border-[#3a3a3a] focus:border-[#789d2a] outline-none text-[#ededed] font-mono font-bold tracking-wider text-base sm:text-lg uppercase"
                     />
                     {keyError && <p className="text-xs text-[#ef9282]">{keyError}</p>}
                   </div>
                 )}
               </div>
 
-              <div className="pt-3 mt-auto">
+              <div className="pt-2 sm:pt-3 mt-auto">
                 <button
                   type="button"
                   onClick={handleKeySubmit}
                   disabled={isSubmitting}
-                  className="w-full py-3 px-4 rounded-xl bg-[#789d2a] hover:bg-[#8cb632] disabled:opacity-50 text-white font-extrabold text-lg transition-colors cursor-pointer"
+                  className="w-full py-2.5 sm:py-3 px-4 rounded-xl bg-[#789d2a] hover:bg-[#8cb632] disabled:opacity-50 text-white font-extrabold text-base sm:text-lg transition-colors cursor-pointer"
                 >
                   {isSubmitting
                     ? 'Подключение...'
@@ -471,7 +471,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </div>
 
         {/* 152-FZ Footer */}
-        <div className="px-5 py-3.5 bg-[#161616] border-t border-white/[0.06] flex items-start gap-2 text-xs text-[#888888] shrink-0">
+        <div className="px-5 py-3 bg-[#161616] border-t border-white/[0.06] flex items-start gap-2 text-xs text-[#888888] shrink-0">
           <ShieldCheck className="w-4 h-4 text-[#789d2a] shrink-0 mt-0.5" />
           <p className="leading-snug">
             Входя в профиль, вы принимаете{' '}
