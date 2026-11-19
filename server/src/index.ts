@@ -7,6 +7,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import os from 'os';
+import crypto from 'crypto';
 import { RoomManager } from './roomManager.js';
 import { PeerInfo } from './types.js';
 import {
@@ -17,6 +18,14 @@ import {
   registerOrUpdateDevice,
   deleteDevice,
   toUserProfileDto,
+  DROPS_DIR,
+  createDropRecord,
+  getDropRecord,
+  getPendingDropsForDevice,
+  incrementDropDownload,
+  deleteDropRecord,
+  cleanExpiredDrops,
+  toDropDto,
 } from './db.js';
 import { stickyManager } from './stickyBridge.js';
 
@@ -52,8 +61,17 @@ const io = new Server(httpServer, {
     origin: '*',
     methods: ['GET', 'POST'],
   },
-  maxHttpBufferSize: 1e6,
+  maxHttpBufferSize: 1e7, // 10MB safe buffer for Fallback Relay
 });
+
+// Periodic Drop & Go expired file cleanup every 15 minutes
+setInterval(() => {
+  try {
+    cleanExpiredDrops();
+  } catch (err) {
+    console.error('[Drop Cleanup Error]', err);
+  }
+}, 15 * 60 * 1000);
 
 const roomManager = new RoomManager();
 
@@ -399,6 +417,138 @@ app.delete('/api/user/devices/:deviceId', (req, res) => {
   }
   const deviceId = req.params.deviceId;
   const deleted = deleteDevice(user.id, deviceId);
+  return res.json({ success: deleted });
+});
+
+// --- Drop & Go (24h Buffer) Endpoints ---
+
+// 1. Upload file to Drop buffer (streamed directly to disk)
+app.post('/api/drop/upload', (req, res) => {
+  const rawName = (req.headers['x-file-name'] as string) || 'file.bin';
+  let fileName = 'file.bin';
+  try {
+    fileName = decodeURIComponent(rawName);
+  } catch {
+    fileName = rawName;
+  }
+  const fileSize = Number(req.headers['x-file-size']) || 0;
+  const mimeType = (req.headers['x-mime-type'] as string) || 'application/octet-stream';
+  let senderName = 'Гость';
+  try {
+    senderName = decodeURIComponent((req.headers['x-sender-name'] as string) || 'Гость');
+  } catch {
+    senderName = (req.headers['x-sender-name'] as string) || 'Гость';
+  }
+  const targetDeviceId = req.headers['x-target-device'] as string | undefined;
+  const userKey = req.headers['x-user-key'] as string | undefined;
+  const ttlHours = Math.max(1, Math.min(Number(req.headers['x-ttl-hours']) || 24, 72));
+
+  let userId: string | undefined = undefined;
+  if (userKey) {
+    const user = getUserByLicenseKey(userKey);
+    if (user) userId = user.id;
+  }
+
+  const dropId = crypto.randomBytes(6).toString('hex');
+  const safeExt = path.extname(fileName) || '.bin';
+  const filePath = path.join(DROPS_DIR, `${dropId}${safeExt}`);
+
+  const writeStream = fs.createWriteStream(filePath);
+  let bytesWritten = 0;
+
+  req.on('data', (chunk) => {
+    bytesWritten += chunk.length;
+  });
+
+  req.pipe(writeStream);
+
+  writeStream.on('finish', () => {
+    const expiresAt = Date.now() + ttlHours * 60 * 60 * 1000;
+    const finalSize = fileSize > 0 ? fileSize : bytesWritten;
+
+    const dropRecord = createDropRecord({
+      id: dropId,
+      user_id: userId,
+      target_device_id: targetDeviceId,
+      file_name: fileName,
+      file_size: finalSize,
+      mime_type: mimeType,
+      file_path: filePath,
+      sender_name: senderName,
+      expires_at: expiresAt,
+    });
+
+    const dto = toDropDto(dropRecord);
+
+    // If sent to a specific device, notify it in real-time if connected
+    if (userId && targetDeviceId) {
+      const targetSocketId = stickyManager.getDeviceSocketId(userId, targetDeviceId);
+      if (targetSocketId) {
+        io.to(targetSocketId).emit('sticky-new-drop', dto);
+      }
+    }
+
+    return res.json({ success: true, drop: dto });
+  });
+
+  writeStream.on('error', (err) => {
+    console.error('[Drop Upload Error]', err);
+    return res.status(500).json({ success: false, error: 'Ошибка сохранения файла на сервере' });
+  });
+});
+
+// 2. Metadata for a Drop
+app.get('/api/drop/:id', (req, res) => {
+  const drop = getDropRecord(req.params.id);
+  if (!drop || drop.expires_at < Date.now()) {
+    return res.status(404).json({ success: false, error: 'Файл не найден или срок хранения истёк' });
+  }
+  return res.json({ success: true, drop: toDropDto(drop) });
+});
+
+// 3. Download a Drop file
+app.get('/api/drop/:id/download', (req, res) => {
+  const drop = getDropRecord(req.params.id);
+  if (!drop || drop.expires_at < Date.now() || !fs.existsSync(drop.file_path)) {
+    return res.status(404).send('Файл не найден или срок хранения истёк');
+  }
+
+  incrementDropDownload(drop.id);
+
+  res.setHeader('Content-Type', drop.mime_type || 'application/octet-stream');
+  res.setHeader('Content-Length', drop.file_size);
+  const encodedName = encodeURIComponent(drop.file_name);
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename="${encodedName}"; filename*=UTF-8''${encodedName}`
+  );
+
+  const stream = fs.createReadStream(drop.file_path);
+  stream.pipe(res);
+});
+
+// 4. Pending Drops for current user device
+app.get('/api/drop/pending', (req, res) => {
+  const key =
+    (req.query.key as string) || req.headers.authorization?.replace(/^Bearer\s+/i, '');
+  const deviceId = req.query.deviceId as string;
+
+  if (!key || !deviceId) {
+    return res.json({ success: true, drops: [] });
+  }
+
+  const user = getUserByLicenseKey(key);
+  if (!user) {
+    return res.status(401).json({ success: false, error: 'Неверный ключ' });
+  }
+
+  const drops = getPendingDropsForDevice(user.id, deviceId);
+  return res.json({ success: true, drops: drops.map(toDropDto) });
+});
+
+// 5. Delete a Drop
+app.delete('/api/drop/:id', (req, res) => {
+  const deleted = deleteDropRecord(req.params.id);
   return res.json({ success: deleted });
 });
 
@@ -1017,6 +1167,23 @@ io.on('connection', (socket) => {
     io.to(data.to).emit('signal', {
       from: socket.id,
       payload: data.payload,
+    });
+  });
+
+  // 3b. WebRTC Fallback Relay (Socket-based 100% guarantee)
+  socket.on('relay-file-chunk', (data: { to: string; buffer: any }) => {
+    if (!data?.to || !data?.buffer) return;
+    io.to(data.to).emit('relay-file-chunk', {
+      from: socket.id,
+      buffer: data.buffer,
+    });
+  });
+
+  socket.on('relay-control-message', (data: { to: string; message: any }) => {
+    if (!data?.to || !data?.message) return;
+    io.to(data.to).emit('relay-control-message', {
+      from: socket.id,
+      message: data.message,
     });
   });
 

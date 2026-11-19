@@ -6,6 +6,8 @@ import { DatabaseSync } from 'node:sqlite';
 import {
   DbUser,
   DbDevice,
+  DbDrop,
+  DropDto,
   UserProfileDto,
   StickyDeviceDto,
   AvatarFrameId,
@@ -15,6 +17,11 @@ import {
 const DATA_DIR = process.env.DATA_DIR || path.resolve(process.cwd(), 'data');
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+export const DROPS_DIR = process.env.DROPS_DIR || path.join(DATA_DIR, 'drops');
+if (!fs.existsSync(DROPS_DIR)) {
+  fs.mkdirSync(DROPS_DIR, { recursive: true });
 }
 
 const DB_PATH = process.env.DB_PATH || path.join(DATA_DIR, 'bridgik.db');
@@ -66,6 +73,26 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_users_license_key ON users(license_key);
   CREATE INDEX IF NOT EXISTS idx_devices_user_id ON devices(user_id);
+
+  CREATE TABLE IF NOT EXISTS drops (
+    id TEXT PRIMARY KEY,
+    user_id TEXT,
+    target_device_id TEXT,
+    room_id TEXT,
+    pin TEXT,
+    file_name TEXT NOT NULL,
+    file_size INTEGER NOT NULL,
+    mime_type TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    sender_name TEXT NOT NULL,
+    download_count INTEGER DEFAULT 0,
+    max_downloads INTEGER DEFAULT 100,
+    expires_at INTEGER NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_drops_target ON drops(user_id, target_device_id);
+  CREATE INDEX IF NOT EXISTS idx_drops_expires ON drops(expires_at);
 `);
 
 /**
@@ -322,3 +349,160 @@ export function toUserProfileDto(
     devices,
   };
 }
+
+/**
+ * Creates a Drop record in the database
+ */
+export function createDropRecord(drop: {
+  id: string;
+  user_id?: string;
+  target_device_id?: string;
+  room_id?: string;
+  pin?: string;
+  file_name: string;
+  file_size: number;
+  mime_type: string;
+  file_path: string;
+  sender_name: string;
+  max_downloads?: number;
+  expires_at: number;
+}): DbDrop {
+  const now = Date.now();
+  const maxDownloads = drop.max_downloads || 100;
+
+  db.prepare(`
+    INSERT INTO drops (
+      id, user_id, target_device_id, room_id, pin, file_name,
+      file_size, mime_type, file_path, sender_name,
+      download_count, max_downloads, expires_at, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
+  `).run(
+    drop.id,
+    drop.user_id || null,
+    drop.target_device_id || null,
+    drop.room_id || null,
+    drop.pin || null,
+    drop.file_name,
+    drop.file_size,
+    drop.mime_type,
+    drop.file_path,
+    drop.sender_name,
+    maxDownloads,
+    drop.expires_at,
+    now
+  );
+
+  return {
+    id: drop.id,
+    user_id: drop.user_id,
+    target_device_id: drop.target_device_id,
+    room_id: drop.room_id,
+    pin: drop.pin,
+    file_name: drop.file_name,
+    file_size: drop.file_size,
+    mime_type: drop.mime_type,
+    file_path: drop.file_path,
+    sender_name: drop.sender_name,
+    download_count: 0,
+    max_downloads: maxDownloads,
+    expires_at: drop.expires_at,
+    created_at: now,
+  };
+}
+
+/**
+ * Fetches a Drop record by ID
+ */
+export function getDropRecord(id: string): DbDrop | null {
+  const row = db.prepare('SELECT * FROM drops WHERE id = ?').get(id);
+  if (!row) return null;
+  return row as unknown as DbDrop;
+}
+
+/**
+ * Gets pending non-expired drops for a user device
+ */
+export function getPendingDropsForDevice(userId: string, deviceId: string): DbDrop[] {
+  const now = Date.now();
+  const rows = db.prepare(`
+    SELECT * FROM drops 
+    WHERE user_id = ? AND target_device_id = ? AND expires_at > ?
+    ORDER BY created_at DESC
+  `).all(userId, deviceId, now);
+  return (rows as unknown as DbDrop[]) || [];
+}
+
+/**
+ * Increments download count
+ */
+export function incrementDropDownload(id: string): void {
+  db.prepare('UPDATE drops SET download_count = download_count + 1 WHERE id = ?').run(id);
+}
+
+/**
+ * Deletes a Drop and unlinks its file
+ */
+export function deleteDropRecord(id: string): boolean {
+  const row = db.prepare('SELECT file_path FROM drops WHERE id = ?').get(id) as
+    | { file_path: string }
+    | undefined;
+
+  if (row?.file_path) {
+    try {
+      if (fs.existsSync(row.file_path)) {
+        fs.unlinkSync(row.file_path);
+      }
+    } catch (e) {
+      console.warn(`[Drop] Failed to unlink file ${row.file_path}:`, e);
+    }
+  }
+
+  const res = db.prepare('DELETE FROM drops WHERE id = ?').run(id);
+  return Number(res.changes) > 0;
+}
+
+/**
+ * Cleans up expired drops and deletes files
+ */
+export function cleanExpiredDrops(): number {
+  const now = Date.now();
+  const rows = db.prepare('SELECT id, file_path FROM drops WHERE expires_at < ?').all(now) as
+    | { id: string; file_path: string }[]
+    | undefined;
+
+  if (!rows || rows.length === 0) return 0;
+
+  for (const row of rows) {
+    try {
+      if (fs.existsSync(row.file_path)) {
+        fs.unlinkSync(row.file_path);
+      }
+    } catch (e) {
+      console.warn(`[Drop] Failed to delete expired file ${row.file_path}:`, e);
+    }
+  }
+
+  const res = db.prepare('DELETE FROM drops WHERE expires_at < ?').run(now);
+  const deletedCount = Number(res.changes);
+  if (deletedCount > 0) {
+    console.log(`[Drop] Cleaned up ${deletedCount} expired drops.`);
+  }
+  return deletedCount;
+}
+
+/**
+ * Formats DbDrop into client-facing DropDto
+ */
+export function toDropDto(drop: DbDrop): DropDto {
+  return {
+    id: drop.id,
+    fileName: drop.file_name,
+    fileSize: drop.file_size,
+    mimeType: drop.mime_type,
+    senderName: drop.sender_name,
+    downloadUrl: `/api/drop/${drop.id}/download`,
+    expiresAt: drop.expires_at,
+    targetDeviceId: drop.target_device_id,
+  };
+}
+

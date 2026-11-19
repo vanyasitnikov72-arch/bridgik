@@ -177,6 +177,7 @@ export class WebRTCManager {
 
   private pendingOutgoingFiles: Map<string, { file: File; targetPeerId?: string }> = new Map();
   private cancelledTransfers: Set<string> = new Set();
+  private fallbackTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
 
   constructor(
     socket: Socket,
@@ -190,6 +191,22 @@ export class WebRTCManager {
     this.myName = myName;
     if (myAvatar) this.myAvatar = myAvatar;
     this.callbacks = callbacks;
+    this.setupRelayListeners();
+  }
+
+  private setupRelayListeners() {
+    this.socket.on(
+      'relay-control-message',
+      (data: { from: string; message: WebRTCMessage | string }) => {
+        if (!data?.from || !data?.message) return;
+        this.handleIncomingControlMessage(data.message, data.from);
+      }
+    );
+
+    this.socket.on('relay-file-chunk', (data: { from: string; buffer: ArrayBuffer }) => {
+      if (!data?.from || !data?.buffer) return;
+      this.handleIncomingFilePacket(data.buffer, data.from);
+    });
   }
 
   public getLocalStream(): MediaStream | null {
@@ -237,6 +254,24 @@ export class WebRTCManager {
     };
     this.connections.set(targetPeerId, bundle);
 
+    const prevTimer = this.fallbackTimers.get(targetPeerId);
+    if (prevTimer) clearTimeout(prevTimer);
+    const fallbackTimer = setTimeout(() => {
+      const cur = this.connections.get(targetPeerId);
+      if (
+        cur &&
+        cur.connectionType !== 'relay' &&
+        (!cur.fileChannel || cur.fileChannel.readyState !== 'open') &&
+        cur.pc.iceConnectionState !== 'connected' &&
+        cur.pc.iceConnectionState !== 'completed'
+      ) {
+        console.log(`[WebRTC] P2P handshake delay with ${targetPeerId}, activating Socket Fallback Relay`);
+        cur.connectionType = 'relay';
+        this.callbacks.onConnectionTypeChange?.(targetPeerId, 'relay');
+      }
+    }, 3500);
+    this.fallbackTimers.set(targetPeerId, fallbackTimer);
+
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         this.socket.emit('signal', {
@@ -252,6 +287,8 @@ export class WebRTCManager {
 
     pc.oniceconnectionstatechange = async () => {
       if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        const t = this.fallbackTimers.get(targetPeerId);
+        if (t) clearTimeout(t);
         bundle.iceRestarted = false;
         const type = await this.checkConnectionType(targetPeerId);
         bundle.connectionType = type;
@@ -261,7 +298,11 @@ export class WebRTCManager {
           bundle.iceRestarted = true;
           await this.renegotiate(targetPeerId, pc, true);
         } else {
-          this.callbacks.onConnectionFailed?.(targetPeerId, 'NAT_BLOCKED');
+          const t = this.fallbackTimers.get(targetPeerId);
+          if (t) clearTimeout(t);
+          console.warn(`[WebRTC] Direct P2P ICE failed for ${targetPeerId}, switching to Fallback Relay`);
+          bundle.connectionType = 'relay';
+          this.callbacks.onConnectionTypeChange?.(targetPeerId, 'relay');
         }
       }
     };
@@ -449,149 +490,7 @@ export class WebRTCManager {
     };
 
     channel.onmessage = async (event) => {
-      try {
-        const msg: WebRTCMessage = JSON.parse(event.data);
-        if (msg.type === 'TEXT') {
-          this.callbacks.onTextMessage({
-            id: msg.id,
-            senderId: msg.senderId,
-            senderName: msg.senderName,
-            senderAvatar: msg.senderAvatar,
-            isAdmin: msg.isAdmin,
-            adminFrame: msg.adminFrame,
-            senderStatusEmote: msg.senderStatusEmote,
-            text: msg.text,
-            timestamp: msg.timestamp,
-            isClipboard: msg.isClipboard,
-            isBurner: msg.isBurner,
-            expiresAt: msg.expiresAt || (msg.isBurner ? Date.now() + 10000 : undefined),
-          });
-        } else if (msg.type === 'SCRATCHPAD_SYNC') {
-          this.callbacks.onScratchpadSync?.(msg.text, msg.updatedBy);
-        } else if (msg.type === 'SCRATCHPAD_TYPING') {
-          this.callbacks.onScratchpadTyping?.(msg.updatedBy);
-        } else if (msg.type === 'REACTION') {
-          this.callbacks.onReaction?.(peerId, msg.emoteUrl, msg.emoteName);
-        } else if (msg.type === 'FILE_OFFER') {
-          this.pendingOffers.set(msg.fileId, { meta: msg, peerId });
-
-          if (this.destinationDirectoryHandle) {
-            this.acceptIncomingFileWithDirectory(msg.fileId, this.destinationDirectoryHandle);
-          } else {
-            const supportsDirectToDisk =
-              typeof window !== 'undefined' && 'showSaveFilePicker' in window;
-            if (!supportsDirectToDisk && msg.size > MOBILE_MEMORY_WARN_BYTES) {
-              this.callbacks.onMemoryLimitWarning?.(msg.name, msg.size);
-            }
-
-            this.callbacks.onTransferProgress({
-              id: msg.fileId,
-              name: msg.name,
-              size: msg.size,
-              mimeType: msg.mimeType,
-              type: 'download',
-              peerId,
-              peerName: msg.senderName,
-              progress: 0,
-              speed: 0,
-              status: 'pending_approval',
-            });
-          }
-        } else if (msg.type === 'FILE_ACCEPT') {
-          const pending = this.pendingOutgoingFiles.get(msg.fileId);
-          if (pending) {
-            this.pendingOutgoingFiles.delete(msg.fileId);
-            this.enqueueFileStream(() =>
-              this.startStreamingFile(pending.file, msg.fileId, pending.targetPeerId)
-            );
-          }
-        } else if (msg.type === 'FILE_REJECT') {
-          this.pendingOutgoingFiles.delete(msg.fileId);
-          this.callbacks.onTransferProgress({
-            id: msg.fileId,
-            status: 'cancelled',
-            error: 'Получатель отклонил передачу файла',
-          });
-        } else if (msg.type === 'FILE_META') {
-          const existing = this.incomingFiles.get(msg.fileId);
-          if (existing) {
-            existing.meta.totalChunks = msg.totalChunks;
-            existing.meta.chunkSize = msg.chunkSize;
-          } else if (this.destinationDirectoryHandle) {
-            const totalChunks = msg.totalChunks;
-            const incomingState: any = {
-              meta: msg,
-              peerId,
-              streamToDisk: true,
-              writableStream: undefined,
-              writeQueue: Promise.resolve(),
-              receivedChunks: new Array(totalChunks),
-              receivedCount: 0,
-              receivedBytes: 0,
-              lastProgressUpdate: Date.now(),
-              lastBytesTransferred: 0,
-              speed: 0,
-            };
-
-            incomingState.initPromise = (async () => {
-              try {
-                const fileHandle = await getFileHandleFromPath(
-                  this.destinationDirectoryHandle,
-                  msg.name
-                );
-                incomingState.writableStream = await fileHandle.createWritable();
-              } catch (err) {
-                console.warn('Direct to disk init failed, falling back to in-memory', err);
-                incomingState.streamToDisk = false;
-              }
-            })();
-
-            this.incomingFiles.set(msg.fileId, incomingState);
-          } else {
-            this.incomingFiles.set(msg.fileId, {
-              meta: msg,
-              peerId,
-              streamToDisk: false,
-              receivedChunks: new Array(msg.totalChunks),
-              receivedCount: 0,
-              receivedBytes: 0,
-              lastProgressUpdate: Date.now(),
-              lastBytesTransferred: 0,
-              speed: 0,
-            });
-          }
-
-          this.callbacks.onTransferProgress({
-            id: msg.fileId,
-            name: msg.name,
-            size: msg.size,
-            mimeType: msg.mimeType,
-            type: 'download',
-            peerId,
-            peerName: msg.senderName,
-            progress: msg.size === 0 ? 100 : 0,
-            speed: 0,
-            status: 'transferring',
-          });
-
-          if (msg.size === 0 || msg.totalChunks === 0) {
-            await this.finalizeReceivedFile(msg.fileId);
-          }
-        } else if (msg.type === 'FILE_CANCEL') {
-          const incoming = this.incomingFiles.get(msg.fileId);
-          if (incoming?.writableStream) {
-            incoming.writableStream.abort().catch(() => {});
-          }
-          this.incomingFiles.delete(msg.fileId);
-          this.pendingOffers.delete(msg.fileId);
-          this.callbacks.onTransferProgress({
-            id: msg.fileId,
-            status: 'cancelled',
-          });
-        }
-      } catch (err) {
-        console.error('Error handling control message', err);
-      }
+      this.handleIncomingControlMessage(event.data, peerId);
     };
   }
 
@@ -602,72 +501,245 @@ export class WebRTCManager {
 
     channel.onmessage = async (event) => {
       if (typeof event.data === 'string') return;
-      const buffer = event.data as ArrayBuffer;
-      if (buffer.byteLength < HEADER_SIZE) return;
+      this.handleIncomingFilePacket(event.data as ArrayBuffer, peerId);
+    };
+  }
 
-      const headerView = new DataView(buffer);
-      const idBytes = new Uint8Array(buffer, 0, 32);
-      let fileId = '';
-      for (let i = 0; i < 32; i++) {
-        if (idBytes[i] === 0) break;
-        fileId += String.fromCharCode(idBytes[i]);
-      }
-
-      const chunkIndex = headerView.getUint32(32);
-      const totalChunks = headerView.getUint32(36);
-      const chunkData = new Uint8Array(buffer, HEADER_SIZE);
-
-      const incoming = this.incomingFiles.get(fileId);
-      if (!incoming) return;
-
-      if (incoming.streamToDisk) {
-        incoming.receivedCount++;
-        incoming.receivedBytes += chunkData.byteLength;
-
-        incoming.writeQueue = (incoming.writeQueue || Promise.resolve()).then(async () => {
-          if (incoming.initPromise) {
-            await incoming.initPromise;
-          }
-          if (incoming.streamToDisk && incoming.writableStream) {
-            await incoming.writableStream.write(chunkData);
-          } else if (!incoming.receivedChunks[chunkIndex]) {
-            incoming.receivedChunks[chunkIndex] = chunkData;
-          }
+  public async handleIncomingControlMessage(raw: WebRTCMessage | string, peerId: string) {
+    try {
+      const msg: WebRTCMessage = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (msg.type === 'TEXT') {
+        this.callbacks.onTextMessage({
+          id: msg.id,
+          senderId: msg.senderId,
+          senderName: msg.senderName,
+          senderAvatar: msg.senderAvatar,
+          isAdmin: msg.isAdmin,
+          adminFrame: msg.adminFrame,
+          senderStatusEmote: msg.senderStatusEmote,
+          text: msg.text,
+          timestamp: msg.timestamp,
+          isClipboard: msg.isClipboard,
+          isBurner: msg.isBurner,
+          expiresAt: msg.expiresAt || (msg.isBurner ? Date.now() + 10000 : undefined),
         });
-      } else {
-        if (!incoming.receivedChunks[chunkIndex]) {
-          incoming.receivedChunks[chunkIndex] = chunkData;
-          incoming.receivedCount++;
-          incoming.receivedBytes += chunkData.byteLength;
+      } else if (msg.type === 'SCRATCHPAD_SYNC') {
+        this.callbacks.onScratchpadSync?.(msg.text, msg.updatedBy);
+      } else if (msg.type === 'SCRATCHPAD_TYPING') {
+        this.callbacks.onScratchpadTyping?.(msg.updatedBy);
+      } else if (msg.type === 'REACTION') {
+        this.callbacks.onReaction?.(peerId, msg.emoteUrl, msg.emoteName);
+      } else if (msg.type === 'FILE_OFFER') {
+        this.pendingOffers.set(msg.fileId, { meta: msg, peerId });
+
+        if (this.destinationDirectoryHandle) {
+          this.acceptIncomingFileWithDirectory(msg.fileId, this.destinationDirectoryHandle);
+        } else {
+          const supportsDirectToDisk =
+            typeof window !== 'undefined' && 'showSaveFilePicker' in window;
+          if (!supportsDirectToDisk && msg.size > MOBILE_MEMORY_WARN_BYTES) {
+            this.callbacks.onMemoryLimitWarning?.(msg.name, msg.size);
+          }
+
+          this.callbacks.onTransferProgress({
+            id: msg.fileId,
+            name: msg.name,
+            size: msg.size,
+            mimeType: msg.mimeType,
+            type: 'download',
+            peerId,
+            peerName: msg.senderName,
+            progress: 0,
+            speed: 0,
+            status: 'pending_approval',
+          });
         }
-      }
+      } else if (msg.type === 'FILE_ACCEPT') {
+        const pending = this.pendingOutgoingFiles.get(msg.fileId);
+        if (pending) {
+          this.pendingOutgoingFiles.delete(msg.fileId);
+          this.enqueueFileStream(() =>
+            this.startStreamingFile(pending.file, msg.fileId, pending.targetPeerId)
+          );
+        }
+      } else if (msg.type === 'FILE_REJECT') {
+        this.pendingOutgoingFiles.delete(msg.fileId);
+        this.callbacks.onTransferProgress({
+          id: msg.fileId,
+          status: 'cancelled',
+          error: 'Получатель отклонил передачу файла',
+        });
+      } else if (msg.type === 'FILE_META') {
+        const existing = this.incomingFiles.get(msg.fileId);
+        if (existing) {
+          existing.meta.totalChunks = msg.totalChunks;
+          existing.meta.chunkSize = msg.chunkSize;
+        } else if (this.destinationDirectoryHandle) {
+          const totalChunks = msg.totalChunks;
+          const incomingState: any = {
+            meta: msg,
+            peerId,
+            streamToDisk: true,
+            writableStream: undefined,
+            writeQueue: Promise.resolve(),
+            receivedChunks: new Array(totalChunks),
+            receivedCount: 0,
+            receivedBytes: 0,
+            lastProgressUpdate: Date.now(),
+            lastBytesTransferred: 0,
+            speed: 0,
+          };
 
-      const now = Date.now();
-      const elapsed = (now - incoming.lastProgressUpdate) / 1000;
-      if (elapsed >= 0.25) {
-        const bytesDiff = incoming.receivedBytes - incoming.lastBytesTransferred;
-        incoming.speed = elapsed > 0 ? bytesDiff / elapsed : 0;
-        incoming.lastBytesTransferred = incoming.receivedBytes;
-        incoming.lastProgressUpdate = now;
+          incomingState.initPromise = (async () => {
+            try {
+              const fileHandle = await getFileHandleFromPath(
+                this.destinationDirectoryHandle,
+                msg.name
+              );
+              incomingState.writableStream = await fileHandle.createWritable();
+            } catch (err) {
+              console.warn('Direct to disk init failed, falling back to in-memory', err);
+              incomingState.streamToDisk = false;
+            }
+          })();
 
-        const progress =
-          incoming.meta.size > 0
-            ? Math.min(100, Math.round((incoming.receivedBytes / incoming.meta.size) * 100))
-            : 100;
+          this.incomingFiles.set(msg.fileId, incomingState);
+        } else {
+          this.incomingFiles.set(msg.fileId, {
+            meta: msg,
+            peerId,
+            streamToDisk: false,
+            receivedChunks: new Array(msg.totalChunks),
+            receivedCount: 0,
+            receivedBytes: 0,
+            lastProgressUpdate: Date.now(),
+            lastBytesTransferred: 0,
+            speed: 0,
+          });
+        }
 
         this.callbacks.onTransferProgress({
-          id: fileId,
-          progress,
-          speed: incoming.speed,
+          id: msg.fileId,
+          name: msg.name,
+          size: msg.size,
+          mimeType: msg.mimeType,
+          type: 'download',
+          peerId,
+          peerName: msg.senderName,
+          progress: msg.size === 0 ? 100 : 0,
+          speed: 0,
           status: 'transferring',
-          savedToDisk: incoming.streamToDisk,
+        });
+
+        if (msg.size === 0 || msg.totalChunks === 0) {
+          await this.finalizeReceivedFile(msg.fileId);
+        }
+      } else if (msg.type === 'FILE_CANCEL') {
+        const incoming = this.incomingFiles.get(msg.fileId);
+        if (incoming?.writableStream) {
+          incoming.writableStream.abort().catch(() => {});
+        }
+        this.incomingFiles.delete(msg.fileId);
+        this.pendingOffers.delete(msg.fileId);
+        this.callbacks.onTransferProgress({
+          id: msg.fileId,
+          status: 'cancelled',
         });
       }
+    } catch (err) {
+      console.error('Error handling control message', err);
+    }
+  }
 
-      if (incoming.receivedCount === totalChunks) {
-        await this.finalizeReceivedFile(fileId);
+  public async handleIncomingFilePacket(buffer: ArrayBuffer, _peerId: string) {
+    if (buffer.byteLength < HEADER_SIZE) return;
+
+    const headerView = new DataView(buffer);
+    const idBytes = new Uint8Array(buffer, 0, 32);
+    let fileId = '';
+    for (let i = 0; i < 32; i++) {
+      if (idBytes[i] === 0) break;
+      fileId += String.fromCharCode(idBytes[i]);
+    }
+
+    const chunkIndex = headerView.getUint32(32);
+    const totalChunks = headerView.getUint32(36);
+    const chunkData = new Uint8Array(buffer, HEADER_SIZE);
+
+    const incoming = this.incomingFiles.get(fileId);
+    if (!incoming) return;
+
+    if (incoming.streamToDisk) {
+      incoming.receivedCount++;
+      incoming.receivedBytes += chunkData.byteLength;
+
+      incoming.writeQueue = (incoming.writeQueue || Promise.resolve()).then(async () => {
+        if (incoming.initPromise) {
+          await incoming.initPromise;
+        }
+        if (incoming.streamToDisk && incoming.writableStream) {
+          await incoming.writableStream.write(chunkData);
+        } else if (!incoming.receivedChunks[chunkIndex]) {
+          incoming.receivedChunks[chunkIndex] = chunkData;
+        }
+      });
+    } else {
+      if (!incoming.receivedChunks[chunkIndex]) {
+        incoming.receivedChunks[chunkIndex] = chunkData;
+        incoming.receivedCount++;
+        incoming.receivedBytes += chunkData.byteLength;
       }
-    };
+    }
+
+    const now = Date.now();
+    const elapsed = (now - incoming.lastProgressUpdate) / 1000;
+    if (elapsed >= 0.25) {
+      const bytesDiff = incoming.receivedBytes - incoming.lastBytesTransferred;
+      incoming.speed = elapsed > 0 ? bytesDiff / elapsed : 0;
+      incoming.lastBytesTransferred = incoming.receivedBytes;
+      incoming.lastProgressUpdate = now;
+
+      const progress =
+        incoming.meta.size > 0
+          ? Math.min(100, Math.round((incoming.receivedBytes / incoming.meta.size) * 100))
+          : 100;
+
+      this.callbacks.onTransferProgress({
+        id: fileId,
+        progress,
+        speed: incoming.speed,
+        status: 'transferring',
+        savedToDisk: incoming.streamToDisk,
+      });
+    }
+
+    if (incoming.receivedCount === totalChunks) {
+      await this.finalizeReceivedFile(fileId);
+    }
+  }
+
+  public sendControlMessageToPeer(peerId: string, msg: WebRTCMessage) {
+    const bundle = this.connections.get(peerId);
+    const payload = JSON.stringify(msg);
+    if (bundle?.controlChannel?.readyState === 'open' && bundle.connectionType !== 'relay') {
+      try {
+        bundle.controlChannel.send(payload);
+        return;
+      } catch (err) {
+        console.warn(`Control channel send error to ${peerId}, falling back to socket`, err);
+      }
+    }
+    this.socket.emit('relay-control-message', { to: peerId, message: msg });
+  }
+
+  public broadcastControlMessage(msg: WebRTCMessage, targetPeerId?: string) {
+    if (targetPeerId) {
+      this.sendControlMessageToPeer(targetPeerId, msg);
+    } else {
+      this.connections.forEach((_bundle, peerId) => {
+        this.sendControlMessageToPeer(peerId, msg);
+      });
+    }
   }
 
   public sendReaction(emoteUrl: string, emoteName?: string) {
@@ -679,12 +751,7 @@ export class WebRTCManager {
       emoteName,
       timestamp: Date.now(),
     };
-    const payload = JSON.stringify(msg);
-    this.connections.forEach(({ controlChannel }) => {
-      if (controlChannel && controlChannel.readyState === 'open') {
-        controlChannel.send(payload);
-      }
-    });
+    this.broadcastControlMessage(msg);
   }
 
   public sendTextMessage(text: string, isClipboard = false, isBurner = false) {
@@ -705,12 +772,7 @@ export class WebRTCManager {
       expiresAt,
     };
 
-    const payload = JSON.stringify(msg);
-    this.connections.forEach(({ controlChannel }) => {
-      if (controlChannel && controlChannel.readyState === 'open') {
-        controlChannel.send(payload);
-      }
-    });
+    this.broadcastControlMessage(msg);
 
     this.callbacks.onTextMessage({
       id: msg.id,
@@ -735,12 +797,7 @@ export class WebRTCManager {
       updatedBy: this.myName,
       timestamp: Date.now(),
     };
-    const payload = JSON.stringify(msg);
-    this.connections.forEach(({ controlChannel }) => {
-      if (controlChannel && controlChannel.readyState === 'open') {
-        controlChannel.send(payload);
-      }
-    });
+    this.broadcastControlMessage(msg);
   }
 
   public sendScratchpadTyping() {
@@ -749,12 +806,7 @@ export class WebRTCManager {
       updatedBy: this.myName,
       timestamp: Date.now(),
     };
-    const payload = JSON.stringify(msg);
-    this.connections.forEach(({ controlChannel }) => {
-      if (controlChannel && controlChannel.readyState === 'open') {
-        controlChannel.send(payload);
-      }
-    });
+    this.broadcastControlMessage(msg);
   }
 
   public async checkConnectionType(peerId: string): Promise<'direct' | 'relay'> {
@@ -779,18 +831,16 @@ export class WebRTCManager {
     const fileId = Math.random().toString(36).substring(2, 12);
     const senderBlobUrl = createMediaBlobUrl(file);
 
-    const activeBundles: PeerConnectionBundle[] = [];
+    const activeTargets: Array<{ peerId: string; bundle: PeerConnectionBundle }> = [];
     if (targetPeerId && this.connections.has(targetPeerId)) {
-      activeBundles.push(this.connections.get(targetPeerId)!);
+      activeTargets.push({ peerId: targetPeerId, bundle: this.connections.get(targetPeerId)! });
     } else {
-      this.connections.forEach((bundle) => {
-        if (bundle.fileChannel?.readyState === 'open') {
-          activeBundles.push(bundle);
-        }
+      this.connections.forEach((bundle, peerId) => {
+        activeTargets.push({ peerId, bundle });
       });
     }
 
-    if (activeBundles.length === 0) {
+    if (activeTargets.length === 0) {
       this.callbacks.onTransferProgress({
         id: fileId,
         name: file.name,
@@ -831,13 +881,8 @@ export class WebRTCManager {
         mimeType: file.type || 'application/octet-stream',
         senderName: this.myName,
       };
-      const offerStr = JSON.stringify(offerMsg);
 
-      activeBundles.forEach((b) => {
-        if (b.controlChannel?.readyState === 'open') {
-          b.controlChannel.send(offerStr);
-        }
-      });
+      this.broadcastControlMessage(offerMsg, targetPeerId);
       return;
     }
 
@@ -872,21 +917,16 @@ export class WebRTCManager {
 
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
-    const activeBundles: PeerConnectionBundle[] = [];
+    const activeTargets: Array<{ peerId: string; bundle: PeerConnectionBundle }> = [];
     if (targetPeerId && this.connections.has(targetPeerId)) {
-      const target = this.connections.get(targetPeerId)!;
-      if (target.fileChannel?.readyState === 'open') {
-        activeBundles.push(target);
-      }
+      activeTargets.push({ peerId: targetPeerId, bundle: this.connections.get(targetPeerId)! });
     } else {
-      this.connections.forEach((bundle) => {
-        if (bundle.fileChannel?.readyState === 'open') {
-          activeBundles.push(bundle);
-        }
+      this.connections.forEach((bundle, peerId) => {
+        activeTargets.push({ peerId, bundle });
       });
     }
 
-    if (activeBundles.length === 0) {
+    if (activeTargets.length === 0) {
       this.callbacks.onTransferProgress({
         id: fileId,
         status: 'cancelled',
@@ -905,13 +945,8 @@ export class WebRTCManager {
       chunkSize: CHUNK_SIZE,
       senderName: this.myName,
     };
-    const metaStr = JSON.stringify(metaMsg);
 
-    activeBundles.forEach((b) => {
-      if (b.controlChannel && b.controlChannel.readyState === 'open') {
-        b.controlChannel.send(metaStr);
-      }
-    });
+    this.broadcastControlMessage(metaMsg, targetPeerId);
 
     const senderBlobUrl = existingBlobUrl || createMediaBlobUrl(file);
 
@@ -946,11 +981,7 @@ export class WebRTCManager {
 
     while (fileOffset < file.size) {
       if (this.cancelledTransfers.has(fileId)) {
-        activeBundles.forEach((b) => {
-          if (b.controlChannel?.readyState === 'open') {
-            b.controlChannel.send(JSON.stringify({ type: 'FILE_CANCEL', fileId }));
-          }
-        });
+        this.broadcastControlMessage({ type: 'FILE_CANCEL', fileId }, targetPeerId);
         this.cancelledTransfers.delete(fileId);
         this.callbacks.onTransferProgress({ id: fileId, status: 'cancelled' });
         return;
@@ -963,11 +994,7 @@ export class WebRTCManager {
 
       while (blockOffset < blockBuffer.byteLength) {
         if (this.cancelledTransfers.has(fileId)) {
-          activeBundles.forEach((b) => {
-            if (b.controlChannel?.readyState === 'open') {
-              b.controlChannel.send(JSON.stringify({ type: 'FILE_CANCEL', fileId }));
-            }
-          });
+          this.broadcastControlMessage({ type: 'FILE_CANCEL', fileId }, targetPeerId);
           this.cancelledTransfers.delete(fileId);
           this.callbacks.onTransferProgress({ id: fileId, status: 'cancelled' });
           return;
@@ -977,9 +1004,9 @@ export class WebRTCManager {
         const dynamicBufferHigh = isVoiceCallActive ? 512 * 1024 : BUFFER_HIGH;
         const dynamicBufferLow = isVoiceCallActive ? 128 * 1024 : BUFFER_LOW;
 
-        for (const b of activeBundles) {
-          const ch = b.fileChannel;
-          if (ch && ch.readyState === 'open' && ch.bufferedAmount > dynamicBufferHigh) {
+        for (const { bundle } of activeTargets) {
+          const ch = bundle.fileChannel;
+          if (ch && ch.readyState === 'open' && bundle.connectionType !== 'relay' && ch.bufferedAmount > dynamicBufferHigh) {
             await new Promise<void>((resolve) => {
               ch.bufferedAmountLowThreshold = dynamicBufferLow;
               if (ch.bufferedAmount <= dynamicBufferLow || ch.readyState !== 'open') {
@@ -1003,10 +1030,12 @@ export class WebRTCManager {
           }
         }
 
-        const stillOpenCount = activeBundles.filter(
-          (b) => b.fileChannel?.readyState === 'open'
+        const availableCount = activeTargets.filter(
+          (t) =>
+            (t.bundle.fileChannel?.readyState === 'open' && t.bundle.connectionType !== 'relay') ||
+            this.socket.connected
         ).length;
-        if (stillOpenCount === 0) {
+        if (availableCount === 0) {
           this.callbacks.onTransferProgress({
             id: fileId,
             status: 'cancelled',
@@ -1028,10 +1057,19 @@ export class WebRTCManager {
         view.setUint32(36, totalChunks);
         packet.set(new Uint8Array(blockBuffer, blockOffset, currentChunkSize), HEADER_SIZE);
 
-        for (const b of activeBundles) {
-          if (b.fileChannel?.readyState === 'open') {
-            b.fileChannel.send(packet.buffer);
+        for (const t of activeTargets) {
+          if (t.bundle.fileChannel?.readyState === 'open' && t.bundle.connectionType !== 'relay') {
+            t.bundle.fileChannel.send(packet.buffer);
+          } else {
+            this.socket.emit('relay-file-chunk', { to: t.peerId, buffer: packet.buffer });
           }
+        }
+
+        const hasRelay = activeTargets.some(
+          (t) => t.bundle.connectionType === 'relay' || t.bundle.fileChannel?.readyState !== 'open'
+        );
+        if (hasRelay && chunkIndex % 8 === 0) {
+          await new Promise<void>((r) => setTimeout(r, 4));
         }
 
         blockOffset += currentChunkSize;
@@ -1117,12 +1155,7 @@ export class WebRTCManager {
       fileId,
       streamToDisk,
     };
-    const payload = JSON.stringify(acceptMsg);
-
-    const bundle = this.connections.get(offer.peerId);
-    if (bundle?.controlChannel?.readyState === 'open') {
-      bundle.controlChannel.send(payload);
-    }
+    this.sendControlMessageToPeer(offer.peerId, acceptMsg);
 
     this.callbacks.onTransferProgress({
       id: fileId,
@@ -1183,12 +1216,7 @@ export class WebRTCManager {
       fileId,
       streamToDisk,
     };
-    const payload = JSON.stringify(acceptMsg);
-
-    const bundle = this.connections.get(offer.peerId);
-    if (bundle?.controlChannel?.readyState === 'open') {
-      bundle.controlChannel.send(payload);
-    }
+    this.sendControlMessageToPeer(offer.peerId, acceptMsg);
 
     this.callbacks.onTransferProgress({
       id: fileId,
@@ -1207,12 +1235,7 @@ export class WebRTCManager {
       type: 'FILE_REJECT',
       fileId,
     };
-    const payload = JSON.stringify(rejectMsg);
-
-    const bundle = this.connections.get(offer.peerId);
-    if (bundle?.controlChannel?.readyState === 'open') {
-      bundle.controlChannel.send(payload);
-    }
+    this.sendControlMessageToPeer(offer.peerId, rejectMsg);
 
     this.pendingOffers.delete(fileId);
     this.callbacks.onTransferProgress({
@@ -1392,6 +1415,10 @@ export class WebRTCManager {
   }
 
   public removePeer(peerId: string) {
+    const t = this.fallbackTimers.get(peerId);
+    if (t) clearTimeout(t);
+    this.fallbackTimers.delete(peerId);
+
     const bundle = this.connections.get(peerId);
     if (bundle) {
       bundle.controlChannel?.close();
@@ -1402,6 +1429,11 @@ export class WebRTCManager {
   }
 
   public destroy() {
+    this.socket.off('relay-control-message');
+    this.socket.off('relay-file-chunk');
+    this.fallbackTimers.forEach((t) => clearTimeout(t));
+    this.fallbackTimers.clear();
+
     this.cancelledTransfers.clear();
     this.connections.forEach((b) => {
       b.controlChannel?.close();

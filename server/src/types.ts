@@ -100,3 +100,31 @@ export interface UserProfileDto {
   s3QuotaLimitMb: number;
   devices: StickyDeviceDto[];
 }
+
+export interface DbDrop {
+  id: string;
+  user_id?: string;
+  target_device_id?: string;
+  room_id?: string;
+  pin?: string;
+  file_name: string;
+  file_size: number;
+  mime_type: string;
+  file_path: string;
+  sender_name: string;
+  download_count: number;
+  max_downloads: number;
+  expires_at: number;
+  created_at: number;
+}
+
+export interface DropDto {
+  id: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  senderName: string;
+  downloadUrl: string;
+  expiresAt: number;
+  targetDeviceId?: string;
+}

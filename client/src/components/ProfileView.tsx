@@ -47,6 +47,7 @@ interface ProfileViewProps {
   onToggleDemoTier?: () => void;
   onRemoveDevice?: (deviceId: string) => void;
   onCreateBridgeWithDevice?: (device: StickyDevice) => void;
+  onOpenDropModal?: (device?: StickyDevice) => void;
 }
 
 type InternalTab = 'appearance' | 'devices' | 'account';
@@ -151,6 +152,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   onToggleDemoTier,
   onRemoveDevice,
   onCreateBridgeWithDevice,
+  onOpenDropModal,
 }) => {
   const [activeTab, setActiveTab] = useState<InternalTab>(() => normalizeTab(initialTab));
   const [appearanceSection, setAppearanceSection] = useState<'frames' | 'themes'>('frames');
@@ -704,13 +706,28 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
                 {!dev.isCurrent && (
                   <div className="flex items-center gap-1.5 shrink-0">
-                    {onCreateBridgeWithDevice && (
+                    {dev.isOnline && onCreateBridgeWithDevice && (
                       <button
                         type="button"
                         onClick={() => onCreateBridgeWithDevice(dev)}
-                        className="px-3 py-1.5 rounded-lg bg-[#283216] hover:bg-[#789d2a] text-[#bbf348] hover:text-white border border-[#789d2a]/50 text-xs font-bold transition-colors cursor-pointer"
+                        className="px-2.5 py-1.5 rounded-lg bg-[#283216] hover:bg-[#789d2a] text-[#bbf348] hover:text-white border border-[#789d2a]/50 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
+                        title="Мгновенный прямой P2P Bridge"
                       >
-                        Кинуть файл
+                        <span>⚡ P2P</span>
+                      </button>
+                    )}
+                    {onOpenDropModal && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenDropModal(dev)}
+                        className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 ${
+                          dev.isOnline
+                            ? 'bg-[#222222] hover:bg-[#2e2e2e] text-[#ededed] border border-white/10'
+                            : 'bg-[#283216] hover:bg-[#789d2a] text-[#bbf348] hover:text-white border border-[#789d2a]/50'
+                        }`}
+                        title="Оставить файл в буфере на 24 часа"
+                      >
+                        <span>📦 Drop & Go</span>
                       </button>
                     )}
                     {onRemoveDevice && (
@@ -718,7 +735,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         type="button"
                         onClick={() => onRemoveDevice(dev.id)}
                         className="p-1.5 rounded-lg text-[#888888] hover:text-[#ef9282] hover:bg-white/[0.05] transition-colors cursor-pointer"
-                        title="Отвязать"
+                        title="Отвязать устройство"
                       >
                         <X className="w-4 h-4" />
                       </button>

@@ -13,6 +13,9 @@ import {
   UserMinus,
   Copy,
   Bell,
+  UploadCloud,
+  Download,
+  Trash2,
 } from 'lucide-react';
 import { Navbar } from './components/Navbar.js';
 import { HomeView } from './components/HomeView.js';
@@ -22,6 +25,8 @@ import { AboutView } from './components/AboutView.js';
 import { LegalView, LegalDocType } from './components/LegalView.js';
 import { QRCodeModal } from './components/QRCodeModal.js';
 import { AuthModal } from './components/AuthModal.js';
+import { DropModal } from './components/DropModal.js';
+import { DropPageView } from './components/DropPageView.js';
 import { SettingsModal } from './components/SettingsModal.js';
 import { LeaveConfirmModal } from './components/LeaveConfirmModal.js';
 import { ProfileView } from './components/ProfileView.js';
@@ -38,6 +43,8 @@ import {
   RoomMode,
   AuthProvider,
   UserProfile,
+  StickyDevice,
+  DropDto,
 } from './types/index.js';
 import {
   detectDeviceType,
@@ -45,6 +52,7 @@ import {
   getRandomAvatar,
   getBrowserDeviceId,
   getBrowserLabel,
+  formatBytes,
 } from './utils/device.js';
 import {
   getSharedAudioContext,
@@ -60,6 +68,12 @@ interface RoomAlertNotice {
 }
 
 export function App() {
+  const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+  const dropMatch = currentPath.match(/^\/drop\/([a-zA-Z0-9_-]+)/);
+  if (dropMatch) {
+    return <DropPageView dropId={dropMatch[1]} />;
+  }
+
   const [userName, setUserName] = useState<string>(() => {
     return (
       localStorage.getItem('bridgik_username') ||
@@ -100,6 +114,11 @@ export function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalProvider, setAuthModalProvider] = useState<AuthProvider>('twitch');
   const [profileSectionTab, setProfileSectionTab] = useState<ProfileSectionTab>('appearance');
+
+  // Drop & Go (24h Buffer) State
+  const [isDropModalOpen, setIsDropModalOpen] = useState(false);
+  const [dropTargetDevice, setDropTargetDevice] = useState<StickyDevice | null>(null);
+  const [pendingDrops, setPendingDrops] = useState<DropDto[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(() => sound.isEnabled());
   const [radarVisible, setRadarVisible] = useState(() => {
@@ -163,6 +182,42 @@ export function App() {
     } catch (err) {
       console.error('Failed to sync profile with server:', err);
     }
+  };
+
+  const fetchPendingDrops = async (key?: string, devId?: string) => {
+    const lk = key || userProfile?.licenseKeyPreview || localStorage.getItem('bridgik_license_key');
+    const did = devId || getBrowserDeviceId();
+    if (!lk || !did) return;
+    try {
+      const res = await fetch(`/api/drop/pending?deviceId=${encodeURIComponent(did)}`, {
+        headers: { Authorization: `Bearer ${lk}` },
+      });
+      const data = await res.json();
+      if (data?.success && Array.isArray(data.drops)) {
+        setPendingDrops(data.drops);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch pending drops', err);
+    }
+  };
+
+  const handleDownloadPendingDrop = (drop: DropDto) => {
+    sound.playConnect();
+    const link = document.createElement('a');
+    link.href = `/api/drop/${drop.id}/download`;
+    link.download = drop.fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setPendingDrops((prev) => prev.filter((d) => d.id !== drop.id));
+  };
+
+  const handleDeletePendingDrop = async (dropId: string) => {
+    sound.playClick();
+    try {
+      await fetch(`/api/drop/${dropId}`, { method: 'DELETE' });
+    } catch {}
+    setPendingDrops((prev) => prev.filter((d) => d.id !== dropId));
   };
 
   const handleAuthSuccess = async (
@@ -667,6 +722,12 @@ export function App() {
       }
     });
 
+    // Real-time Drop & Go incoming file event
+    socketInstance.on('sticky-new-drop', (newDrop: DropDto) => {
+      sound.playMessage();
+      setPendingDrops((prev) => [newDrop, ...prev.filter((d) => d.id !== newDrop.id)]);
+    });
+
     setSocket(socketInstance);
 
     return () => {
@@ -689,6 +750,7 @@ export function App() {
           if (data.user.activeFrame) setAdminFrame(data.user.activeFrame);
           if (data.user.activeEmote !== undefined) setStatusEmote(data.user.activeEmote);
           if (data.user.defaultRoomTheme) setRoomTheme(data.user.defaultRoomTheme);
+          fetchPendingDrops(key, deviceId);
         }
       })
       .catch((err) => console.error('Failed to load profile from backend:', err));
@@ -715,6 +777,7 @@ export function App() {
       (res: any) => {
         if (res?.success && res?.user) {
           saveProfile(res.user);
+          fetchPendingDrops(key, deviceId);
         }
       }
     );
@@ -1887,6 +1950,10 @@ export function App() {
             onToggleDemoTier={handleToggleDemoTier}
             onRemoveDevice={handleRemoveDevice}
             onCreateBridgeWithDevice={handleCreateBridgeWithDevice}
+            onOpenDropModal={(device) => {
+              setDropTargetDevice(device || null);
+              setIsDropModalOpen(true);
+            }}
           />
         ) : !roomId ? (
           <HomeView
@@ -2018,6 +2085,71 @@ export function App() {
           setActiveTab('legal');
         }}
       />
+
+      {isDropModalOpen && (
+        <DropModal
+          targetDevice={dropTargetDevice}
+          userLicenseKey={
+            userProfile?.licenseKeyPreview ||
+            localStorage.getItem('bridgik_license_key') ||
+            undefined
+          }
+          senderName={userName}
+          onClose={() => {
+            setIsDropModalOpen(false);
+            setDropTargetDevice(null);
+          }}
+          onDropCreated={() => {
+            const key = userProfile?.licenseKeyPreview || localStorage.getItem('bridgik_license_key');
+            fetchPendingDrops(key || undefined);
+          }}
+        />
+      )}
+
+      {/* Pending Drop & Go Files notification */}
+      {pendingDrops.length > 0 && (
+        <aside
+          aria-label="Входящие файлы в буфере Drop & Go"
+          className="fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 z-[145] w-[95%] max-w-xl animate-in slide-in-from-top-6 duration-300"
+        >
+          <div className="p-4 rounded-2xl bg-[#181f14]/95 border-2 border-[#789d2a] shadow-[0_12px_45px_rgba(0,0,0,0.85)] backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5 min-w-0 w-full sm:w-auto">
+              <div className="w-11 h-11 rounded-xl bg-[#789d2a]/20 border border-[#789d2a] flex items-center justify-center text-[#9ac43e] shrink-0">
+                <UploadCloud className="w-6 h-6" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-white flex items-center gap-1.5">
+                  <span>Файл в буфере Drop & Go</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#789d2a]/30 text-[#bbf348]">
+                    {pendingDrops.length} шт
+                  </span>
+                </p>
+                <p className="text-xs text-[#bbf348] truncate font-medium">
+                  <strong>{pendingDrops[0].fileName}</strong> ({formatBytes(pendingDrops[0].fileSize)}) от {pendingDrops[0].senderName}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 justify-end">
+              <button
+                type="button"
+                onClick={() => handleDownloadPendingDrop(pendingDrops[0])}
+                className="px-4 py-2 rounded-xl bg-[#789d2a] hover:bg-[#8cb632] text-black font-extrabold text-xs transition-colors cursor-pointer flex items-center gap-1.5 shadow-md shadow-[#789d2a]/30"
+              >
+                <Download className="w-4 h-4" />
+                <span>Скачать</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeletePendingDrop(pendingDrops[0].id)}
+                className="p-2 rounded-xl bg-[#282828] hover:bg-[#333333] text-[#a0a0a0] hover:text-red-400 transition-colors cursor-pointer"
+                title="Удалить из буфера"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </aside>
+      )}
 
       <LeaveConfirmModal
         isOpen={isLeaveConfirmOpen}

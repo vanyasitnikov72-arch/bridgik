@@ -38,6 +38,17 @@ export interface UserProfile {
   devices: StickyDevice[];
 }
 
+export interface DropDto {
+  id: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  senderName: string;
+  downloadUrl: string;
+  expiresAt: number;
+  targetDeviceId?: string;
+}
+
 export interface Peer {
   id: string;
   name: string;
