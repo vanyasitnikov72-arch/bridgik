@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, FileText, ShieldCheck, Scale, Copy, Check, Mail, Lock, ServerOff, Cpu } from 'lucide-react';
+import { ArrowLeft, FileText, ShieldCheck, Scale, Lock, ServerOff, Cpu } from 'lucide-react';
 import { sound } from '../utils/sound.js';
 
 export type LegalDocType = 'rules' | 'privacy' | 'terms';
@@ -11,14 +11,6 @@ interface LegalViewProps {
 
 export const LegalView: React.FC<LegalViewProps> = ({ onBack, defaultDoc = 'rules' }) => {
   const [activeDoc, setActiveDoc] = useState<LegalDocType>(defaultDoc);
-  const [copiedEmail, setCopiedEmail] = useState(false);
-
-  const handleCopyEmail = () => {
-    navigator.clipboard.writeText('support@bridgik.ru').catch(() => {});
-    setCopiedEmail(true);
-    sound.playClick();
-    setTimeout(() => setCopiedEmail(false), 2000);
-  };
 
   const tabs: { id: LegalDocType; label: string; icon: React.ReactNode; desc: string }[] = [
     {
@@ -62,16 +54,6 @@ export const LegalView: React.FC<LegalViewProps> = ({ onBack, defaultDoc = 'rule
             </p>
           </div>
         </div>
-
-        {/* Support Email Pill */}
-        <button
-          onClick={handleCopyEmail}
-          className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#222222] border border-[#3a3a3a] hover:border-[#789d2a] text-[#aaaaaa] hover:text-[#ededed] text-sm font-bold transition-all cursor-pointer self-start sm:self-auto"
-          title="Скопировать email поддержки"
-        >
-          {copiedEmail ? <Check className="w-4 h-4 text-[#9ac43e]" /> : <Mail className="w-4 h-4 text-[#9ac43e]" />}
-          <span>{copiedEmail ? 'Email скопирован!' : 'support@bridgik.ru'}</span>
-        </button>
       </div>
 
       {/* Segmented Sub-Tabs Switcher */}
@@ -246,17 +228,17 @@ export const LegalView: React.FC<LegalViewProps> = ({ onBack, defaultDoc = 'rule
               <section className="space-y-2">
                 <h3 className="font-extrabold text-xl text-white">4. Обратная связь и контакты</h3>
                 <p>
-                  По любым техническим вопросам, предложениям по улучшению сервиса и сообщениям о неполадках вы можете обратиться по адресу электронной почты:
+                  По любым техническим вопросам, предложениям по улучшению сервиса и сообщениям о неполадках вы можете обратиться в Telegram разработчика:
                 </p>
                 <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#222222] border border-[#3a3a3a] text-base font-mono">
-                  <span className="text-[#9ac43e] font-bold">support@bridgik.ru</span>
-                  <button
-                    onClick={handleCopyEmail}
-                    className="p-1.5 rounded-lg hover:bg-[#333333] text-[#aaaaaa] hover:text-white transition-colors cursor-pointer"
-                    title="Копировать"
+                  <a
+                    href="https://t.me/IvanchesskO"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#9ac43e] hover:underline font-bold"
                   >
-                    <Copy className="w-4 h-4" />
-                  </button>
+                    @IvanchesskO
+                  </a>
                 </div>
               </section>
             </div>

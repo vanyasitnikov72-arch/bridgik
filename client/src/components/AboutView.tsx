@@ -1,10 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   ShieldCheck,
   HardDrive,
   Wifi,
-  Copy,
-  Check,
   ExternalLink,
   FolderUp,
   Zap,
@@ -18,27 +16,8 @@ interface AboutViewProps {
 }
 
 export const AboutView: React.FC<AboutViewProps> = ({ onBack: _onBack }) => {
-  const [copiedEmail, setCopiedEmail] = useState(false);
-
-  const handleCopyEmail = () => {
-    navigator.clipboard.writeText('support@bridgik.ru').catch(() => {});
-    setCopiedEmail(true);
-    setTimeout(() => setCopiedEmail(false), 2000);
-  };
-
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
-      {/* Top Header Tag */}
-      <div className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm font-mono text-[#9ac43e] font-bold px-3 py-1 rounded bg-[#1c2214] border border-[#789d2a]/40">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#789d2a] animate-ping" />
-          <span>v1.4.0 · P2P WebRTC Direct</span>
-        </div>
-        <span className="text-xs sm:text-sm font-mono text-[#888888]">
-          Zero-Storage Architecture
-        </span>
-      </div>
-
       {/* Hero Header */}
       <div className="mb-8">
         <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-[#ededed] mb-3 leading-tight">
@@ -357,16 +336,16 @@ export const AboutView: React.FC<AboutViewProps> = ({ onBack: _onBack }) => {
         </div>
       </div>
 
-      {/* Community & Feedback in eblo.id style (matches screenshot 2) */}
+      {/* Contact Section */}
       <div className="mb-10">
         <h3 className="text-2xl sm:text-3xl font-extrabold text-[#ededed] mb-4">
-          Связь и сообщество
+          Связь
         </h3>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mb-4">
+        <div className="max-w-md">
           {/* Telegram */}
           <a
-            href="https://t.me"
+            href="https://t.me/IvanchesskO"
             target="_blank"
             rel="noopener noreferrer"
             className="p-4 sm:p-5 rounded-xl bg-[#202020] border border-[#3a3a3a] hover:border-[#789d2a] flex items-center justify-between group transition-colors cursor-pointer"
@@ -380,41 +359,12 @@ export const AboutView: React.FC<AboutViewProps> = ({ onBack: _onBack }) => {
                   Telegram
                 </p>
                 <p className="text-sm sm:text-base text-[#aaaaaa]">
-                  Чат сообщества и оперативные вопросы
+                  @IvanchesskO · связь с разработчиком
                 </p>
               </div>
             </div>
             <ExternalLink className="w-5 h-5 text-[#666666] group-hover:text-[#9ac43e] transition-colors" />
           </a>
-
-          {/* Email Support with Copy */}
-          <button
-            onClick={handleCopyEmail}
-            className="p-4 sm:p-5 rounded-xl bg-[#202020] border border-[#3a3a3a] hover:border-[#789d2a] flex items-center justify-between group transition-colors cursor-pointer text-left w-full"
-          >
-            <div className="flex items-center gap-3.5">
-              <div className="w-10 h-10 rounded-full bg-[#2a2a2a] border border-[#3a3a3a] flex items-center justify-center text-[#9ac43e] group-hover:border-[#789d2a]">
-                {copiedEmail ? <Check className="w-5 h-5 text-[#9ac43e]" /> : <Copy className="w-5 h-5" />}
-              </div>
-              <div>
-                <p className="text-lg sm:text-xl font-bold text-[#ededed] group-hover:text-white">
-                  support@bridgik.ru
-                </p>
-                <p className="text-sm sm:text-base text-[#aaaaaa]">
-                  {copiedEmail ? 'Адрес скопирован в буфер!' : 'Нажмите, чтобы скопировать почту'}
-                </p>
-              </div>
-            </div>
-            <Copy className="w-5 h-5 text-[#666666] group-hover:text-[#9ac43e] transition-colors" />
-          </button>
-        </div>
-
-        {/* Suggestion Callout banner */}
-        <div className="p-4 sm:p-5 rounded-xl bg-[#1c2214] border border-[#789d2a]/40 text-[#9ac43e] text-base sm:text-lg flex items-start gap-3.5">
-          <span className="font-bold text-xl leading-none shrink-0 mt-0.5">ⓘ</span>
-          <p className="leading-snug text-[#cccccc]">
-            Нашли баг или хотите предложить новую функцию? Приложите снимок экрана или описание вашей операционной системы и браузера — мы оперативно ответим и доработаем сервис.
-          </p>
         </div>
       </div>
     </div>

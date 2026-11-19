@@ -386,7 +386,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAbout: _onOpenAbout, onOpe
                     <strong className="text-white">3. Ограничение ответственности.</strong> Администрация не несёт ответственности за прямой или косвенный ущерб, возникший в результате использования или невозможности использования сервиса.
                   </p>
                   <p>
-                    <strong className="text-white">4. Контакты и обратная связь.</strong> По всем вопросам и предложениям обращайтесь на электронную почту: <strong className="text-[#9ac43e]">support@bridgik.ru</strong>.
+                    <strong className="text-white">4. Контакты и обратная связь.</strong> По всем вопросам и предложениям обращайтесь в Telegram: <a href="https://t.me/IvanchesskO" target="_blank" rel="noopener noreferrer" className="text-[#9ac43e] hover:underline font-bold">@IvanchesskO</a>.
                   </p>
                 </>
               )}

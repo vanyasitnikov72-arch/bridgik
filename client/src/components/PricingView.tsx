@@ -93,17 +93,6 @@ export const PricingView: React.FC<PricingViewProps> = ({
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12 animate-in fade-in duration-200">
-      {/* Top Tag */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-sm font-mono text-[#9ac43e] font-bold px-3 py-1 rounded bg-[#1c2214] border border-[#789d2a]/40">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#789d2a] animate-pulse" />
-          <span>Тарифные планы · Bridgik P2P</span>
-        </div>
-        <span className="text-xs sm:text-sm font-mono text-[#888888]">
-          Zero-Storage · Без скрытых подписок
-        </span>
-      </div>
-
       {/* Hero Header */}
       <div className="mb-10 text-center max-w-3xl mx-auto">
         <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-[#ededed] mb-4 leading-tight">
