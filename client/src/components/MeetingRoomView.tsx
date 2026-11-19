@@ -41,10 +41,13 @@ import {
   CloudRain,
   Flame,
   Code,
+  Package,
 } from 'lucide-react';
 import { FileTransfer, Peer, TextMessage } from '../types/index.js';
 import { sound } from '../utils/sound.js';
 import { ambientSound, AmbientMode } from '../utils/ambientSound.js';
+import { createZipFromBlobUrls } from '../utils/zip.js';
+import { useScreenWakeLock } from '../utils/wakeLock.js';
 import { EmotePicker } from './EmotePicker.js';
 import { ChatMessageBubble } from './ChatMessageBubble.js';
 import { CustomAudioPlayer } from './CustomAudioPlayer.js';
@@ -824,33 +827,38 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   } | null>(null);
 
   const hasActiveTransfer = transfers.some((t) => t.status === 'transferring');
+  useScreenWakeLock(hasActiveTransfer);
 
-  useEffect(() => {
-    if (!hasActiveTransfer) return;
+  const [isZipping, setIsZipping] = useState(false);
+  const downloadableTransfers = transfers.filter(
+    (t) => t.status === 'completed' && Boolean(t.blobUrl)
+  );
 
-    let wakeLockSentinel: any = null;
-    let isCancelled = false;
-
-    if (typeof navigator !== 'undefined' && 'wakeLock' in navigator) {
-      (navigator as any).wakeLock
-        .request('screen')
-        .then((sentinel: any) => {
-          if (isCancelled) {
-            sentinel?.release?.().catch(() => {});
-          } else {
-            wakeLockSentinel = sentinel;
-          }
-        })
-        .catch(() => {});
+  const handleDownloadAllZip = async () => {
+    if (downloadableTransfers.length === 0 || isZipping) return;
+    setIsZipping(true);
+    try {
+      const zipBlob = await createZipFromBlobUrls(
+        downloadableTransfers.map((t) => ({ name: t.name, blobUrl: t.blobUrl! }))
+      );
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `bridgik-meeting-files.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      setFileToast(`Архив bridgik-meeting-files.zip готов (${downloadableTransfers.length} файлов)`);
+      setTimeout(() => setFileToast(null), 3500);
+    } catch (err) {
+      console.error('ZIP creation failed:', err);
+      setFileToast('Не удалось собрать ZIP-архив');
+      setTimeout(() => setFileToast(null), 3500);
+    } finally {
+      setIsZipping(false);
     }
-
-    return () => {
-      isCancelled = true;
-      if (wakeLockSentinel) {
-        wakeLockSentinel.release?.().catch(() => {});
-      }
-    };
-  }, [hasActiveTransfer]);
+  };
 
   const isImageFile = (name: string, mime?: string) => {
     if (mime?.startsWith('image/')) return true;
@@ -1750,13 +1758,31 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                   </span>
                 )}
               </div>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="px-3 py-1.5 rounded-lg bg-[#272727] hover:bg-[#333333] text-[#ededed] text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer border border-[#3a3a3a]"
-              >
-                <Upload className="w-3.5 h-3.5" />
-                <span>Прикрепить файл</span>
-              </button>
+              <div className="flex items-center gap-2">
+                {downloadableTransfers.length >= 2 && (
+                  <button
+                    type="button"
+                    onClick={handleDownloadAllZip}
+                    disabled={isZipping}
+                    className="px-3 py-1.5 rounded-lg bg-[#789d2a] hover:bg-[#8cb632] disabled:opacity-60 text-white text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+                    title="Скачать все файлы комнаты одним ZIP-архивом"
+                  >
+                    <Package className="w-3.5 h-3.5" />
+                    <span>
+                      {isZipping
+                        ? 'Собираем ZIP...'
+                        : `Скачать всё ZIP (${downloadableTransfers.length})`}
+                    </span>
+                  </button>
+                )}
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-3 py-1.5 rounded-lg bg-[#272727] hover:bg-[#333333] text-[#ededed] text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer border border-[#3a3a3a]"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>Прикрепить файл</span>
+                </button>
+              </div>
               <input
                 ref={fileInputRef}
                 type="file"

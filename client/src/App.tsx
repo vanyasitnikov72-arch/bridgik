@@ -60,6 +60,7 @@ import {
 } from './utils/audioAnalyzer.js';
 import { WebRTCManager } from './services/webrtc.js';
 import { sound } from './utils/sound.js';
+import { useScreenWakeLock } from './utils/wakeLock.js';
 
 interface RoomAlertNotice {
   type: 'locked' | 'full' | 'notFound' | 'general' | 'duplicate';
@@ -1817,6 +1818,9 @@ export function App() {
   ).length;
   const otherPeersCount = peers.filter((p) => p.id !== myPeerId).length;
 
+  // Screen Wake Lock API: Keep mobile/tablet/desktop screen awake during active transfers
+  useScreenWakeLock(activeTransfersCount > 0);
+
   const requestLeaveRoom = (source: 'header' | 'button') => {
     if (!roomId) return;
     const hasImportantActivity =
@@ -1831,7 +1835,7 @@ export function App() {
   };
 
   useEffect(() => {
-    const shouldProtectTab = Boolean(roomId);
+    const shouldProtectTab = Boolean(roomId) || activeTransfersCount > 0;
     if (!shouldProtectTab) return;
 
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -1842,8 +1846,7 @@ export function App() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [roomId, activeTransfersCount, otherPeersCount, isMicActive, isScreenActive]);
 
-  const getThemeWrapperClass = () => {
-    useEffect(() => {
+  useEffect(() => {
     let section = 'Мост';
     if (activeTab === 'legal') {
       section = 'Условия';
@@ -1859,6 +1862,8 @@ export function App() {
     }
     document.title = `${section} · bridgik`;
   }, [activeTab, roomId, roomMode, pin]);
+
+  const getThemeWrapperClass = () => {
     return 'bg-[#171717] text-[#f2f2f2] selection:bg-[#789d2a] selection:text-white';
   };
 

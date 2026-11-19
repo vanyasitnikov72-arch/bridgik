@@ -19,6 +19,7 @@ import { NearbyPeer, PairRequest } from '../types/index.js';
 import { BridgeIcon } from './icons/BridgeIcon.js';
 import { RoomLoungeIcon } from './icons/RoomLoungeIcon.js';
 import { sound } from '../utils/sound.js';
+import jsQR from 'jsqr';
 
 interface HomeViewProps {
   onCreateBridge: () => void;
@@ -74,6 +75,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
         scannerStreamRef.current.getTracks().forEach((t) => t.stop());
         scannerStreamRef.current = null;
       }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
       return;
     }
 
@@ -84,7 +88,11 @@ export const HomeView: React.FC<HomeViewProps> = ({
       try {
         setScannerError(null);
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' } },
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
         });
         if (isCancelled) {
           stream.getTracks().forEach((t) => t.stop());
@@ -104,18 +112,49 @@ export const HomeView: React.FC<HomeViewProps> = ({
           } catch {}
         }
 
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
         intervalId = setInterval(async () => {
-          if (!videoRef.current || videoRef.current.readyState < 2) return;
-          try {
-            if (barcodeDetector) {
-              const barcodes = await barcodeDetector.detect(videoRef.current);
-              if (barcodes && barcodes.length > 0) {
-                const rawValue = barcodes[0].rawValue;
-                handleScannedCode(rawValue);
+          if (!videoRef.current || videoRef.current.readyState < 2 || isCancelled) return;
+          const video = videoRef.current;
+
+          // 1. Hardware BarcodeDetector if available (Chromium/Android)
+          if (barcodeDetector) {
+            try {
+              const barcodes = await barcodeDetector.detect(video);
+              if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+                handleScannedCode(barcodes[0].rawValue);
+                return;
               }
+            } catch {
+              // Fallback to jsQR
             }
-          } catch {}
-        }, 350);
+          }
+
+          // 2. jsQR Fallback via canvas (iOS Safari / WebKit and any browser)
+          if (ctx && video.videoWidth > 0 && video.videoHeight > 0) {
+            const maxW = 640;
+            const scale = video.videoWidth > maxW ? maxW / video.videoWidth : 1;
+            const w = Math.floor(video.videoWidth * scale);
+            const h = Math.floor(video.videoHeight * scale);
+
+            if (canvas.width !== w || canvas.height !== h) {
+              canvas.width = w;
+              canvas.height = h;
+            }
+
+            ctx.drawImage(video, 0, 0, w, h);
+            const imgData = ctx.getImageData(0, 0, w, h);
+            const code = jsQR(imgData.data, imgData.width, imgData.height, {
+              inversionAttempts: 'dontInvert',
+            });
+
+            if (code && code.data) {
+              handleScannedCode(code.data);
+            }
+          }
+        }, 250);
       } catch (err: any) {
         setScannerError('Не удалось открыть камеру. Разрешите доступ к камере в браузере.');
       }
@@ -130,6 +169,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
         scannerStreamRef.current.getTracks().forEach((t) => t.stop());
         scannerStreamRef.current = null;
       }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
     };
   }, [isQrScannerOpen]);
 
@@ -139,9 +181,17 @@ export const HomeView: React.FC<HomeViewProps> = ({
     setIsQrScannerOpen(false);
 
     let parsedPin = value.trim();
+    let detectedMode: 'bridge' | 'meeting' = activeMode || 'bridge';
+
     try {
       const url = new URL(value);
-      const queryPin = url.searchParams.get('pin');
+      const queryPin = url.searchParams.get('pin') || url.searchParams.get('room');
+      const queryMode = url.searchParams.get('mode');
+      if (queryMode === 'meeting') {
+        detectedMode = 'meeting';
+      } else if (queryMode === 'bridge') {
+        detectedMode = 'bridge';
+      }
       const pathParts = url.pathname.split('/').filter(Boolean);
       if (queryPin) {
         parsedPin = queryPin;
@@ -150,7 +200,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
       }
     } catch {}
 
-    if (activeMode === 'meeting') {
+    if (detectedMode === 'meeting') {
       onJoinMeeting(parsedPin);
     } else {
       onJoinBridge(parsedPin);
@@ -554,6 +604,17 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 placeholder="Код (напр. 4819)"
                 className="flex-1 min-w-0 w-full bg-[#171717] border border-[#3a3a3a] rounded-lg px-3 sm:px-4 py-2.5 sm:py-3 text-[#ededed] placeholder-[#999999] font-mono text-center tracking-widest text-xl sm:text-2xl outline-none focus:border-[#789d2a] transition-colors"
               />
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  setIsQrScannerOpen(true);
+                }}
+                className="px-3 sm:px-3.5 py-2.5 sm:py-3 bg-[#262626] hover:bg-[#333333] border border-[#3a3a3a] hover:border-[#789d2a] text-[#ededed] hover:text-[#9ac43e] rounded-lg transition-colors cursor-pointer flex items-center justify-center shrink-0"
+                title="Сканировать QR-код камерой"
+              >
+                <Camera className="w-5 h-5 sm:w-6 sm:h-6" />
+              </button>
               <button
                 type="submit"
                 disabled={!pin.trim() || isLoading}

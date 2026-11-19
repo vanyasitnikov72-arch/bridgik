@@ -31,6 +31,7 @@ import { formatBytes, formatSpeed, getAvatarForName } from '../utils/device.js';
 import { extractFilesFromDataTransfer } from '../utils/files.js';
 import { createZipFromBlobUrls } from '../utils/zip.js';
 import { sound } from '../utils/sound.js';
+import { useScreenWakeLock } from '../utils/wakeLock.js';
 import { CustomAudioPlayer } from './CustomAudioPlayer.js';
 import { CustomVideoPlayer } from './CustomVideoPlayer.js';
 
@@ -156,25 +157,12 @@ export const RoomView: React.FC<RoomViewProps> = ({
     (t) => t.status === 'completed' && !t.savedToDisk && Boolean(t.blobUrl)
   );
 
-  // Screen Wake Lock + accidental tab close protection
+  // Screen Wake Lock with auto-recovery on tab resume
+  useScreenWakeLock(hasActiveTransfer);
+
+  // Accidental tab close protection during active file transfers
   useEffect(() => {
     if (!hasActiveTransfer) return;
-
-    let wakeLockSentinel: any = null;
-    let isCancelled = false;
-
-    if (typeof navigator !== 'undefined' && 'wakeLock' in navigator) {
-      (navigator as any).wakeLock
-        .request('screen')
-        .then((sentinel: any) => {
-          if (isCancelled) {
-            sentinel?.release?.().catch(() => {});
-          } else {
-            wakeLockSentinel = sentinel;
-          }
-        })
-        .catch(() => {});
-    }
 
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
@@ -183,11 +171,7 @@ export const RoomView: React.FC<RoomViewProps> = ({
     window.addEventListener('beforeunload', handleBeforeUnload);
 
     return () => {
-      isCancelled = true;
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      if (wakeLockSentinel) {
-        wakeLockSentinel.release?.().catch(() => {});
-      }
     };
   }, [hasActiveTransfer]);
 
