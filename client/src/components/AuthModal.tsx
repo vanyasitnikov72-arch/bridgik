@@ -38,6 +38,19 @@ function generateLicenseKey(): string {
   return `BRDG-${generateCryptoCode(4, alpha)}-${generateCryptoCode(4, alpha)}-${generateCryptoCode(4, alpha)}`;
 }
 
+export function formatLicenseKeyMask(val: string): string {
+  let clean = val.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  if (clean.length === 12 && !clean.startsWith('BRDG')) {
+    clean = 'BRDG' + clean;
+  }
+  clean = clean.slice(0, 16);
+  const parts: string[] = [];
+  for (let i = 0; i < clean.length; i += 4) {
+    parts.push(clean.slice(i, i + 4));
+  }
+  return parts.join('-');
+}
+
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   initialProvider = 'twitch',
@@ -399,15 +412,38 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               ) : (
                 <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs text-[#a8a8a8]">
+                    <span>Формат: BRDG-XXXX-XXXX-XXXX</span>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const text = await navigator.clipboard.readText();
+                          if (text) {
+                            setInputKey(formatLicenseKeyMask(text));
+                            setKeyError('');
+                            sound.playClick();
+                          }
+                        } catch {}
+                      }}
+                      className="text-[#9ac43e] hover:underline flex items-center gap-1 cursor-pointer font-bold"
+                    >
+                      <span>Вставить из буфера</span>
+                    </button>
+                  </div>
                   <input
                     type="text"
                     value={inputKey}
                     onChange={(e) => {
-                      setInputKey(e.target.value.toUpperCase());
+                      setInputKey(formatLicenseKeyMask(e.target.value));
                       setKeyError('');
                     }}
+                    maxLength={19}
                     placeholder="BRDG-XXXX-XXXX-XXXX"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#161616] border border-[#3a3a3a] focus:border-[#789d2a] outline-none text-[#ededed] font-bold tracking-wider"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#161616] border border-[#3a3a3a] focus:border-[#789d2a] outline-none text-[#ededed] font-mono font-bold tracking-wider text-base sm:text-lg uppercase"
                   />
                   {keyError && <p className="text-xs text-[#ef9282]">{keyError}</p>}
                 </div>
