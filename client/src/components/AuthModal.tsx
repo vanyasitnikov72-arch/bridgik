@@ -7,7 +7,6 @@ import {
   Check,
   ExternalLink,
   ShieldCheck,
-  Sparkles,
   RefreshCw,
 } from 'lucide-react';
 import { AuthProvider } from '../types/index.js';
@@ -120,6 +119,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   useEffect(() => {
     if (!isOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
@@ -176,20 +184,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl bg-[#1c1c1c] border border-white/[0.1] shadow-[0_24px_70px_rgba(0,0,0,0.85)] overflow-hidden"
+        className="w-full max-w-md h-[550px] max-h-[92vh] rounded-2xl bg-[#1c1c1c] border border-white/[0.1] shadow-[0_24px_70px_rgba(0,0,0,0.85)] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-5 pt-5 pb-4 border-b border-white/[0.07] flex items-start justify-between gap-3">
+        <div className="px-5 pt-5 pb-4 border-b border-white/[0.07] flex items-start justify-between gap-3 shrink-0">
           <div>
-            <div className="inline-flex items-center gap-1.5 text-xs uppercase font-bold tracking-wider text-[#9ac43e]">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Добровольный профиль</span>
-            </div>
-            <h2 className="text-2xl font-extrabold text-[#ededed] leading-tight mt-0.5">
-              Подключить аккаунт
+            <h2 className="text-xl sm:text-2xl font-extrabold text-[#ededed] leading-tight">
+              Вход и создание профиля
             </h2>
-            <p className="text-sm text-[#a8a8a8] mt-0.5">
+            <p className="text-xs sm:text-sm text-[#a8a8a8] mt-1">
               Для передачи файлов вход не нужен — профиль открывает Sticky Bridge и кастомизацию.
             </p>
           </div>
@@ -204,7 +208,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </div>
 
         {/* Provider Tabs */}
-        <div className="px-5 pt-4">
+        <div className="px-5 pt-3.5 shrink-0">
           <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-[#141414] border border-white/[0.06]">
             <button
               type="button"
@@ -257,9 +261,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </div>
 
         {/* Tab Body */}
-        <div className="p-5 space-y-4">
+        <div className="p-5 flex-1 flex flex-col justify-between overflow-y-auto">
           {tab === 'yandex' && (
-            <div className="space-y-4">
+            <div className="flex-1 flex flex-col justify-between">
               <div className="p-4 rounded-xl bg-[#222222] border border-white/[0.06] space-y-2">
                 <div className="flex items-center gap-2">
                   <YandexIcon className="w-5 h-5 shrink-0" />
@@ -272,53 +276,43 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </p>
               </div>
 
-              <a
-                href="/api/auth/yandex"
-                onClick={() => sound.playClick()}
-                className="w-full py-3 px-4 rounded-xl bg-[#FC3F1D] hover:bg-[#e03414] text-white font-extrabold text-lg transition-all cursor-pointer flex items-center justify-center gap-2.5 shadow-lg shadow-[#FC3F1D]/25 active:scale-[0.99]"
-              >
-                <YandexIcon className="w-5 h-5" />
-                <span>Войти через Яндекс ID</span>
-                <ExternalLink className="w-4 h-4 opacity-80" />
-              </a>
+              <div className="space-y-2.5 mt-auto pt-4">
+                <a
+                  href="/api/auth/yandex"
+                  onClick={() => sound.playClick()}
+                  className="w-full py-3 px-4 rounded-xl bg-[#FC3F1D] hover:bg-[#e03414] text-white font-extrabold text-lg transition-all cursor-pointer flex items-center justify-center gap-2.5 shadow-lg shadow-[#FC3F1D]/25 active:scale-[0.99]"
+                >
+                  <YandexIcon className="w-5 h-5" />
+                  <span>Войти через Яндекс ID</span>
+                  <ExternalLink className="w-4 h-4 opacity-80" />
+                </a>
 
-              <p className="text-xs text-center text-[#888888]">
-                Официальная авторизация Яндекс ID. Никаких паролей на Bridgik не вводится.
-              </p>
+                <p className="text-xs text-center text-[#888888]">
+                  Официальная авторизация Яндекс ID. Никаких паролей на Bridgik не вводится.
+                </p>
+              </div>
             </div>
           )}
 
           {tab === 'telegram' && (
-            <div className="space-y-4">
-              <div className="p-4 rounded-xl bg-[#222222] border border-white/[0.06] space-y-2">
+            <div className="flex-1 flex flex-col justify-between">
+              <div className="p-3.5 rounded-xl bg-[#222222] border border-white/[0.06] space-y-1.5">
                 <div className="flex items-center gap-2">
                   <TelegramIcon className="w-5 h-5 text-[#229ED9] shrink-0" />
                   <p className="text-base font-bold text-[#ededed]">
                     Вход через Telegram (@{botUsername})
                   </p>
                 </div>
-                <p className="text-sm text-[#a8a8a8]">
-                  Нажмите кнопку ниже, чтобы открыть бота в Telegram, или отсканируйте QR-код камерой телефона.
+                <p className="text-xs sm:text-sm text-[#a8a8a8]">
+                  Нажмите кнопку ниже или отсканируйте QR-код камерой телефона.
                 </p>
               </div>
 
-              <a
-                href={effectiveBotUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => sound.playClick()}
-                className="w-full py-3 px-4 rounded-xl bg-[#229ED9] hover:bg-[#1b8ec4] text-white font-extrabold text-lg transition-all cursor-pointer flex items-center justify-center gap-2.5 shadow-lg shadow-[#229ED9]/25 active:scale-[0.99]"
-              >
-                <TelegramIcon className="w-5 h-5" />
-                <span>Войти через Telegram</span>
-                <ExternalLink className="w-4 h-4 opacity-80" />
-              </a>
-
-              <div className="p-4 rounded-xl bg-[#161616] border border-white/[0.06] flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
-                <div className="p-2.5 bg-white rounded-xl shadow-md shrink-0">
+              <div className="p-3.5 rounded-xl bg-[#161616] border border-white/[0.06] flex items-center gap-4 text-left my-auto">
+                <div className="p-2 bg-white rounded-xl shadow-md shrink-0">
                   <QRCodeSVG
                     value={effectiveBotUrl || 'https://t.me/bridgik_login_bot'}
-                    size={110}
+                    size={96}
                     level="M"
                     includeMargin={false}
                   />
@@ -328,138 +322,156 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     Или отсканируйте QR-код
                   </p>
                   <p className="text-xs text-[#888888] leading-relaxed">
-                    Откройте камеру телефона, перейдите в бота и нажмите <strong>«Запустить» (Start)</strong> — сайт мгновенно авторизуется без паролей.
+                    Откройте камеру телефона, перейдите в бота и нажмите <strong>«Запустить» (Start)</strong>.
                   </p>
                 </div>
+              </div>
+
+              <div className="space-y-2 mt-auto pt-2">
+                <a
+                  href={effectiveBotUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => sound.playClick()}
+                  className="w-full py-3 px-4 rounded-xl bg-[#229ED9] hover:bg-[#1b8ec4] text-white font-extrabold text-lg transition-all cursor-pointer flex items-center justify-center gap-2.5 shadow-lg shadow-[#229ED9]/25 active:scale-[0.99]"
+                >
+                  <TelegramIcon className="w-5 h-5" />
+                  <span>Войти через Telegram</span>
+                  <ExternalLink className="w-4 h-4 opacity-80" />
+                </a>
               </div>
             </div>
           )}
 
           {tab === 'key' && (
-            <div className="space-y-3.5">
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setKeyMode('create');
-                    setKeyError('');
-                  }}
-                  className={`flex-1 py-2 rounded-lg text-sm font-bold border cursor-pointer transition-colors ${
-                    keyMode === 'create'
-                      ? 'bg-[#283216] border-[#789d2a] text-[#ededed]'
-                      : 'bg-[#222222] border-[#333333] text-[#a8a8a8]'
-                  }`}
-                >
-                  Создать новый
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setKeyMode('enter');
-                    setKeyError('');
-                  }}
-                  className={`flex-1 py-2 rounded-lg text-sm font-bold border cursor-pointer transition-colors ${
-                    keyMode === 'enter'
-                      ? 'bg-[#283216] border-[#789d2a] text-[#ededed]'
-                      : 'bg-[#222222] border-[#333333] text-[#a8a8a8]'
-                  }`}
-                >
-                  У меня есть ключ
-                </button>
-              </div>
-
-              {keyMode === 'create' ? (
-                <div className="p-3.5 rounded-xl bg-[#161616] border border-[#333333] space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-[#a8a8a8]">
-                      Анонимный пропуск (без соцсетей и почты)
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        sound.playClick();
-                        setGeneratedKey(generateLicenseKey());
-                      }}
-                      className="text-xs text-[#9ac43e] hover:underline flex items-center gap-1 cursor-pointer"
-                    >
-                      <RefreshCw className="w-3 h-3" />
-                      <span>Сменить</span>
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between gap-2 bg-[#222222] px-3 py-2 rounded-lg border border-white/[0.06]">
-                    <span className="text-base sm:text-lg font-extrabold tracking-wider text-[#ededed] truncate">
-                      {generatedKey}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleCopyKey}
-                      className="p-1.5 rounded-md hover:bg-white/10 text-[#9ac43e] cursor-pointer shrink-0"
-                      title="Скопировать ключ"
-                    >
-                      {copiedKey ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                    </button>
-                  </div>
-                  <p className="text-xs text-[#888888]">
-                    Сохрани этот ключ — по нему ты восстановишь Sticky Bridge и покупки на любом устройстве.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs text-[#a8a8a8]">
-                    <span>Формат: BRDG-XXXX-XXXX-XXXX</span>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          const text = await navigator.clipboard.readText();
-                          if (text) {
-                            setInputKey(formatLicenseKeyMask(text));
-                            setKeyError('');
-                            sound.playClick();
-                          }
-                        } catch {}
-                      }}
-                      className="text-[#9ac43e] hover:underline flex items-center gap-1 cursor-pointer font-bold"
-                    >
-                      <span>Вставить из буфера</span>
-                    </button>
-                  </div>
-                  <input
-                    type="text"
-                    value={inputKey}
-                    onChange={(e) => {
-                      setInputKey(formatLicenseKeyMask(e.target.value));
+            <div className="flex-1 flex flex-col justify-between">
+              <div className="space-y-3.5">
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setKeyMode('create');
                       setKeyError('');
                     }}
-                    maxLength={19}
-                    placeholder="BRDG-XXXX-XXXX-XXXX"
-                    autoComplete="off"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#161616] border border-[#3a3a3a] focus:border-[#789d2a] outline-none text-[#ededed] font-mono font-bold tracking-wider text-base sm:text-lg uppercase"
-                  />
-                  {keyError && <p className="text-xs text-[#ef9282]">{keyError}</p>}
+                    className={`flex-1 py-2 rounded-lg text-sm font-bold border cursor-pointer transition-colors ${
+                      keyMode === 'create'
+                        ? 'bg-[#283216] border-[#789d2a] text-[#ededed]'
+                        : 'bg-[#222222] border-[#333333] text-[#a8a8a8]'
+                    }`}
+                  >
+                    Создать новый
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setKeyMode('enter');
+                      setKeyError('');
+                    }}
+                    className={`flex-1 py-2 rounded-lg text-sm font-bold border cursor-pointer transition-colors ${
+                      keyMode === 'enter'
+                        ? 'bg-[#283216] border-[#789d2a] text-[#ededed]'
+                        : 'bg-[#222222] border-[#333333] text-[#a8a8a8]'
+                    }`}
+                  >
+                    У меня есть ключ
+                  </button>
                 </div>
-              )}
 
-              <button
-                type="button"
-                onClick={handleKeySubmit}
-                disabled={isSubmitting}
-                className="w-full py-3 px-4 rounded-xl bg-[#789d2a] hover:bg-[#8cb632] disabled:opacity-50 text-white font-extrabold text-lg transition-colors cursor-pointer"
-              >
-                {isSubmitting
-                  ? 'Подключение...'
-                  : keyMode === 'create'
-                  ? 'Сохранить и войти по ключу'
-                  : 'Войти по ключу'}
-              </button>
+                {keyMode === 'create' ? (
+                  <div className="p-3.5 rounded-xl bg-[#161616] border border-[#333333] space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-[#a8a8a8]">
+                        Анонимный пропуск (без соцсетей и почты)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          sound.playClick();
+                          setGeneratedKey(generateLicenseKey());
+                        }}
+                        className="text-xs text-[#9ac43e] hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        <span>Сменить</span>
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between gap-2 bg-[#222222] px-3 py-2 rounded-lg border border-white/[0.06]">
+                      <span className="text-base sm:text-lg font-extrabold tracking-wider text-[#ededed] truncate">
+                        {generatedKey}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleCopyKey}
+                        className="p-1.5 rounded-md hover:bg-white/10 text-[#9ac43e] cursor-pointer shrink-0"
+                        title="Скопировать ключ"
+                      >
+                        {copiedKey ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <p className="text-xs text-[#888888]">
+                      Сохрани этот ключ — по нему ты восстановишь Sticky Bridge и покупки на любом устройстве.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs text-[#a8a8a8]">
+                      <span>Формат: BRDG-XXXX-XXXX-XXXX</span>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const text = await navigator.clipboard.readText();
+                            if (text) {
+                              setInputKey(formatLicenseKeyMask(text));
+                              setKeyError('');
+                              sound.playClick();
+                            }
+                          } catch {}
+                        }}
+                        className="text-[#9ac43e] hover:underline flex items-center gap-1 cursor-pointer font-bold"
+                      >
+                        <span>Вставить из буфера</span>
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={inputKey}
+                      onChange={(e) => {
+                        setInputKey(formatLicenseKeyMask(e.target.value));
+                        setKeyError('');
+                      }}
+                      maxLength={19}
+                      placeholder="BRDG-XXXX-XXXX-XXXX"
+                      autoComplete="off"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#161616] border border-[#3a3a3a] focus:border-[#789d2a] outline-none text-[#ededed] font-mono font-bold tracking-wider text-base sm:text-lg uppercase"
+                    />
+                    {keyError && <p className="text-xs text-[#ef9282]">{keyError}</p>}
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-3 mt-auto">
+                <button
+                  type="button"
+                  onClick={handleKeySubmit}
+                  disabled={isSubmitting}
+                  className="w-full py-3 px-4 rounded-xl bg-[#789d2a] hover:bg-[#8cb632] disabled:opacity-50 text-white font-extrabold text-lg transition-colors cursor-pointer"
+                >
+                  {isSubmitting
+                    ? 'Подключение...'
+                    : keyMode === 'create'
+                    ? 'Сохранить и войти по ключу'
+                    : 'Войти по ключу'}
+                </button>
+              </div>
             </div>
           )}
         </div>
 
         {/* 152-FZ Footer */}
-        <div className="px-5 py-3.5 bg-[#161616] border-t border-white/[0.06] flex items-start gap-2 text-xs text-[#888888]">
+        <div className="px-5 py-3.5 bg-[#161616] border-t border-white/[0.06] flex items-start gap-2 text-xs text-[#888888] shrink-0">
           <ShieldCheck className="w-4 h-4 text-[#789d2a] shrink-0 mt-0.5" />
           <p className="leading-snug">
             Входя в профиль, вы принимаете{' '}
