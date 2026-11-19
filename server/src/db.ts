@@ -3,6 +3,7 @@ import path from 'path';
 import crypto from 'crypto';
 // @ts-ignore
 import { DatabaseSync } from 'node:sqlite';
+import { deleteFromS3 } from './s3.js';
 import {
   DbUser,
   DbDevice,
@@ -607,12 +608,17 @@ export function deleteDropRecord(id: string): boolean {
     | undefined;
 
   if (row?.file_path) {
-    try {
-      if (fs.existsSync(row.file_path)) {
-        fs.unlinkSync(row.file_path);
+    if (row.file_path.startsWith('s3://')) {
+      const s3Key = row.file_path.replace(/^s3:\/\/[^/]+\//, '');
+      deleteFromS3(s3Key).catch(() => {});
+    } else {
+      try {
+        if (fs.existsSync(row.file_path)) {
+          fs.unlinkSync(row.file_path);
+        }
+      } catch (e) {
+        console.warn(`[Drop] Failed to unlink file ${row.file_path}:`, e);
       }
-    } catch (e) {
-      console.warn(`[Drop] Failed to unlink file ${row.file_path}:`, e);
     }
   }
 
@@ -632,12 +638,17 @@ export function cleanExpiredDrops(): number {
   if (!rows || rows.length === 0) return 0;
 
   for (const row of rows) {
-    try {
-      if (fs.existsSync(row.file_path)) {
-        fs.unlinkSync(row.file_path);
+    if (row.file_path.startsWith('s3://')) {
+      const s3Key = row.file_path.replace(/^s3:\/\/[^/]+\//, '');
+      deleteFromS3(s3Key).catch(() => {});
+    } else {
+      try {
+        if (fs.existsSync(row.file_path)) {
+          fs.unlinkSync(row.file_path);
+        }
+      } catch (e) {
+        console.warn(`[Drop] Failed to delete expired file ${row.file_path}:`, e);
       }
-    } catch (e) {
-      console.warn(`[Drop] Failed to delete expired file ${row.file_path}:`, e);
     }
   }
 

@@ -38,6 +38,7 @@ import {
   unlinkProvider,
 } from './db.js';
 import { stickyManager } from './stickyBridge.js';
+import { isS3Enabled, uploadStreamToS3, getS3DownloadUrl, deleteFromS3 } from './s3.js';
 import { createYooKassaPayment, getYooKassaPayment } from './yookassa.js';
 import {
   getYandexClientCredentials,
@@ -895,8 +896,8 @@ function getTotalDropsPoolSize(): number {
   }
 }
 
-// 1. Upload file to Drop buffer (streamed directly to disk)
-app.post('/api/drop/upload', (req, res) => {
+// 1. Upload file to Drop buffer (streamed directly to S3 or local disk)
+app.post('/api/drop/upload', async (req, res) => {
   const rawName = (req.headers['x-file-name'] as string) || 'file.bin';
   let fileName = 'file.bin';
   try {
@@ -909,14 +910,6 @@ app.post('/api/drop/upload', (req, res) => {
     return res.status(413).json({
       success: false,
       error: 'Размер файла превышает лимит буфера Drop & Go (максимум 500 МБ)',
-    });
-  }
-
-  const currentPool = getTotalDropsPoolSize();
-  if (currentPool + Math.max(fileSize, 1024 * 1024) > MAX_TOTAL_DROPS_POOL) {
-    return res.status(507).json({
-      success: false,
-      error: 'Офлайн-буфер сервера временно заполнен. Пожалуйста, используйте прямую передачу P2P (Мост) или подождите, пока адресаты скачают полученные файлы.',
     });
   }
 
@@ -939,6 +932,78 @@ app.post('/api/drop/upload', (req, res) => {
 
   const dropId = crypto.randomBytes(6).toString('hex');
   const safeExt = path.extname(fileName) || '.bin';
+
+  // If Cloud.ru S3 Object Storage is configured, stream directly to S3 (0 bytes on server SSD!)
+  if (isS3Enabled) {
+    const s3Key = `${dropId}${safeExt}`;
+    const s3Bucket = process.env.S3_BUCKET || 'bridgik-drops';
+    const s3Uri = `s3://${s3Bucket}/${s3Key}`;
+    let bytesWritten = 0;
+    let exceeded = false;
+
+    req.on('data', (chunk) => {
+      bytesWritten += chunk.length;
+      if (bytesWritten > MAX_DROP_SIZE && !exceeded) {
+        exceeded = true;
+        req.destroy();
+        deleteFromS3(s3Key).catch(() => {});
+        if (!res.headersSent) {
+          res.status(413).json({
+            success: false,
+            error: 'Размер файла превышает лимит буфера Drop & Go (максимум 500 МБ)',
+          });
+        }
+      }
+    });
+
+    try {
+      await uploadStreamToS3(req, s3Key, mimeType);
+      if (exceeded) return;
+
+      const expiresAt = Date.now() + ttlHours * 60 * 60 * 1000;
+      const finalSize = fileSize > 0 ? fileSize : bytesWritten;
+
+      const dropRecord = createDropRecord({
+        id: dropId,
+        user_id: userId,
+        target_device_id: targetDeviceId,
+        file_name: fileName,
+        file_size: finalSize,
+        mime_type: mimeType,
+        file_path: s3Uri,
+        sender_name: senderName,
+        expires_at: expiresAt,
+      });
+
+      const dto = toDropDto(dropRecord);
+
+      if (userId && targetDeviceId) {
+        const targetSocketId = stickyManager.getDeviceSocketId(userId, targetDeviceId);
+        if (targetSocketId) {
+          io.to(targetSocketId).emit('sticky-new-drop', dto);
+        }
+      }
+
+      console.log(`[Drop S3] Successfully uploaded '${fileName}' (${finalSize} bytes) to S3 bucket '${s3Bucket}'`);
+      return res.json({ success: true, drop: dto });
+    } catch (err: any) {
+      console.error('[Drop S3 Upload Error]', err);
+      if (!res.headersSent) {
+        return res.status(500).json({ success: false, error: 'Ошибка сохранения файла в облачном хранилище' });
+      }
+      return;
+    }
+  }
+
+  // Fallback to local server SSD storage with safety pool limit
+  const currentPool = getTotalDropsPoolSize();
+  if (currentPool + Math.max(fileSize, 1024 * 1024) > MAX_TOTAL_DROPS_POOL) {
+    return res.status(507).json({
+      success: false,
+      error: 'Офлайн-буфер сервера временно заполнен. Пожалуйста, используйте прямую передачу P2P (Мост) или подождите, пока адресаты скачают полученные файлы.',
+    });
+  }
+
   const filePath = path.join(DROPS_DIR, `${dropId}${safeExt}`);
 
   const writeStream = fs.createWriteStream(filePath);
@@ -1032,13 +1097,41 @@ app.get('/api/drop/:id', (req, res) => {
 });
 
 // 4. Download a Drop file
-app.get('/api/drop/:id/download', (req, res) => {
+app.get('/api/drop/:id/download', async (req, res) => {
   const drop = getDropRecord(req.params.id);
-  if (!drop || drop.expires_at < Date.now() || !fs.existsSync(drop.file_path)) {
+  if (!drop || drop.expires_at < Date.now()) {
     return res.status(404).send('Файл не найден или срок хранения истёк');
   }
 
   incrementDropDownload(drop.id);
+
+  // Direct S3 download via presigned URL (0 bytes on server CPU/bandwidth)
+  if (drop.file_path.startsWith('s3://')) {
+    const s3Key = drop.file_path.replace(/^s3:\/\/[^/]+\//, '');
+    try {
+      const downloadUrl = await getS3DownloadUrl(s3Key, drop.file_name);
+
+      if (drop.target_device_id) {
+        setTimeout(() => {
+          try {
+            deleteDropRecord(drop.id);
+          } catch (e) {
+            console.warn('[Drop] Auto-cleanup S3 drop after download failed:', e);
+          }
+        }, 10000);
+      }
+
+      return res.redirect(downloadUrl);
+    } catch (e) {
+      console.error('[Drop S3 Download Error]', e);
+      return res.status(500).send('Ошибка формирования ссылки на скачивание');
+    }
+  }
+
+  // Fallback to local server SSD file
+  if (!fs.existsSync(drop.file_path)) {
+    return res.status(404).send('Файл не найден на сервере');
+  }
 
   res.setHeader('Content-Type', drop.mime_type || 'application/octet-stream');
   res.setHeader('Content-Length', drop.file_size);
