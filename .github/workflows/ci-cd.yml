@@ -1,0 +1,114 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+    branches:
+      - main
+      - dev
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: Build & Verify (CI)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: 'client/package-lock.json'
+
+      - name: Install & Build Client
+        run: |
+          cd client
+          npm ci
+          npm run build
+
+      - name: Install & Build Server
+        run: |
+          cd server
+          npm ci
+          npm run build
+
+      - name: Create Deployment Bundle
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: |
+          tar -czf deploy.tar.gz \
+            client/dist \
+            server/dist \
+            server/package.json \
+            server/package-lock.json
+
+      - name: Upload Deployment Artifact
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bridgik-deploy-bundle
+          path: deploy.tar.gz
+          retention-days: 1
+
+  deploy:
+    name: Deploy to Production VDS (CD)
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download Deployment Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: bridgik-deploy-bundle
+
+      - name: Upload Bundle to Server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          source: 'deploy.tar.gz'
+          target: '/tmp'
+
+      - name: Deploy & Restart App via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          script: |
+            set -e
+            echo "📦 Extracting release into /var/www/bridgik..."
+            if [ -f /tmp/deploy.tar.gz ]; then
+              tar -xzf /tmp/deploy.tar.gz -C /var/www/bridgik/
+              rm -f /tmp/deploy.tar.gz
+            else
+              find /tmp -name "deploy.tar.gz" -exec tar -xzf {} -C /var/www/bridgik/ \; -exec rm -f {} +
+            fi
+
+            echo "📥 Updating server dependencies..."
+            cd /var/www/bridgik/server
+            npm install --omit=dev
+
+            echo "🔄 Reloading PM2 process..."
+            pm2 reload bridgik || pm2 start dist/index.js --name bridgik
+            pm2 save
+
+            echo "🌐 Reloading Nginx..."
+            sudo systemctl reload nginx
+
+            echo "🏥 Verifying health endpoint..."
+            sleep 2
+            curl -f http://127.0.0.1:3001/api/health
+            echo "✨ Deployment to bridgik.ru completed successfully!"
