@@ -9,6 +9,16 @@ import fs from 'fs';
 import os from 'os';
 import { RoomManager } from './roomManager.js';
 import { PeerInfo } from './types.js';
+import {
+  createUser,
+  getUserByLicenseKey,
+  getUserById,
+  updateUserProfile,
+  registerOrUpdateDevice,
+  deleteDevice,
+  toUserProfileDto,
+} from './db.js';
+import { stickyManager } from './stickyBridge.js';
 
 export function getLocalLanIp(): string {
   const interfaces = os.networkInterfaces();
@@ -264,6 +274,130 @@ app.get('/api/rooms/:idOrPin', (req, res) => {
   });
 });
 
+// ==========================================
+// USER AUTH & PROFILE API
+// ==========================================
+
+function extractLicenseKey(req: express.Request): string | null {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.slice(7).trim();
+  }
+  if (typeof req.query.key === 'string' && req.query.key.trim()) {
+    return req.query.key.trim();
+  }
+  return null;
+}
+
+// 1. Create a new user with an anonymous license key
+app.post('/api/auth/key/create', (req, res) => {
+  try {
+    const { displayName, avatarUrl, defaultRoomTheme, deviceId, deviceType, deviceName, browserLabel } =
+      req.body || {};
+    const user = createUser({ displayName, avatarUrl, defaultRoomTheme });
+    if (deviceId) {
+      registerOrUpdateDevice(user.id, {
+        id: deviceId,
+        name: deviceName,
+        deviceType,
+        browserLabel,
+      });
+    }
+    const onlineSet = stickyManager.getOnlineDeviceIds(user.id);
+    const profile = toUserProfileDto(user, deviceId, onlineSet);
+    return res.status(201).json({ success: true, key: user.license_key, user: profile });
+  } catch (err: any) {
+    console.error('Error creating user key:', err);
+    return res.status(500).json({ error: 'Не удалось создать ключ' });
+  }
+});
+
+// 2. Login by license key
+app.post('/api/auth/key/login', (req, res) => {
+  try {
+    const { key, deviceId, deviceType, deviceName, browserLabel } = req.body || {};
+    if (!key || typeof key !== 'string') {
+      return res.status(400).json({ error: 'Укажите ключ' });
+    }
+    const user = getUserByLicenseKey(key);
+    if (!user) {
+      return res.status(404).json({ error: 'Ключ не найден. Проверьте формат (BRDG-XXXX-XXXX-XXXX)' });
+    }
+    if (deviceId) {
+      registerOrUpdateDevice(user.id, {
+        id: deviceId,
+        name: deviceName,
+        deviceType,
+        browserLabel,
+      });
+    }
+    const onlineSet = stickyManager.getOnlineDeviceIds(user.id);
+    const profile = toUserProfileDto(user, deviceId, onlineSet);
+    return res.json({ success: true, user: profile });
+  } catch (err: any) {
+    console.error('Error logging in with key:', err);
+    return res.status(500).json({ error: 'Ошибка входа по ключу' });
+  }
+});
+
+// 3. Get current profile + devices
+app.get('/api/user/profile', (req, res) => {
+  const key = extractLicenseKey(req);
+  if (!key) {
+    return res.status(401).json({ error: 'Не авторизован: отсутствует ключ' });
+  }
+  const user = getUserByLicenseKey(key);
+  if (!user) {
+    return res.status(401).json({ error: 'Неверный ключ' });
+  }
+  const currentDeviceId = typeof req.query.deviceId === 'string' ? req.query.deviceId : undefined;
+  const onlineSet = stickyManager.getOnlineDeviceIds(user.id);
+  const profile = toUserProfileDto(user, currentDeviceId, onlineSet);
+  return res.json({ success: true, user: profile });
+});
+
+// 4. Update profile settings
+app.patch('/api/user/profile', (req, res) => {
+  const key = extractLicenseKey(req);
+  if (!key) {
+    return res.status(401).json({ error: 'Не авторизован: отсутствует ключ' });
+  }
+  const user = getUserByLicenseKey(key);
+  if (!user) {
+    return res.status(401).json({ error: 'Неверный ключ' });
+  }
+  const { displayName, avatarUrl, activeFrame, activeEmote, defaultRoomTheme } = req.body || {};
+  const updated = updateUserProfile(user.id, {
+    displayName,
+    avatarUrl,
+    activeFrame,
+    activeEmote,
+    defaultRoomTheme,
+  });
+  if (!updated) {
+    return res.status(500).json({ error: 'Не удалось обновить профиль' });
+  }
+  const currentDeviceId = typeof req.query.deviceId === 'string' ? req.query.deviceId : undefined;
+  const onlineSet = stickyManager.getOnlineDeviceIds(user.id);
+  const profile = toUserProfileDto(updated, currentDeviceId, onlineSet);
+  return res.json({ success: true, user: profile });
+});
+
+// 5. Delete / unlink a device
+app.delete('/api/user/devices/:deviceId', (req, res) => {
+  const key = extractLicenseKey(req);
+  if (!key) {
+    return res.status(401).json({ error: 'Не авторизован: отсутствует ключ' });
+  }
+  const user = getUserByLicenseKey(key);
+  if (!user) {
+    return res.status(401).json({ error: 'Неверный ключ' });
+  }
+  const deviceId = req.params.deviceId;
+  const deleted = deleteDevice(user.id, deviceId);
+  return res.json({ success: deleted });
+});
+
 const clientDistPath = path.join(__dirname, '../../client/dist');
 if (fs.existsSync(clientDistPath)) {
   app.use(express.static(clientDistPath));
@@ -298,6 +432,96 @@ io.on('connection', (socket) => {
       callback({ success: verified, isAdmin: socket.data.isAdmin });
     }
   });
+
+  // --- Sticky Bridge Realtime Devices ---
+  socket.on(
+    'auth-device',
+    (
+      data: {
+        licenseKey: string;
+        deviceId: string;
+        name?: string;
+        deviceType?: any;
+        browserLabel?: string;
+      },
+      callback?: (res: any) => void
+    ) => {
+      if (!data?.licenseKey || !data?.deviceId) {
+        if (typeof callback === 'function') {
+          callback({ success: false, error: 'Missing licenseKey or deviceId' });
+        }
+        return;
+      }
+      const user = getUserByLicenseKey(data.licenseKey);
+      if (!user) {
+        if (typeof callback === 'function') {
+          callback({ success: false, error: 'Invalid license key' });
+        }
+        return;
+      }
+
+      registerOrUpdateDevice(user.id, {
+        id: data.deviceId,
+        name: data.name,
+        deviceType: data.deviceType,
+        browserLabel: data.browserLabel,
+      });
+
+      stickyManager.registerDevice(io, socket, user.id, data.deviceId);
+
+      const onlineSet = stickyManager.getOnlineDeviceIds(user.id);
+      const profile = toUserProfileDto(user, data.deviceId, onlineSet);
+
+      if (typeof callback === 'function') {
+        callback({ success: true, user: profile });
+      }
+    }
+  );
+
+  socket.on(
+    'sticky-pair-request',
+    (
+      data: {
+        targetDeviceId: string;
+        fileMeta?: { name?: string; size?: number; count?: number };
+      },
+      callback?: (res: any) => void
+    ) => {
+      const socketInfo = stickyManager.getSocketInfo(socket.id);
+      if (!socketInfo) {
+        if (typeof callback === 'function') {
+          callback({ success: false, error: 'Sender not authenticated in Sticky Bridge' });
+        }
+        return;
+      }
+
+      const targetSocketId = stickyManager.getDeviceSocketId(
+        socketInfo.userId,
+        data.targetDeviceId
+      );
+
+      if (!targetSocketId) {
+        if (typeof callback === 'function') {
+          callback({ success: false, error: 'Целевое устройство сейчас не в сети' });
+        }
+        return;
+      }
+
+      const room = roomManager.createRoom();
+      room.mode = 'bridge';
+
+      io.to(targetSocketId).emit('sticky-incoming-pair', {
+        roomId: room.id,
+        pin: room.pin,
+        fromDeviceId: socketInfo.deviceId,
+        fileMeta: data.fileMeta,
+      });
+
+      if (typeof callback === 'function') {
+        callback({ success: true, roomId: room.id, pin: room.pin });
+      }
+    }
+  );
 
   // 0. Local Network Discovery
   socket.on('lobby-join', (data: { name: string; deviceType: any; statusEmote?: string }) => {
@@ -893,6 +1117,7 @@ io.on('connection', (socket) => {
 
   // 6. Disconnect
   socket.on('disconnect', () => {
+    stickyManager.unregisterDevice(io, socket.id);
     if (socket.data.knockingRoomId) {
       const kRoom = roomManager.getRoom(socket.data.knockingRoomId);
       if (kRoom) {

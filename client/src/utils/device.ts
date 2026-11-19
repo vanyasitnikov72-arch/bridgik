@@ -62,6 +62,20 @@ export function getBrowserDeviceId(): string {
   return id;
 }
 
+export function getBrowserLabel(): string {
+  if (typeof window === 'undefined') return 'Браузер';
+  const ua = navigator.userAgent;
+  let browser = 'Браузер';
+  if (/Edg\//i.test(ua)) browser = 'Edge';
+  else if (/Chrome\//i.test(ua) && !/Chromium\//i.test(ua)) browser = 'Chrome';
+  else if (/Safari\//i.test(ua) && !/Chrome\//i.test(ua)) browser = 'Safari';
+  else if (/Firefox\//i.test(ua)) browser = 'Firefox';
+  else if (/Opera|OPR\//i.test(ua)) browser = 'Opera';
+
+  const os = detectDeviceName();
+  return `${browser} (${os})`;
+}
+
 export const MASCOT_AVATARS = [
   { id: 'dino', name: 'Кибер-Дино', src: '/mascots/dino_avatar.jpg' },
   { id: 'frog', name: 'Жабик Бриджик', src: '/mascots/frog_avatar.jpg' },

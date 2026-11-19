@@ -44,6 +44,7 @@ import {
   generateRandomName,
   getRandomAvatar,
   getBrowserDeviceId,
+  getBrowserLabel,
 } from './utils/device.js';
 import {
   getSharedAudioContext,
@@ -127,70 +128,175 @@ export function App() {
     setUserProfile(next);
     if (next) {
       localStorage.setItem('bridgik_demo_profile', JSON.stringify(next));
+      if (next.licenseKeyPreview) {
+        localStorage.setItem('bridgik_license_key', next.licenseKeyPreview);
+      }
     } else {
       localStorage.removeItem('bridgik_demo_profile');
+      localStorage.removeItem('bridgik_license_key');
     }
   };
 
-  const handleAuthSuccess = (provider: AuthProvider, payload?: { key?: string }) => {
-    const base: UserProfile = userProfile || {
-      id: 'preview-user-1',
-      displayName: provider === 'twitch' ? 'tyypicall' : userName,
-      avatarUrl: userAvatar,
-      tier: 'free',
-      providers: {},
-      unlockedFrames: ['none'],
-      unlockedThemes: ['cyber-lounge', 'cozy-loft', 'skyline-penthouse', 'retro-lounge'],
-      activeFrame: 'none',
-      activeEmote: statusEmote,
-      defaultRoomTheme: roomTheme,
-      s3QuotaUsedMb: 0,
-      s3QuotaLimitMb: 0,
-      devices: [
-        {
-          id: getBrowserDeviceId(),
-          name: deviceType === 'mobile' ? 'Мой смартфон' : 'Этот ПК',
-          deviceType,
-          browserLabel: 'Текущий браузер',
-          isCurrent: true,
-          isOnline: true,
-          lastSeenAt: Date.now(),
+  const patchBackendProfile = async (updates: {
+    displayName?: string;
+    avatarUrl?: string;
+    activeFrame?: any;
+    activeEmote?: string | null;
+    defaultRoomTheme?: string;
+  }) => {
+    const key = userProfile?.licenseKeyPreview || localStorage.getItem('bridgik_license_key');
+    if (!key) return;
+    try {
+      const deviceId = getBrowserDeviceId();
+      const res = await fetch(`/api/user/profile?deviceId=${encodeURIComponent(deviceId)}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${key}`,
         },
-        {
-          id: 'demo-second-device',
-          name: deviceType === 'mobile' ? 'Домашний ПК' : 'iPhone Safari',
-          deviceType: deviceType === 'mobile' ? 'desktop' : 'mobile',
-          browserLabel: deviceType === 'mobile' ? 'Chrome Windows' : 'Safari iOS',
-          isCurrent: false,
-          isOnline: true,
-          lastSeenAt: Date.now() - 120000,
-        },
-      ],
-    };
-
-    const nextProviders = { ...base.providers };
-    let nextName = base.displayName;
-
-    if (provider === 'twitch') {
-      nextProviders.twitch = { handle: 'tyypicall' };
-      if (!userProfile) nextName = 'tyypicall';
-    } else if (provider === 'telegram') {
-      nextProviders.telegram = { username: 'bridgik_user', id: 100001 };
-    } else if (provider === 'key') {
-      nextProviders.hasLicenseKey = true;
+        body: JSON.stringify(updates),
+      });
+      const data = await res.json();
+      if (data?.success && data?.user) {
+        saveProfile(data.user);
+      }
+    } catch (err) {
+      console.error('Failed to sync profile with server:', err);
     }
+  };
 
-    const updated: UserProfile = {
-      ...base,
-      displayName: nextName,
-      providers: nextProviders,
-      licenseKeyPreview:
-        provider === 'key' && payload?.key ? payload.key : base.licenseKeyPreview,
-    };
+  const handleAuthSuccess = async (
+    provider: AuthProvider,
+    payload?: { key?: string; isNew?: boolean }
+  ): Promise<boolean | void> => {
+    const deviceId = getBrowserDeviceId();
+    const deviceName = deviceType === 'mobile' ? 'Мой смартфон' : 'Этот ПК';
+    const browserLabel = getBrowserLabel();
 
-    saveProfile(updated);
-    if (updated.displayName !== userName) {
-      handleUpdateUserName(updated.displayName);
+    if (provider === 'key') {
+      if (payload?.isNew) {
+        try {
+          const res = await fetch('/api/auth/key/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              displayName: userName,
+              avatarUrl: userAvatar,
+              defaultRoomTheme: roomTheme,
+              deviceId,
+              deviceType,
+              deviceName,
+              browserLabel,
+            }),
+          });
+          const data = await res.json();
+          if (!data?.success) {
+            throw new Error(data?.error || 'Не удалось создать ключ на сервере');
+          }
+          localStorage.setItem('bridgik_license_key', data.key);
+          saveProfile(data.user);
+          if (socket && isConnected) {
+            socket.emit('auth-device', {
+              licenseKey: data.key,
+              deviceId,
+              name: deviceName,
+              deviceType,
+              browserLabel,
+            });
+          }
+          return true;
+        } catch (err: any) {
+          console.error(err);
+          throw err;
+        }
+      } else if (payload?.key) {
+        try {
+          const res = await fetch('/api/auth/key/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              key: payload.key,
+              deviceId,
+              deviceType,
+              deviceName,
+              browserLabel,
+            }),
+          });
+          const data = await res.json();
+          if (!data?.success) {
+            throw new Error(data?.error || 'Ключ не найден');
+          }
+          localStorage.setItem('bridgik_license_key', payload.key);
+          saveProfile(data.user);
+          setUserName(data.user.displayName);
+          if (data.user.avatarUrl) setUserAvatar(data.user.avatarUrl);
+          if (data.user.activeFrame) setAdminFrame(data.user.activeFrame);
+          if (data.user.activeEmote !== undefined) setStatusEmote(data.user.activeEmote);
+          if (data.user.defaultRoomTheme) setRoomTheme(data.user.defaultRoomTheme);
+
+          if (socket && isConnected) {
+            socket.emit('auth-device', {
+              licenseKey: payload.key,
+              deviceId,
+              name: deviceName,
+              deviceType,
+              browserLabel,
+            });
+          }
+          return true;
+        } catch (err: any) {
+          console.error(err);
+          throw err;
+        }
+      }
+    } else {
+      const base: UserProfile = userProfile || {
+        id: 'preview-user-1',
+        displayName: provider === 'twitch' ? 'tyypicall' : userName,
+        avatarUrl: userAvatar,
+        tier: 'free',
+        providers: {},
+        unlockedFrames: ['none'],
+        unlockedThemes: ['cyber-lounge', 'cozy-loft', 'skyline-penthouse', 'retro-lounge'],
+        activeFrame: 'none',
+        activeEmote: statusEmote,
+        defaultRoomTheme: roomTheme,
+        s3QuotaUsedMb: 0,
+        s3QuotaLimitMb: 0,
+        devices: [
+          {
+            id: getBrowserDeviceId(),
+            name: deviceType === 'mobile' ? 'Мой смартфон' : 'Этот ПК',
+            deviceType,
+            browserLabel: getBrowserLabel(),
+            isCurrent: true,
+            isOnline: true,
+            lastSeenAt: Date.now(),
+          },
+        ],
+      };
+
+      const nextProviders = { ...base.providers };
+      let nextName = base.displayName;
+
+      if (provider === 'twitch') {
+        nextProviders.twitch = { handle: 'tyypicall' };
+        if (!userProfile) nextName = 'tyypicall';
+      } else if (provider === 'telegram') {
+        nextProviders.telegram = { username: 'bridgik_user', id: 100001 };
+      }
+
+      const updated: UserProfile = {
+        ...base,
+        displayName: nextName,
+        providers: nextProviders,
+      };
+
+      saveProfile(updated);
+      if (updated.displayName !== userName) {
+        handleUpdateUserName(updated.displayName);
+      }
+      return true;
     }
   };
 
@@ -225,6 +331,53 @@ export function App() {
     if (activeTab === 'profile') {
       setActiveTab(roomId ? roomMode : 'bridge');
     }
+  };
+
+  const handleRemoveDevice = async (devId: string) => {
+    const key = userProfile?.licenseKeyPreview || localStorage.getItem('bridgik_license_key');
+    if (key) {
+      try {
+        await fetch(`/api/user/devices/${encodeURIComponent(devId)}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${key}` },
+        });
+      } catch (e) {
+        console.error('Failed to delete device:', e);
+      }
+    }
+    if (userProfile) {
+      saveProfile({
+        ...userProfile,
+        devices: userProfile.devices.filter((d) => d.id !== devId),
+      });
+    }
+  };
+
+  const handleCreateBridgeWithDevice = (targetDevice: any) => {
+    if (!socket || !isConnected) {
+      alert('Нет подключения к серверу');
+      return;
+    }
+    if (!targetDevice?.isOnline) {
+      alert(`Устройство «${targetDevice.name}» сейчас офлайн. Откройте bridgik.ru на нём.`);
+      return;
+    }
+    sound.playClick();
+    socket.emit(
+      'sticky-pair-request',
+      { targetDeviceId: targetDevice.id },
+      (res: any) => {
+        if (res?.success && res?.roomId) {
+          sound.playConnect();
+          setRoomMode('bridge');
+          setRoomId(res.roomId);
+          setPin(res.pin);
+          setActiveTab('bridge');
+        } else {
+          alert(res?.error || 'Целевое устройство сейчас не в сети');
+        }
+      }
+    );
   };
 
   useEffect(() => {
@@ -470,12 +623,93 @@ export function App() {
       setIsConnected(false);
     });
 
+    // Sticky Bridge device status updates (online/offline)
+    socketInstance.on(
+      'sticky-device-status',
+      (data: { deviceId: string; isOnline: boolean; lastSeenAt?: number }) => {
+        setUserProfile((prev) => {
+          if (!prev) return prev;
+          const updatedDevices = prev.devices.map((d) =>
+            d.id === data.deviceId
+              ? {
+                  ...d,
+                  isOnline: data.isOnline,
+                  lastSeenAt: data.lastSeenAt || Date.now(),
+                }
+              : d
+          );
+          return { ...prev, devices: updatedDevices };
+        });
+      }
+    );
+
+    // Sticky Bridge incoming pair request from another linked device
+    socketInstance.on(
+      'sticky-incoming-pair',
+      (data: { roomId: string; pin: string; fromDeviceId: string; fileMeta?: any }) => {
+        sound.playConnect();
+        const autoAccept = localStorage.getItem('bridgik_sticky_auto_accept') !== 'false';
+        if (autoAccept) {
+          setRoomMode('bridge');
+          setRoomId(data.roomId);
+          setPin(data.pin);
+          setActiveTab('bridge');
+        }
+      }
+    );
+
     setSocket(socketInstance);
 
     return () => {
       socketInstance.disconnect();
     };
   }, []);
+
+  // Sync profile from backend on app mount if license key exists
+  useEffect(() => {
+    const key = localStorage.getItem('bridgik_license_key');
+    if (!key) return;
+    const deviceId = getBrowserDeviceId();
+    fetch(`/api/user/profile?key=${encodeURIComponent(key)}&deviceId=${encodeURIComponent(deviceId)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.success && data?.user) {
+          saveProfile(data.user);
+          setUserName(data.user.displayName);
+          if (data.user.avatarUrl) setUserAvatar(data.user.avatarUrl);
+          if (data.user.activeFrame) setAdminFrame(data.user.activeFrame);
+          if (data.user.activeEmote !== undefined) setStatusEmote(data.user.activeEmote);
+          if (data.user.defaultRoomTheme) setRoomTheme(data.user.defaultRoomTheme);
+        }
+      })
+      .catch((err) => console.error('Failed to load profile from backend:', err));
+  }, []);
+
+  // Authenticate device with socket when socket is connected and license key is present
+  useEffect(() => {
+    if (!socket || !isConnected) return;
+    const key = userProfile?.licenseKeyPreview || localStorage.getItem('bridgik_license_key');
+    if (!key) return;
+    const deviceId = getBrowserDeviceId();
+    const name = deviceType === 'mobile' ? 'Мой смартфон' : 'Этот ПК';
+    const browserLabel = getBrowserLabel();
+
+    socket.emit(
+      'auth-device',
+      {
+        licenseKey: key,
+        deviceId,
+        name,
+        deviceType,
+        browserLabel,
+      },
+      (res: any) => {
+        if (res?.success && res?.user) {
+          saveProfile(res.user);
+        }
+      }
+    );
+  }, [socket, isConnected, userProfile?.licenseKeyPreview]);
 
   // Auto-open a Bridge when arriving via Share Target
   useEffect(() => {
@@ -1614,39 +1848,36 @@ export function App() {
             onUpdateDisplayName={(name) => {
               handleUpdateUserName(name);
               saveProfile({ ...userProfile, displayName: name });
+              patchBackendProfile({ displayName: name });
             }}
             onUpdateAvatar={(avatar) => {
               handleUpdateUserAvatar(avatar);
               saveProfile({ ...userProfile, avatarUrl: avatar });
+              patchBackendProfile({ avatarUrl: avatar });
             }}
             onUpdateFrame={(frame) => {
               handleUpdateAdminFrame(frame);
               saveProfile({ ...userProfile, activeFrame: frame });
+              patchBackendProfile({ activeFrame: frame });
             }}
             onUpdateStatusEmote={(emote) => {
               handleUpdateStatusEmote(emote);
               saveProfile({ ...userProfile, activeEmote: emote });
+              patchBackendProfile({ activeEmote: emote });
             }}
             onUpdateDefaultTheme={(themeId) => {
               setRoomTheme(themeId);
               localStorage.setItem('bridgik_pixel_room', themeId);
               saveProfile({ ...userProfile, defaultRoomTheme: themeId });
+              patchBackendProfile({ defaultRoomTheme: themeId });
             }}
             onOpenAuthModal={(provider = 'twitch') => {
               setAuthModalProvider(provider);
               setIsAuthModalOpen(true);
             }}
             onToggleDemoTier={handleToggleDemoTier}
-            onRemoveDevice={(devId) => {
-              saveProfile({
-                ...userProfile,
-                devices: userProfile.devices.filter((d) => d.id !== devId),
-              });
-            }}
-            onCreateBridgeWithDevice={() => {
-              setActiveTab('bridge');
-              if (!roomId) handleCreateRoom('bridge');
-            }}
+            onRemoveDevice={handleRemoveDevice}
+            onCreateBridgeWithDevice={handleCreateBridgeWithDevice}
           />
         ) : !roomId ? (
           <HomeView

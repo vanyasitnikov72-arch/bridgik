@@ -16,7 +16,10 @@ interface AuthModalProps {
   isOpen: boolean;
   initialProvider?: AuthProvider;
   onClose: () => void;
-  onAuthSuccess: (provider: AuthProvider, payload?: { key?: string }) => void;
+  onAuthSuccess: (
+    provider: AuthProvider,
+    payload?: { key?: string; isNew?: boolean }
+  ) => Promise<boolean | void> | boolean | void;
   onOpenLegal: (doc: 'privacy' | 'terms') => void;
 }
 
@@ -52,6 +55,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [inputKey, setInputKey] = useState('');
   const [copiedKey, setCopiedKey] = useState(false);
   const [keyError, setKeyError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -102,21 +106,33 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setTimeout(() => setCopiedKey(false), 1800);
   };
 
-  const handleKeySubmit = () => {
-    if (keyMode === 'create') {
-      sound.playConnect();
-      onAuthSuccess('key', { key: generatedKey });
-      onClose();
-      return;
+  const handleKeySubmit = async () => {
+    setKeyError('');
+    setIsSubmitting(true);
+    try {
+      if (keyMode === 'create') {
+        const ok = await onAuthSuccess('key', { key: generatedKey, isNew: true });
+        if (ok !== false) {
+          sound.playConnect();
+          onClose();
+        }
+        return;
+      }
+      const clean = inputKey.trim().toUpperCase();
+      if (!/^BRDG-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(clean)) {
+        setKeyError('Формат ключа: BRDG-XXXX-XXXX-XXXX');
+        return;
+      }
+      const ok = await onAuthSuccess('key', { key: clean, isNew: false });
+      if (ok !== false) {
+        sound.playConnect();
+        onClose();
+      }
+    } catch (err: any) {
+      setKeyError(err?.message || 'Ошибка подключения');
+    } finally {
+      setIsSubmitting(false);
     }
-    const clean = inputKey.trim().toUpperCase();
-    if (!/^BRDG-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(clean)) {
-      setKeyError('Формат ключа: BRDG-XXXX-XXXX-XXXX');
-      return;
-    }
-    sound.playConnect();
-    onAuthSuccess('key', { key: clean });
-    onClose();
   };
 
   return (
@@ -400,9 +416,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <button
                 type="button"
                 onClick={handleKeySubmit}
-                className="w-full py-3 px-4 rounded-xl bg-[#789d2a] hover:bg-[#8cb632] text-white font-extrabold text-lg transition-colors cursor-pointer"
+                disabled={isSubmitting}
+                className="w-full py-3 px-4 rounded-xl bg-[#789d2a] hover:bg-[#8cb632] disabled:opacity-50 text-white font-extrabold text-lg transition-colors cursor-pointer"
               >
-                {keyMode === 'create' ? 'Сохранить и войти по ключу' : 'Войти по ключу'}
+                {isSubmitting
+                  ? 'Подключение...'
+                  : keyMode === 'create'
+                  ? 'Сохранить и войти по ключу'
+                  : 'Войти по ключу'}
               </button>
             </div>
           )}
