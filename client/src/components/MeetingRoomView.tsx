@@ -3,7 +3,6 @@ import {
   Mic,
   MicOff,
   Share2,
-  QrCode,
   LogOut,
   FileText,
   Copy,
@@ -16,7 +15,6 @@ import {
   Monitor,
   MonitorOff,
   Maximize2,
-  Smartphone,
   File,
   Settings,
   X,
@@ -33,6 +31,8 @@ import {
   Armchair,
   Smile,
   Eye,
+  Edit2,
+  ChevronDown,
   Music,
   Film,
   Sparkles,
@@ -41,7 +41,6 @@ import {
   CloudRain,
   Flame,
   Code,
-  Image as ImageIcon,
 } from 'lucide-react';
 import { FileTransfer, Peer, TextMessage } from '../types/index.js';
 import { sound } from '../utils/sound.js';
@@ -188,10 +187,10 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
   name,
   avatar,
   isMe,
-  deviceType,
+  deviceType: _deviceType,
   isMicActive,
   isSpeaking = false,
-  spotName,
+  spotName: _spotName,
   accentColor,
   isHost,
   isAdmin,
@@ -238,7 +237,14 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
   return (
     <div
       ref={seatContainerRef}
-      className="relative flex flex-col items-center select-none"
+      className="relative flex flex-col items-center select-none cursor-pointer"
+      title={
+        isMe
+          ? isMicActive
+            ? 'Нажмите, чтобы заглушить микрофон'
+            : 'Нажмите, чтобы говорить'
+          : 'Нажмите для настройки громкости участника'
+      }
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onContextMenu={(e) => {
@@ -266,75 +272,50 @@ const PixelAvatarSeat: React.FC<PixelAvatarSeatProps> = ({
         />
       ))}
 
-      {/* Hover Tooltip (when peer volume popup is closed) */}
-      {!isControlsOpen && (
-        <div
-          className={`absolute -top-11 z-30 transition-all duration-200 flex flex-col items-center ${
-            isHovered
-              ? 'opacity-100 -translate-y-1 scale-100 pointer-events-auto'
-              : 'opacity-0 translate-y-1 scale-95 pointer-events-none'
+      {/* Nameplate directly above Avatar */}
+      <div
+        className="absolute -top-7 sm:-top-8 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-[#0e0e14]/90 border border-white/20 shadow-md backdrop-blur-md whitespace-nowrap pointer-events-none transition-transform"
+        style={{
+          boxShadow: showLiveVoice ? `0 0 10px ${accentColor}80` : undefined,
+        }}
+      >
+        <span
+          className={`w-1.5 h-1.5 rounded-full shrink-0 ${showLiveVoice ? 'animate-pulse' : ''}`}
+          style={{
+            backgroundColor: showLiveVoice ? accentColor : isMicActive ? '#789d2a' : '#666677',
+          }}
+        />
+        {isAdmin && (
+          <span className="text-[9px] font-mono px-1 py-0 rounded bg-amber-400/20 text-amber-300 font-bold border border-amber-400/30 flex items-center shrink-0">
+            👑 DEV
+          </span>
+        )}
+        <span
+          className={`text-xs font-bold font-mono truncate max-w-[85px] sm:max-w-[120px] ${
+            isAdmin ? 'admin-name-shimmer' : 'text-[#ededed]'
           }`}
         >
-          <div className="px-3 py-1.5 rounded-xl bg-[#0e0e14]/95 border border-white/20 shadow-2xl backdrop-blur-md flex items-center gap-2 whitespace-nowrap max-w-[90vw] overflow-x-auto">
-            <span
-              className={`w-2 h-2 rounded-full shrink-0 ${showLiveVoice ? 'animate-pulse' : ''}`}
-              style={{
-                backgroundColor: showLiveVoice ? accentColor : isMicActive ? '#789d2a' : '#666677',
-              }}
-            />
-            {isAdmin && (
-              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-400/20 text-amber-300 font-bold border border-amber-400/30 flex items-center gap-0.5 shrink-0">
-                👑 DEV
-              </span>
-            )}
-            <span
-              className={`text-xs font-bold font-mono flex items-center gap-1 ${
-                isAdmin ? 'admin-name-shimmer' : 'text-[#ededed]'
-              }`}
-            >
-              <span>
-                {name} {isMe ? '(Вы)' : ''}
-              </span>
-              {statusEmote && (
-                <img
-                  src={statusEmote}
-                  alt="status"
-                  className="w-4 h-4 object-contain inline-block select-none filter drop-shadow-[0_0_4px_rgba(255,255,255,0.3)]"
-                />
-              )}
-            </span>
-            <span className="hidden sm:flex text-[10px] text-[#aaaaaa] font-mono items-center gap-1">
-              {deviceType === 'mobile' ? (
-                <Smartphone className="w-2.5 h-2.5 text-[#9ac43e]" />
-              ) : (
-                <Monitor className="w-2.5 h-2.5 text-[#9ac43e]" />
-              )}
-              · {spotName}
-            </span>
-            {!isMe && connectionType && (
-              <span
-                className={`text-[9px] px-1 py-0.2 rounded font-mono border ${
-                  connectionType === 'relay'
-                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                    : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                }`}
-              >
-                {connectionType === 'relay' ? '🛡️ TURN' : '⚡ P2P'}
-              </span>
-            )}
-            {isMe ? (
-              <span className="text-[10px] text-[#9ac43e] font-mono border-l border-white/10 pl-1.5">
-                {isMicActive ? 'клик: заглушить' : 'клик: говорить'}
-              </span>
-            ) : (
-              <span className="text-[10px] text-[#9ac43e] font-mono border-l border-white/10 pl-1.5">
-                клик: громкость ({volumePercent}%)
-              </span>
-            )}
-          </div>
-          <div className="w-2 h-1 bg-[#0e0e14] border-r border-b border-white/20 rotate-45 -mt-0.5" />
-        </div>
-      )}
+          {name} {isMe ? '(Вы)' : ''}
+        </span>
+        {statusEmote && (
+          <img
+            src={statusEmote}
+            alt="status"
+            className="w-3.5 h-3.5 object-contain inline-block select-none filter drop-shadow-[0_0_4px_rgba(255,255,255,0.3)] shrink-0"
+          />
+        )}
+        {!isMe && connectionType && (
+          <span
+            className={`text-[9px] px-1 py-0 rounded font-mono border ${
+              connectionType === 'relay'
+                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+            }`}
+          >
+            {connectionType === 'relay' ? '🛡️' : '⚡'}
+          </span>
+        )}
+      </div>
 
       {/* Click Popup: Per-peer Volume Slider (0-200%) & Kick */}
       {!isMe && isControlsOpen && (
@@ -498,7 +479,7 @@ interface EmptyPixelSeatProps {
 }
 
 const EmptyPixelSeat: React.FC<EmptyPixelSeatProps> = ({
-  spotName,
+  spotName: _spotName,
   accentColor,
   onTakeSeat,
   onContextMenu,
@@ -519,16 +500,15 @@ const EmptyPixelSeat: React.FC<EmptyPixelSeatProps> = ({
       }}
     >
       <div
-        className={`hidden sm:flex absolute -top-10 z-30 transition-all duration-200 flex-col items-center pointer-events-none ${
+        className={`hidden sm:flex absolute -top-8 z-30 transition-all duration-200 flex-col items-center pointer-events-none ${
           isHovered
             ? 'opacity-100 -translate-y-1 scale-100'
             : 'opacity-0 translate-y-1 scale-95'
         }`}
       >
-        <div className="px-3 py-1.5 rounded-xl bg-[#0b120a]/95 border border-[#9ac43e]/50 shadow-[0_0_15px_rgba(0,0,0,0.9)] backdrop-blur-md flex items-center gap-1.5 whitespace-nowrap">
+        <div className="px-2.5 py-1 rounded-lg bg-[#0b120a]/95 border border-[#9ac43e]/50 shadow-[0_0_15px_rgba(0,0,0,0.9)] backdrop-blur-md flex items-center gap-1.5 whitespace-nowrap">
           <span className="w-1.5 h-1.5 rounded-full bg-[#9ac43e] animate-ping" />
-          <span className="text-xs font-bold text-[#bbf348] font-mono">{spotName}</span>
-          <span className="text-[10px] text-[#88aa55]">· занять место</span>
+          <span className="text-xs font-bold text-[#bbf348] font-mono">Занять место</span>
         </div>
         <div className="w-2 h-1 bg-[#0b120a] border-r border-b border-[#9ac43e]/50 rotate-45 -mt-0.5" />
       </div>
@@ -544,7 +524,7 @@ const EmptyPixelSeat: React.FC<EmptyPixelSeatProps> = ({
             ? `0 0 28px ${accentColor}, 0 4px 14px rgba(0,0,0,0.9)`
             : `0 0 16px ${accentColor}88, 0 4px 12px rgba(0,0,0,0.85)`,
         }}
-        title={`Свободное место: ${spotName}. Кликните, чтобы пересесть.`}
+        title="Свободное место. Кликните, чтобы пересесть."
       >
         <Plus
           className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-200 stroke-[2.5] ${
@@ -677,8 +657,24 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   const [ambientVolume, setAmbientVolume] = useState<number>(() => ambientSound.getVolume());
   const [isBurnerChat, setIsBurnerChat] = useState(false);
   const [isCanvasPreview, setIsCanvasPreview] = useState(false);
+  const [isCanvasDownloadOpen, setIsCanvasDownloadOpen] = useState(false);
+  const canvasDownloadMenuRef = useRef<HTMLDivElement>(null);
   const [previewCode, setPreviewCode] = useState<{ name: string; content: string } | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
+
+  useEffect(() => {
+    if (!isCanvasDownloadOpen) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (
+        canvasDownloadMenuRef.current &&
+        !canvasDownloadMenuRef.current.contains(e.target as Node)
+      ) {
+        setIsCanvasDownloadOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [isCanvasDownloadOpen]);
 
   useEffect(() => {
     if (hasRemoteVideo || isScreenActive) {
@@ -1084,12 +1080,36 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
     setTimeout(() => setCopiedNotes(false), 2000);
   };
 
-  const handleDownloadMarkdown = () => {
-    const blob = new Blob([scratchpadText], { type: 'text/markdown;charset=utf-8' });
+  const handleDownloadCanvas = (format: 'md' | 'txt' | 'html') => {
+    let mime = 'text/markdown;charset=utf-8';
+    let ext = 'md';
+    let content = scratchpadText;
+
+    if (format === 'txt') {
+      mime = 'text/plain;charset=utf-8';
+      ext = 'txt';
+      content = scratchpadText.replace(/!\[(.*?)\]\(data:image\/.*?\)/g, '[$1: скриншот]');
+    } else if (format === 'html') {
+      mime = 'text/html;charset=utf-8';
+      ext = 'html';
+      const bodyHtml = scratchpadText
+        .split('\n')
+        .map((line) => {
+          const imgMatch = line.match(/^!\[(.*?)\]\((.*?)\)$/);
+          if (imgMatch) {
+            return `<div style="margin:16px 0;"><img src="${imgMatch[2]}" alt="${imgMatch[1]}" style="max-width:100%;border-radius:8px;border:1px solid #444;" /></div>`;
+          }
+          return `<p style="margin:8px 0;white-space:pre-wrap;">${line || '&nbsp;'}</p>`;
+        })
+        .join('');
+      content = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Bridgik Notes - ${pin}</title><style>body{font-family:system-ui,-apple-system,sans-serif;background:#181818;color:#eaeaea;padding:32px;max-width:800px;margin:0 auto;line-height:1.6;}h1{color:#9ac43e;border-bottom:1px solid #333;padding-bottom:8px;}</style></head><body><h1>Заметки Bridgik (Комната ${pin})</h1>${bodyHtml}</body></html>`;
+    }
+
+    const blob = new Blob([content], { type: mime });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `meeting-notes-${pin}.md`;
+    a.download = `meeting-notes-${pin}.${ext}`;
     a.click();
     URL.revokeObjectURL(url);
     sound.playClick();
@@ -1182,11 +1202,20 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
       {/* Top Header Bar */}
       <div className="bg-[#1e1e1e] border border-[#353535] rounded-xl p-3 sm:p-4 mb-4 sm:mb-5 flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 shadow-md">
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-          <div className="flex items-center gap-2 bg-[#141414] px-3 py-1.5 rounded-lg border border-[#333333]">
+          <div
+            onClick={handleCopyLink}
+            className="flex items-center gap-2 bg-[#141414] hover:bg-[#1c1c1c] px-3 py-1.5 rounded-lg border border-[#333333] cursor-pointer transition-colors"
+            title={copiedLink ? 'Ссылка скопирована в буфер!' : 'Кликните, чтобы скопировать ссылку'}
+          >
             <span className="text-xs text-[#888888] uppercase font-bold tracking-wider">PIN:</span>
             <span className="font-mono text-xl sm:text-2xl font-extrabold tracking-wider text-[#9ac43e]">
               {pin}
             </span>
+            {copiedLink ? (
+              <Check className="w-3.5 h-3.5 text-[#9ac43e]" />
+            ) : (
+              <Copy className="w-3.5 h-3.5 text-[#777777] hover:text-[#ededed]" />
+            )}
           </div>
 
           <div className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg bg-[#141414] border border-[#333333] text-xs sm:text-sm font-mono">
@@ -1608,24 +1637,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 </button>
               )}
 
-              {isHost && (
-                <button
-                  onClick={() => {
-                    setIsRoomPickerOpen(!isRoomPickerOpen);
-                    setIsReactionPickerOpen(false);
-                    sound.playClick();
-                  }}
-                  className={`p-2 sm:p-2.5 rounded-xl border flex items-center justify-center transition-colors cursor-pointer focus:outline-none ${
-                    isRoomPickerOpen
-                      ? 'bg-[#789d2a]/25 border-[#789d2a] text-[#bbf348]'
-                      : 'bg-[#25252c] hover:bg-[#303038] text-[#ededed] border-white/10'
-                  }`}
-                  title="Выбрать локацию (Организатор)"
-                >
-                  <Home className="w-4 h-4 text-[#9ac43e]" />
-                </button>
-              )}
-
               <button
                 onClick={() => {
                   meetingFilesSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -1644,21 +1655,9 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
               <button
                 onClick={onOpenQR}
                 className="p-2 sm:p-2.5 rounded-xl bg-[#25252c] hover:bg-[#303038] text-[#ededed] border border-white/10 flex items-center justify-center transition-colors cursor-pointer focus:outline-none"
-                title="Показать QR-код"
+                title="Пригласить (QR-код и ссылка)"
               >
-                <QrCode className="w-4 h-4 text-[#9ac43e]" />
-              </button>
-
-              <button
-                onClick={handleCopyLink}
-                className="p-2 sm:p-2.5 rounded-xl bg-[#25252c] hover:bg-[#303038] text-[#ededed] border border-white/10 flex items-center justify-center transition-colors cursor-pointer focus:outline-none"
-                title={copiedLink ? 'Ссылка скопирована!' : 'Скопировать ссылку на комнату'}
-              >
-                {copiedLink ? (
-                  <Check className="w-4 h-4 text-[#9ac43e]" />
-                ) : (
-                  <Share2 className="w-4 h-4" />
-                )}
+                <Share2 className="w-4 h-4 text-[#9ac43e]" />
               </button>
 
               <button
@@ -2007,22 +2006,46 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                   <span>Канвас · Синхронизация (Ctrl + V)</span>
                 </span>
                 <div className="flex items-center gap-1.5 sm:gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      sound.playClick();
-                      setIsCanvasPreview(!isCanvasPreview);
-                    }}
-                    className={`p-1.5 rounded text-xs flex items-center gap-1 border transition-colors cursor-pointer ${
-                      isCanvasPreview
-                        ? 'bg-[#789d2a]/30 border-[#789d2a] text-[#bbf348]'
-                        : 'bg-[#272727] hover:bg-[#333333] border-[#383838] text-[#aaaaaa]'
-                    }`}
-                    title={isCanvasPreview ? 'Режим редактора' : 'Превью картинок и заметок'}
-                  >
-                    <ImageIcon className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">{isCanvasPreview ? 'Редактор' : 'Превью'}</span>
-                  </button>
+                  {/* Segmented Editor vs Preview Switcher */}
+                  <div className="flex items-center bg-[#18181f] p-0.5 rounded-lg border border-[#33333d]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isCanvasPreview) {
+                          setIsCanvasPreview(false);
+                          sound.playClick();
+                        }
+                      }}
+                      className={`px-2 py-1 rounded text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                        !isCanvasPreview
+                          ? 'bg-[#789d2a] text-white shadow-xs'
+                          : 'text-[#888888] hover:text-[#cccccc]'
+                      }`}
+                      title="Режим ввода: писать текст, вставлять заметки и скриншоты (Ctrl + V)"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                      <span>Редактор</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!isCanvasPreview) {
+                          setIsCanvasPreview(true);
+                          sound.playClick();
+                        }
+                      }}
+                      className={`px-2 py-1 rounded text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                        isCanvasPreview
+                          ? 'bg-[#789d2a] text-white shadow-xs'
+                          : 'text-[#888888] hover:text-[#cccccc]'
+                      }`}
+                      title="Режим чистового просмотра: форматирование и отображение картинок"
+                    >
+                      <Eye className="w-3 h-3" />
+                      <span>Превью</span>
+                    </button>
+                  </div>
+
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     className="p-1.5 hover:text-white rounded bg-[#272727] hover:bg-[#333333] transition-colors cursor-pointer text-xs flex items-center gap-1 border border-[#383838]"
@@ -2033,8 +2056,8 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                   </button>
                   <button
                     onClick={handleCopyNotes}
-                    className="p-1.5 hover:text-white rounded bg-[#272727] hover:bg-[#333333] transition-colors cursor-pointer text-xs flex items-center gap-1"
-                    title="Скопировать Канвас"
+                    className="p-1.5 hover:text-white rounded bg-[#272727] hover:bg-[#333333] transition-colors cursor-pointer text-xs flex items-center gap-1 border border-[#383838]"
+                    title="Скопировать содержимое Канваса"
                   >
                     {copiedNotes ? (
                       <Check className="w-3.5 h-3.5 text-[#9ac43e]" />
@@ -2045,14 +2068,61 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                       {copiedNotes ? 'Скопировано' : 'Копировать'}
                     </span>
                   </button>
-                  <button
-                    onClick={handleDownloadMarkdown}
-                    className="p-1.5 hover:text-white rounded bg-[#272727] hover:bg-[#333333] transition-colors cursor-pointer text-xs flex items-center gap-1"
-                    title="Скачать в .md"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>.md</span>
-                  </button>
+
+                  {/* Multi-Format Canvas Download */}
+                  <div className="relative" ref={canvasDownloadMenuRef}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sound.playClick();
+                        setIsCanvasDownloadOpen((prev) => !prev);
+                      }}
+                      className="p-1.5 hover:text-white rounded bg-[#272727] hover:bg-[#333333] transition-colors cursor-pointer text-xs flex items-center gap-1 border border-[#383838]"
+                      title="Скачать Канвас (.md, .txt, .html)"
+                    >
+                      <Download className="w-3.5 h-3.5 text-[#9ac43e]" />
+                      <span className="hidden sm:inline">Скачать</span>
+                      <ChevronDown className="w-3 h-3 text-[#888888]" />
+                    </button>
+
+                    {isCanvasDownloadOpen && (
+                      <div className="absolute right-0 top-8 z-50 p-1.5 rounded-xl bg-[#181820] border border-[#383848] shadow-2xl min-w-[155px] flex flex-col gap-1 backdrop-blur-md animate-in fade-in zoom-in-95">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleDownloadCanvas('md');
+                            setIsCanvasDownloadOpen(false);
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg text-left text-xs font-bold text-[#ededed] hover:bg-[#789d2a]/20 hover:text-[#bbf348] flex items-center justify-between transition-colors cursor-pointer"
+                        >
+                          <span>Markdown</span>
+                          <span className="text-[10px] font-mono text-[#888888]">.md</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleDownloadCanvas('txt');
+                            setIsCanvasDownloadOpen(false);
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg text-left text-xs font-bold text-[#ededed] hover:bg-[#789d2a]/20 hover:text-[#bbf348] flex items-center justify-between transition-colors cursor-pointer"
+                        >
+                          <span>Текст</span>
+                          <span className="text-[10px] font-mono text-[#888888]">.txt</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleDownloadCanvas('html');
+                            setIsCanvasDownloadOpen(false);
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg text-left text-xs font-bold text-[#ededed] hover:bg-[#789d2a]/20 hover:text-[#bbf348] flex items-center justify-between transition-colors cursor-pointer"
+                        >
+                          <span>Веб-страница</span>
+                          <span className="text-[10px] font-mono text-[#888888]">.html</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
