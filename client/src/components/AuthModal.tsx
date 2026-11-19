@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import {
   X,
   KeyRound,
@@ -59,13 +60,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onOpenLegal,
 }) => {
   const [tab, setTab] = useState<AuthProvider>(initialProvider);
-  const [tgToken, setTgToken] = useState('');
 
   // Telegram bot session state
   const [botSessionToken, setBotSessionToken] = useState('');
-  const [botUsername, setBotUsername] = useState('bridgik_bot');
+  const [botUsername, setBotUsername] = useState('bridgik_login_bot');
   const [botTgUrl, setBotTgUrl] = useState('');
-  const [isBotLoading, setIsBotLoading] = useState(false);
+  const [botWebUrl, setBotWebUrl] = useState('');
 
   const [keyMode, setKeyMode] = useState<'create' | 'enter'>('create');
   const [generatedKey, setGeneratedKey] = useState(() => generateLicenseKey());
@@ -83,8 +83,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       .then((data) => {
         if (active && data?.token) {
           setBotSessionToken(data.token);
-          setBotUsername(data.botUsername || 'bridgik_bot');
-          setBotTgUrl(data.tgUrl || `tg://resolve?domain=bridgik_bot&start=auth_${data.token}`);
+          setBotUsername(data.botUsername || 'bridgik_login_bot');
+          setBotTgUrl(data.tgUrl || `tg://resolve?domain=${data.botUsername || 'bridgik_login_bot'}&start=auth_${data.token}`);
+          setBotWebUrl(data.webUrl || `https://t.me/${data.botUsername || 'bridgik_login_bot'}?start=auth_${data.token}`);
         }
       })
       .catch(() => {});
@@ -111,32 +112,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     return () => clearInterval(interval);
   }, [isOpen, tab, botSessionToken, onAuthSuccess, onClose]);
 
-  const handleBotDemoConfirm = async () => {
-    if (!botSessionToken) return;
-    setIsBotLoading(true);
-    try {
-      const res = await fetch('/api/auth/telegram/bot-demo-confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: botSessionToken }),
-      });
-      const data = await res.json();
-      if (data?.success && data?.key) {
-        sound.playConnect();
-        onAuthSuccess('telegram', { key: data.key, user: data.user });
-        onClose();
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsBotLoading(false);
-    }
-  };
-
   useEffect(() => {
     if (!isOpen) return;
     setTab(initialProvider);
-    setTgToken(generateCryptoCode(12, 'abcdefghijklmnopqrstuvwxyz0123456789'));
     setKeyError('');
   }, [isOpen, initialProvider]);
 
@@ -149,21 +127,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isOpen, onClose]);
 
-  const effectiveTgResolveUrl = useMemo(
-    () => botTgUrl || `tg://resolve?domain=${botUsername}&start=auth_${botSessionToken || tgToken}`,
-    [botTgUrl, botUsername, botSessionToken, tgToken]
+  const effectiveBotUrl = useMemo(
+    () => botWebUrl || botTgUrl || `https://t.me/${botUsername}?start=auth_${botSessionToken}`,
+    [botWebUrl, botTgUrl, botUsername, botSessionToken]
   );
-
-  // Детерминированный пиксельный паттерн для превью QR
-  const qrCells = useMemo(() => {
-    const seed = botSessionToken || tgToken || 'bridgikauth01';
-    const cells: boolean[] = [];
-    for (let i = 0; i < 49; i++) {
-      const code = seed.charCodeAt(i % seed.length) + i * 17;
-      cells.push(code % 3 !== 0);
-    }
-    return cells;
-  }, [botSessionToken, tgToken]);
 
   if (!isOpen) return null;
 
@@ -301,7 +268,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </p>
                 </div>
                 <p className="text-sm text-[#a8a8a8]">
-                  Прямой переход на официальную страницу <strong>oauth.yandex.ru</strong> для подтверждения входа. 100% стабильно работает в РФ без VPN.
+                  Быстрый и безопасный вход в 1 клик через ваш профиль Яндекс. 100% стабильно работает в РФ без VPN.
                 </p>
               </div>
 
@@ -311,88 +278,58 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 className="w-full py-3 px-4 rounded-xl bg-[#FC3F1D] hover:bg-[#e03414] text-white font-extrabold text-lg transition-all cursor-pointer flex items-center justify-center gap-2.5 shadow-lg shadow-[#FC3F1D]/25 active:scale-[0.99]"
               >
                 <YandexIcon className="w-5 h-5" />
-                <span>Перейти на oauth.yandex.ru</span>
+                <span>Войти через Яндекс ID</span>
                 <ExternalLink className="w-4 h-4 opacity-80" />
               </a>
 
               <p className="text-xs text-center text-[#888888]">
-                Прямая официальная ссылка OAuth 2.0. Никаких паролей на Bridgik не вводится.
+                Официальная авторизация Яндекс ID. Никаких паролей на Bridgik не вводится.
               </p>
             </div>
           )}
 
           {tab === 'telegram' && (
-            <div className="space-y-3.5">
-              <div className="p-4 rounded-xl bg-[#222222] border border-white/[0.06] space-y-3">
+            <div className="space-y-4">
+              <div className="p-4 rounded-xl bg-[#222222] border border-white/[0.06] space-y-2">
                 <div className="flex items-center gap-2">
                   <TelegramIcon className="w-5 h-5 text-[#229ED9] shrink-0" />
                   <p className="text-base font-bold text-[#ededed]">
-                    Официальный вход через Telegram
+                    Вход через Telegram (@{botUsername})
                   </p>
                 </div>
                 <p className="text-sm text-[#a8a8a8]">
-                  Прямой переход на официальную страницу <strong>oauth.telegram.org</strong>.
+                  Нажмите кнопку ниже, чтобы открыть бота в Telegram, или отсканируйте QR-код камерой телефона.
                 </p>
-
-                <a
-                  href="/api/auth/telegram"
-                  onClick={() => sound.playClick()}
-                  className="w-full py-2.5 px-4 rounded-xl bg-[#229ED9] hover:bg-[#1b8ec4] text-white font-extrabold text-base transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-[#229ED9]/20"
-                >
-                  <TelegramIcon className="w-4 h-4" />
-                  <span>Перейти на oauth.telegram.org</span>
-                  <ExternalLink className="w-4 h-4 opacity-80" />
-                </a>
               </div>
 
-              <div className="relative flex items-center justify-center">
-                <div className="border-t border-white/[0.08] w-full" />
-                <span className="bg-[#1c1c1c] px-2.5 text-[11px] font-semibold text-[#777777] uppercase tracking-wider">
-                  Или через бота @{botUsername}
-                </span>
-                <div className="border-t border-white/[0.08] w-full" />
-              </div>
+              <a
+                href={effectiveBotUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => sound.playClick()}
+                className="w-full py-3 px-4 rounded-xl bg-[#229ED9] hover:bg-[#1b8ec4] text-white font-extrabold text-lg transition-all cursor-pointer flex items-center justify-center gap-2.5 shadow-lg shadow-[#229ED9]/25 active:scale-[0.99]"
+              >
+                <TelegramIcon className="w-5 h-5" />
+                <span>Войти через Telegram</span>
+                <ExternalLink className="w-4 h-4 opacity-80" />
+              </a>
 
-              <div className="p-3.5 rounded-xl bg-[#161616] border border-white/[0.06] space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-16 h-16 p-1.5 rounded-lg bg-white shrink-0 grid grid-cols-7 gap-0.5">
-                    {qrCells.map((filled, idx) => (
-                      <span
-                        key={idx}
-                        className={filled ? 'bg-[#171717] rounded-[1px]' : 'bg-transparent'}
-                      />
-                    ))}
-                  </div>
-                  <div className="min-w-0 space-y-0.5">
-                    <p className="text-sm font-bold text-[#ededed]">
-                      Прямо в приложении Telegram
-                    </p>
-                    <p className="text-xs text-[#888888] leading-tight">
-                      Откройте бота в приложении Telegram, чтобы связать этот браузер.
-                    </p>
-                  </div>
+              <div className="p-4 rounded-xl bg-[#161616] border border-white/[0.06] flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
+                <div className="p-2.5 bg-white rounded-xl shadow-md shrink-0">
+                  <QRCodeSVG
+                    value={effectiveBotUrl || 'https://t.me/bridgik_login_bot'}
+                    size={110}
+                    level="M"
+                    includeMargin={false}
+                  />
                 </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <a
-                    href={effectiveTgResolveUrl}
-                    onClick={() => sound.playClick()}
-                    className="py-2.5 px-3 rounded-lg bg-[#262626] hover:bg-[#333333] border border-white/[0.08] text-white text-sm font-bold transition-all flex items-center justify-center gap-2"
-                  >
-                    <TelegramIcon className="w-4 h-4 text-[#229ED9]" />
-                    <span>Открыть бота</span>
-                    <ExternalLink className="w-3.5 h-3.5 opacity-70" />
-                  </a>
-
-                  <button
-                    type="button"
-                    onClick={handleBotDemoConfirm}
-                    disabled={isBotLoading}
-                    className="py-2.5 px-3 rounded-lg bg-[#283216] hover:bg-[#35431d] border border-[#789d2a]/50 text-[#9ac43e] text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                  >
-                    <Check className="w-4 h-4" />
-                    <span>{isBotLoading ? 'Проверка...' : 'Тестовый вход бота'}</span>
-                  </button>
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-[#ededed]">
+                    Или отсканируйте QR-код
+                  </p>
+                  <p className="text-xs text-[#888888] leading-relaxed">
+                    Откройте камеру телефона, перейдите в бота и нажмите <strong>«Запустить» (Start)</strong> — сайт мгновенно авторизуется без паролей.
+                  </p>
                 </div>
               </div>
             </div>
