@@ -88,19 +88,31 @@ export function generateLicenseKey(): string {
  * Creates a new user in the database
  */
 export function createUser(initial?: {
+  key?: string;
   displayName?: string;
   avatarUrl?: string;
   defaultRoomTheme?: string;
 }): DbUser {
-  let key = generateLicenseKey();
-  let attempts = 0;
-  while (attempts < 5) {
-    const existing = db
-      .prepare('SELECT id FROM users WHERE license_key = ?')
-      .get(key);
-    if (!existing) break;
+  let key: string;
+  if (initial?.key && /^BRDG-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/i.test(initial.key.trim())) {
+    const requested = initial.key.trim().toUpperCase();
+    const existing = db.prepare('SELECT id FROM users WHERE license_key = ?').get(requested);
+    if (!existing) {
+      key = requested;
+    } else {
+      key = generateLicenseKey();
+    }
+  } else {
     key = generateLicenseKey();
-    attempts++;
+    let attempts = 0;
+    while (attempts < 5) {
+      const existing = db
+        .prepare('SELECT id FROM users WHERE license_key = ?')
+        .get(key);
+      if (!existing) break;
+      key = generateLicenseKey();
+      attempts++;
+    }
   }
 
   const id = `usr_${crypto.randomUUID()}`;

@@ -180,6 +180,7 @@ export function App() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
+              key: payload?.key,
               displayName: userName,
               avatarUrl: userAvatar,
               defaultRoomTheme: roomTheme,

@@ -292,9 +292,9 @@ function extractLicenseKey(req: express.Request): string | null {
 // 1. Create a new user with an anonymous license key
 app.post('/api/auth/key/create', (req, res) => {
   try {
-    const { displayName, avatarUrl, defaultRoomTheme, deviceId, deviceType, deviceName, browserLabel } =
+    const { key, displayName, avatarUrl, defaultRoomTheme, deviceId, deviceType, deviceName, browserLabel } =
       req.body || {};
-    const user = createUser({ displayName, avatarUrl, defaultRoomTheme });
+    const user = createUser({ key, displayName, avatarUrl, defaultRoomTheme });
     if (deviceId) {
       registerOrUpdateDevice(user.id, {
         id: deviceId,
