@@ -5,7 +5,6 @@ import {
   Crown,
   ShieldCheck,
   LogOut,
-  Sparkles,
   Wrench,
   Check,
   Settings,
@@ -32,7 +31,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
   isAdmin,
   onOpenProfile,
   onOpenSettings,
-  onToggleDemoTier,
+  onToggleDemoTier: _onToggleDemoTier,
   onOpenLegal,
   onLogout,
   onClose,
@@ -184,7 +183,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
           className="w-full px-3 py-2 rounded-xl flex items-center gap-3 text-[#dddddd] hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer text-left"
         >
           <Crown className="w-4 h-4 text-amber-400 shrink-0" />
-          <span>Аккаунт и Pro</span>
+          <span>Подписка и доступ</span>
         </button>
 
         <button
@@ -199,20 +198,6 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
           <ShieldCheck className="w-4 h-4 text-[#a8a8a8] shrink-0" />
           <span>Условия и поддержка</span>
         </button>
-
-        {onToggleDemoTier && (
-          <button
-            type="button"
-            onClick={() => {
-              sound.playClick();
-              onToggleDemoTier();
-            }}
-            className="w-full px-3 py-2 rounded-xl flex items-center gap-2.5 text-[#9ac43e] hover:bg-[#789d2a]/15 transition-colors cursor-pointer text-left text-sm"
-          >
-            <Sparkles className="w-4 h-4 shrink-0" />
-            <span>Превью: {isPro ? 'PRO → FREE' : 'FREE → PRO'}</span>
-          </button>
-        )}
       </div>
 
       <div className="p-1.5 border-t border-white/[0.08]">

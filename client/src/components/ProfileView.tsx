@@ -10,7 +10,6 @@ import {
   Plus,
   Copy,
   Crown,
-  Sparkles,
   KeyRound,
   Smile,
   ArrowRight,
@@ -46,6 +45,7 @@ interface ProfileViewProps {
   onUpdateStatusEmote: (emote: string | null) => void;
   onUpdateDefaultTheme: (themeId: string) => void;
   onOpenAuthModal: (provider?: AuthProvider) => void;
+  onUnlinkProvider?: (provider: 'yandex' | 'telegram') => void;
   onToggleDemoTier?: () => void;
   onRemoveDevice?: (deviceId: string) => void;
   onCreateBridgeWithDevice?: (device: StickyDevice) => void;
@@ -151,7 +151,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   onUpdateStatusEmote,
   onUpdateDefaultTheme,
   onOpenAuthModal,
-  onToggleDemoTier,
+  onUnlinkProvider,
+  onToggleDemoTier: _onToggleDemoTier,
   onRemoveDevice,
   onCreateBridgeWithDevice,
   onOpenDropModal,
@@ -165,6 +166,39 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [isEmoteOpen, setIsEmoteOpen] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
+  const [isUnlinking, setIsUnlinking] = useState<string | null>(null);
+
+  const handleUnlink = async (provider: 'yandex' | 'telegram') => {
+    const title = provider === 'yandex' ? 'Яндекс ID' : 'Telegram';
+    if (
+      !window.confirm(
+        `Отвязать ${title}? Вы по-прежнему сможете входить по резервному ключу или привязать другой аккаунт.`
+      )
+    ) {
+      return;
+    }
+    const key = profile.licenseKeyPreview || localStorage.getItem('bridgik_license_key');
+    if (!key) return;
+    setIsUnlinking(provider);
+    try {
+      const res = await fetch('/api/user/unlink-provider', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, provider }),
+      });
+      const data = await res.json();
+      if (data?.success) {
+        sound.playConnect();
+        onUnlinkProvider?.(provider);
+      } else {
+        alert(data?.error || 'Не удалось отвязать способ входа');
+      }
+    } catch {
+      alert('Ошибка соединения при отвязке');
+    } finally {
+      setIsUnlinking(null);
+    }
+  };
 
   const isPro = profile.tier === 'pro';
   const hasFullCosmetics = isPro || Boolean(isAdmin);
@@ -240,7 +274,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const tabs: { id: InternalTab; label: string }[] = [
     { id: 'appearance', label: 'Внешний вид' },
     { id: 'devices', label: `Sticky Bridge · ${profile.devices.length}/${maxDevices}` },
-    { id: 'account', label: 'Аккаунт и Pro' },
+    { id: 'account', label: 'Подписка и доступ' },
   ];
 
   return (
@@ -255,21 +289,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <ArrowLeft className="w-4 h-4" />
           <span>Назад</span>
         </button>
-
-        {onToggleDemoTier && (
-          <button
-            type="button"
-            onClick={() => {
-              sound.playClick();
-              onToggleDemoTier();
-            }}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[#9a9a9a] hover:text-[#bbf348] text-xs font-bold transition-colors cursor-pointer outline-none"
-            title="Переключить превью Free / Pro"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-[#789d2a]" />
-            <span>Превью: {isPro ? 'PRO' : 'FREE'}</span>
-          </button>
-        )}
       </div>
 
       {/* Airy Hero Header (like eblo.id) */}
@@ -951,13 +970,24 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => onOpenAuthModal('yandex')}
-                className="px-3.5 py-1.5 rounded-lg bg-[#242424] hover:bg-[#2f2f2f] text-xs font-bold text-[#ededed] cursor-pointer shrink-0"
-              >
-                {profile.providers.yandex ? 'Обновить' : 'Привязать'}
-              </button>
+              {profile.providers.yandex ? (
+                <button
+                  type="button"
+                  onClick={() => handleUnlink('yandex')}
+                  disabled={isUnlinking === 'yandex'}
+                  className="px-3 py-1.5 rounded-lg bg-red-950/35 hover:bg-red-900/50 border border-red-800/40 text-xs font-bold text-red-200 hover:text-white transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+                >
+                  {isUnlinking === 'yandex' ? 'Отвязка...' : 'Отвязать'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onOpenAuthModal('yandex')}
+                  className="px-3.5 py-1.5 rounded-lg bg-[#242424] hover:bg-[#2f2f2f] text-xs font-bold text-[#ededed] cursor-pointer shrink-0"
+                >
+                  Привязать
+                </button>
+              )}
             </div>
 
             <div className="py-3.5 flex items-center justify-between gap-3">
@@ -972,13 +1002,24 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => onOpenAuthModal('telegram')}
-                className="px-3.5 py-1.5 rounded-lg bg-[#242424] hover:bg-[#2f2f2f] text-xs font-bold text-[#ededed] cursor-pointer shrink-0"
-              >
-                {profile.providers.telegram ? 'Обновить' : 'Привязать'}
-              </button>
+              {profile.providers.telegram ? (
+                <button
+                  type="button"
+                  onClick={() => handleUnlink('telegram')}
+                  disabled={isUnlinking === 'telegram'}
+                  className="px-3 py-1.5 rounded-lg bg-red-950/35 hover:bg-red-900/50 border border-red-800/40 text-xs font-bold text-red-200 hover:text-white transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+                >
+                  {isUnlinking === 'telegram' ? 'Отвязка...' : 'Отвязать'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onOpenAuthModal('telegram')}
+                  className="px-3.5 py-1.5 rounded-lg bg-[#242424] hover:bg-[#2f2f2f] text-xs font-bold text-[#ededed] cursor-pointer shrink-0"
+                >
+                  Привязать
+                </button>
+              )}
             </div>
 
             <div className="py-3.5 flex items-center justify-between gap-3">

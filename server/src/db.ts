@@ -746,3 +746,24 @@ export function toDropDto(drop: DbDrop): DropDto {
   };
 }
 
+/**
+ * Unlinks Yandex or Telegram auth provider from a user account
+ */
+export function unlinkProvider(userId: string, provider: 'yandex' | 'telegram'): boolean {
+  const now = Date.now();
+  if (provider === 'yandex') {
+    db.prepare(`
+      UPDATE users 
+      SET yandex_id = NULL, yandex_login = NULL, updated_at = ? 
+      WHERE id = ?
+    `).run(now, userId);
+  } else if (provider === 'telegram') {
+    db.prepare(`
+      UPDATE users 
+      SET telegram_id = NULL, telegram_username = NULL, updated_at = ? 
+      WHERE id = ?
+    `).run(now, userId);
+  }
+  return true;
+}
+

@@ -2168,6 +2168,17 @@ export function App() {
               setAuthModalProvider(provider);
               setIsAuthModalOpen(true);
             }}
+            onUnlinkProvider={(provider) => {
+              if (userProfile) {
+                const nextProviders = { ...userProfile.providers };
+                if (provider === 'yandex') delete nextProviders.yandex;
+                if (provider === 'telegram') delete nextProviders.telegram;
+                saveProfile({
+                  ...userProfile,
+                  providers: nextProviders,
+                });
+              }
+            }}
             onToggleDemoTier={handleToggleDemoTier}
             onRemoveDevice={handleRemoveDevice}
             onCreateBridgeWithDevice={handleCreateBridgeWithDevice}

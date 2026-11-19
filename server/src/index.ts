@@ -35,6 +35,7 @@ import {
   upsertTelegramUser,
   getUserByYandex,
   getUserByTelegramId,
+  unlinkProvider,
 } from './db.js';
 import { stickyManager } from './stickyBridge.js';
 import { createYooKassaPayment, getYooKassaPayment } from './yookassa.js';
@@ -452,6 +453,31 @@ app.delete('/api/user/devices/:deviceId', (req, res) => {
   const deviceId = req.params.deviceId;
   const deleted = deleteDevice(user.id, deviceId);
   return res.json({ success: deleted });
+});
+
+// 6. Unlink an auth provider (Yandex ID or Telegram)
+app.post('/api/user/unlink-provider', (req, res) => {
+  const key = extractLicenseKey(req) || req.body?.key;
+  const provider = req.body?.provider;
+  if (!key || (provider !== 'yandex' && provider !== 'telegram')) {
+    return res.status(400).json({ success: false, error: 'Неверные параметры запроса' });
+  }
+  const user = getUserByLicenseKey(key);
+  if (!user) {
+    return res.status(404).json({ success: false, error: 'Профиль не найден' });
+  }
+  const ok = unlinkProvider(user.id, provider);
+  if (ok) {
+    const updated = getUserByLicenseKey(key);
+    if (updated) {
+      const currentDeviceId = typeof req.query.deviceId === 'string' ? req.query.deviceId : undefined;
+      const onlineSet = stickyManager.getOnlineDeviceIds(user.id);
+      const profile = toUserProfileDto(updated, currentDeviceId, onlineSet);
+      io.to(`user:${user.id}`).emit('sticky-profile-updated', profile);
+      return res.json({ success: true, user: profile });
+    }
+  }
+  return res.json({ success: ok });
 });
 
 // --- Yandex ID & Telegram OAuth Endpoints ---
