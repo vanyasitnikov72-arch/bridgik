@@ -116,6 +116,9 @@ db.exec(`
 try {
   db.exec(`ALTER TABLE users ADD COLUMN yandex_login TEXT`);
 } catch {}
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN yandex_id TEXT`);
+} catch {}
 
 /**
  * Generates license key in format BRDG-XXXX-XXXX-XXXX
@@ -206,6 +209,142 @@ export function getUserByLicenseKey(key: string): DbUser | null {
 export function getUserById(id: string): DbUser | null {
   const row = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
   return (row as unknown as DbUser) || null;
+}
+
+/**
+ * Finds user by Yandex ID or Login
+ */
+export function getUserByYandex(yandexId?: string, yandexLogin?: string): DbUser | null {
+  if (yandexId) {
+    const row = db.prepare('SELECT * FROM users WHERE yandex_id = ?').get(String(yandexId));
+    if (row) return row as unknown as DbUser;
+  }
+  if (yandexLogin) {
+    const row = db.prepare('SELECT * FROM users WHERE yandex_login = ?').get(yandexLogin.toLowerCase());
+    if (row) return row as unknown as DbUser;
+  }
+  return null;
+}
+
+/**
+ * Finds user by Telegram ID
+ */
+export function getUserByTelegramId(telegramId: string | number): DbUser | null {
+  const row = db.prepare('SELECT * FROM users WHERE telegram_id = ?').get(String(telegramId));
+  return (row as unknown as DbUser) || null;
+}
+
+/**
+ * Upserts user logging in with Yandex ID
+ */
+export function upsertYandexUser(profile: {
+  id: string;
+  login: string;
+  displayName: string;
+  avatarUrl?: string;
+}): DbUser {
+  const user = getUserByYandex(profile.id, profile.login);
+  const now = Date.now();
+  if (user) {
+    db.prepare(`
+      UPDATE users 
+      SET yandex_id = ?, yandex_login = ?, 
+          display_name = COALESCE(?, display_name),
+          avatar_url = COALESCE(?, avatar_url),
+          updated_at = ?
+      WHERE id = ?
+    `).run(
+      String(profile.id),
+      profile.login.toLowerCase(),
+      profile.displayName || profile.login,
+      profile.avatarUrl || user.avatar_url || null,
+      now,
+      user.id
+    );
+    return getUserById(user.id)!;
+  }
+
+  // Create new user
+  const id = `usr_${crypto.randomUUID()}`;
+  const key = generateLicenseKey();
+  const displayName = profile.displayName || profile.login || 'Пользователь Яндекса';
+  const avatarUrl = profile.avatarUrl || '/mascots/dino_avatar.jpg';
+
+  db.prepare(`
+    INSERT INTO users (
+      id, license_key, display_name, avatar_url, tier,
+      yandex_id, yandex_login,
+      unlocked_frames, unlocked_themes, active_frame,
+      default_room_theme, stars_balance, s3_quota_used_mb, s3_quota_limit_mb,
+      created_at, updated_at
+    ) VALUES (
+      ?, ?, ?, ?, 'free',
+      ?, ?,
+      '["none"]', '["cyber-lounge","cozy-loft","skyline-penthouse","retro-lounge"]', 'none',
+      'cyber-lounge', 0, 0, 0,
+      ?, ?
+    )
+  `).run(id, key, displayName, avatarUrl, String(profile.id), profile.login.toLowerCase(), now, now);
+
+  return getUserById(id)!;
+}
+
+/**
+ * Upserts user logging in with Telegram
+ */
+export function upsertTelegramUser(profile: {
+  id: string | number;
+  username?: string;
+  firstName?: string;
+  lastName?: string;
+  photoUrl?: string;
+}): DbUser {
+  const tgIdStr = String(profile.id);
+  const user = getUserByTelegramId(tgIdStr);
+  const now = Date.now();
+  const rawName = [profile.firstName, profile.lastName].filter(Boolean).join(' ') || profile.username || `User_${tgIdStr.slice(-4)}`;
+
+  if (user) {
+    db.prepare(`
+      UPDATE users 
+      SET telegram_id = ?, telegram_username = ?,
+          display_name = COALESCE(?, display_name),
+          avatar_url = COALESCE(?, avatar_url),
+          updated_at = ?
+      WHERE id = ?
+    `).run(
+      tgIdStr,
+      profile.username || user.telegram_username || null,
+      rawName || user.display_name,
+      profile.photoUrl || user.avatar_url || null,
+      now,
+      user.id
+    );
+    return getUserById(user.id)!;
+  }
+
+  // Create new user
+  const id = `usr_${crypto.randomUUID()}`;
+  const key = generateLicenseKey();
+  const avatarUrl = profile.photoUrl || '/mascots/dino_avatar.jpg';
+
+  db.prepare(`
+    INSERT INTO users (
+      id, license_key, display_name, avatar_url, tier,
+      telegram_id, telegram_username,
+      unlocked_frames, unlocked_themes, active_frame,
+      default_room_theme, stars_balance, s3_quota_used_mb, s3_quota_limit_mb,
+      created_at, updated_at
+    ) VALUES (
+      ?, ?, ?, ?, 'free',
+      ?, ?,
+      '["none"]', '["cyber-lounge","cozy-loft","skyline-penthouse","retro-lounge"]', 'none',
+      'cyber-lounge', 0, 0, 0,
+      ?, ?
+    )
+  `).run(id, key, rawName, avatarUrl, tgIdStr, profile.username || null, now, now);
+
+  return getUserById(id)!;
 }
 
 /**

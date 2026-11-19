@@ -18,7 +18,7 @@ interface AuthModalProps {
   onClose: () => void;
   onAuthSuccess: (
     provider: AuthProvider,
-    payload?: { key?: string; isNew?: boolean }
+    payload?: { key?: string; isNew?: boolean; user?: any }
   ) => Promise<boolean | void> | boolean | void;
   onOpenLegal: (doc: 'privacy' | 'terms') => void;
 }
@@ -60,8 +60,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 }) => {
   const [tab, setTab] = useState<AuthProvider>(initialProvider);
   const [tgToken, setTgToken] = useState('');
-  const [tgPinCode, setTgPinCode] = useState('');
-  const [copiedCode, setCopiedCode] = useState(false);
+
+  // Telegram bot session state
+  const [botSessionToken, setBotSessionToken] = useState('');
+  const [botUsername, setBotUsername] = useState('bridgik_bot');
+  const [botTgUrl, setBotTgUrl] = useState('');
+  const [isBotLoading, setIsBotLoading] = useState(false);
 
   const [keyMode, setKeyMode] = useState<'create' | 'enter'>('create');
   const [generatedKey, setGeneratedKey] = useState(() => generateLicenseKey());
@@ -70,11 +74,103 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [keyError, setKeyError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Handle OAuth Popup
+  const openOAuthPopup = (url: string, name: string) => {
+    sound.playClick();
+    const w = 560;
+    const h = 680;
+    const y = window.top ? window.top.outerHeight / 2 + window.top.screenY - h / 2 : 100;
+    const x = window.top ? window.top.outerWidth / 2 + window.top.screenX - w / 2 : 100;
+    const popup = window.open(
+      url,
+      name,
+      `toolbar=no, location=no, directories=no, status=no, menubar=no, scrollbars=yes, resizable=yes, copyhistory=no, width=${w}, height=${h}, top=${y}, left=${x}`
+    );
+    if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+      window.location.href = url;
+    }
+  };
+
+  // Listen for popup auth success
+  useEffect(() => {
+    const handleMessage = (e: MessageEvent) => {
+      if (e.data?.type === 'BRIDGIK_AUTH_SUCCESS') {
+        const { provider, key, user } = e.data;
+        sound.playConnect();
+        if (key) {
+          localStorage.setItem('bridgik_license_key', key);
+        }
+        onAuthSuccess(provider, { key, user });
+        onClose();
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [onAuthSuccess, onClose]);
+
+  // Fetch telegram bot session on open
+  useEffect(() => {
+    if (!isOpen || tab !== 'telegram') return;
+    let active = true;
+    fetch('/api/auth/telegram/session')
+      .then((r) => r.json())
+      .then((data) => {
+        if (active && data?.token) {
+          setBotSessionToken(data.token);
+          setBotUsername(data.botUsername || 'bridgik_bot');
+          setBotTgUrl(data.tgUrl || `tg://resolve?domain=bridgik_bot&start=auth_${data.token}`);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [isOpen, tab]);
+
+  // Poll telegram session status
+  useEffect(() => {
+    if (!isOpen || tab !== 'telegram' || !botSessionToken) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/auth/telegram/session-status?token=${encodeURIComponent(botSessionToken)}`);
+        const data = await res.json();
+        if (data?.completed && data?.key) {
+          clearInterval(interval);
+          sound.playConnect();
+          onAuthSuccess('telegram', { key: data.key, user: data.user });
+          onClose();
+        }
+      } catch {}
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [isOpen, tab, botSessionToken, onAuthSuccess, onClose]);
+
+  const handleBotDemoConfirm = async () => {
+    if (!botSessionToken) return;
+    setIsBotLoading(true);
+    try {
+      const res = await fetch('/api/auth/telegram/bot-demo-confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: botSessionToken }),
+      });
+      const data = await res.json();
+      if (data?.success && data?.key) {
+        sound.playConnect();
+        onAuthSuccess('telegram', { key: data.key, user: data.user });
+        onClose();
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsBotLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!isOpen) return;
     setTab(initialProvider);
     setTgToken(generateCryptoCode(12, 'abcdefghijklmnopqrstuvwxyz0123456789'));
-    setTgPinCode(`${generateCryptoCode(3, '0123456789')}-${generateCryptoCode(3, '0123456789')}`);
     setKeyError('');
   }, [isOpen, initialProvider]);
 
@@ -87,30 +183,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isOpen, onClose]);
 
-  const tgResolveUrl = useMemo(
-    () => `tg://resolve?domain=bridgik_bot&start=auth_${tgToken}`,
-    [tgToken]
+  const effectiveTgResolveUrl = useMemo(
+    () => botTgUrl || `tg://resolve?domain=${botUsername}&start=auth_${botSessionToken || tgToken}`,
+    [botTgUrl, botUsername, botSessionToken, tgToken]
   );
 
-  // Детерминированный пиксельный паттерн для превью QR до подключения реального QR-генератора
+  // Детерминированный пиксельный паттерн для превью QR
   const qrCells = useMemo(() => {
-    const seed = tgToken || 'bridgikauth01';
+    const seed = botSessionToken || tgToken || 'bridgikauth01';
     const cells: boolean[] = [];
     for (let i = 0; i < 49; i++) {
       const code = seed.charCodeAt(i % seed.length) + i * 17;
       cells.push(code % 3 !== 0);
     }
     return cells;
-  }, [tgToken]);
+  }, [botSessionToken, tgToken]);
 
   if (!isOpen) return null;
-
-  const handleCopyTgCode = () => {
-    navigator.clipboard.writeText(tgPinCode.replace('-', '')).catch(() => {});
-    sound.playClick();
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 1800);
-  };
 
   const handleCopyKey = () => {
     navigator.clipboard.writeText(generatedKey).catch(() => {});
@@ -239,106 +328,110 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {tab === 'yandex' && (
             <div className="space-y-4">
               <div className="p-4 rounded-xl bg-[#222222] border border-white/[0.06] space-y-2">
-                <p className="text-base font-bold text-[#ededed]">
-                  Мгновенный вход через Яндекс ID
-                </p>
+                <div className="flex items-center gap-2">
+                  <YandexIcon className="w-5 h-5 shrink-0" />
+                  <p className="text-base font-bold text-[#ededed]">
+                    Вход через Яндекс ID (OAuth 2.0)
+                  </p>
+                </div>
                 <p className="text-sm text-[#a8a8a8]">
-                  Подтянем имя и аватарку, привяжем устройства и рамки. 100% стабильно работает в РФ без VPN и прокси.
+                  Откроет окно авторизации Яндекса с подтверждением прав (как на eblo.id). Подтянет имя и аватарку, привяжет устройства.
                 </p>
               </div>
 
               <button
                 type="button"
-                onClick={() => {
-                  sound.playConnect();
-                  onAuthSuccess('yandex');
-                  onClose();
-                }}
+                onClick={() => openOAuthPopup('/api/auth/yandex', 'YandexAuth')}
                 className="w-full py-3 px-4 rounded-xl bg-[#FC3F1D] hover:bg-[#e03414] text-white font-extrabold text-lg transition-all cursor-pointer flex items-center justify-center gap-2.5 shadow-lg shadow-[#FC3F1D]/25 active:scale-[0.99]"
               >
                 <YandexIcon className="w-5 h-5" />
                 <span>Войти с Яндекс ID</span>
+                <ExternalLink className="w-4 h-4 opacity-80" />
               </button>
 
               <p className="text-xs text-center text-[#888888]">
-                Вход безопасен и не требует ввода паролей на сторонних сайтах.
+                100% стабильно работает в РФ без VPN и прокси. Пароли не передаются.
               </p>
             </div>
           )}
 
           {tab === 'telegram' && (
             <div className="space-y-3.5">
-              <div className="p-3.5 rounded-xl bg-[#222222] border border-white/[0.06] flex items-center gap-3.5">
-                {/* Compact QR Preview */}
-                <div className="w-20 h-20 p-2 rounded-xl bg-white shrink-0 grid grid-cols-7 gap-0.5">
-                  {qrCells.map((filled, idx) => (
-                    <span
-                      key={idx}
-                      className={filled ? 'bg-[#171717] rounded-[1px]' : 'bg-transparent'}
-                    />
-                  ))}
-                </div>
-                <div className="min-w-0 space-y-1">
-                  <p className="text-base font-bold text-[#ededed] leading-tight">
-                    Вход без VPN через @bridgik_bot
-                  </p>
-                  <p className="text-xs text-[#a8a8a8] leading-snug">
-                    Открывает приложение Telegram напрямую, минуя заблокированный веб-виджет.
+              {/* Option 1: Official OAuth Popup Window */}
+              <div className="p-4 rounded-xl bg-[#222222] border border-white/[0.06] space-y-3">
+                <div className="flex items-center gap-2">
+                  <TelegramIcon className="w-5 h-5 text-[#229ED9] shrink-0" />
+                  <p className="text-base font-bold text-[#ededed]">
+                    Окно авторизации Telegram
                   </p>
                 </div>
-              </div>
+                <p className="text-sm text-[#a8a8a8]">
+                  Откроет окно Telegram с подтверждением доступа (как на примере). Мгновенный вход в 1 клик.
+                </p>
 
-              <a
-                href={tgResolveUrl}
-                onClick={() => sound.playClick()}
-                className="w-full py-3 px-4 rounded-xl bg-[#229ED9] hover:bg-[#1b8ec4] text-white font-extrabold text-lg transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#229ED9]/20"
-              >
-                <TelegramIcon className="w-5 h-5" />
-                <span>Открыть @bridgik_bot</span>
-                <ExternalLink className="w-4 h-4 opacity-80" />
-              </a>
-
-              {/* Fallback manual code */}
-              <div className="p-3 rounded-xl bg-[#161616] border border-[#2d2d2d] flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-xs text-[#888888]">
-                    Не открылась кнопка? Отправь боту код:
-                  </p>
-                  <p className="text-xl font-extrabold tracking-widest text-[#ededed] font-mono">
-                    {tgPinCode}
-                  </p>
-                </div>
                 <button
                   type="button"
-                  onClick={handleCopyTgCode}
-                  className="px-3 py-2 rounded-lg bg-[#242424] hover:bg-[#303030] border border-white/[0.08] text-sm font-bold text-[#ededed] flex items-center gap-1.5 cursor-pointer shrink-0"
+                  onClick={() => openOAuthPopup('/api/auth/telegram', 'TelegramAuth')}
+                  className="w-full py-2.5 px-4 rounded-xl bg-[#229ED9] hover:bg-[#1b8ec4] text-white font-extrabold text-base transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-[#229ED9]/20"
                 >
-                  {copiedCode ? (
-                    <>
-                      <Check className="w-4 h-4 text-[#9ac43e]" />
-                      <span className="text-[#9ac43e]">Скопирован</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-4 h-4" />
-                      <span>Копировать</span>
-                    </>
-                  )}
+                  <TelegramIcon className="w-4 h-4" />
+                  <span>Войти через окно Telegram</span>
+                  <ExternalLink className="w-4 h-4 opacity-80" />
                 </button>
               </div>
 
-              {/* UI Preview Simulation */}
-              <button
-                type="button"
-                onClick={() => {
-                  sound.playConnect();
-                  onAuthSuccess('telegram');
-                  onClose();
-                }}
-                className="w-full py-2 rounded-lg bg-[#283216]/70 hover:bg-[#283216] border border-[#789d2a]/50 text-[#9ac43e] text-sm font-bold transition-colors cursor-pointer"
-              >
-                UI-превью: завершить вход через Telegram
-              </button>
+              {/* Divider */}
+              <div className="relative flex items-center justify-center">
+                <div className="border-t border-white/[0.08] w-full" />
+                <span className="bg-[#1c1c1c] px-2.5 text-[11px] font-semibold text-[#777777] uppercase tracking-wider">
+                  Или через бота @{botUsername}
+                </span>
+                <div className="border-t border-white/[0.08] w-full" />
+              </div>
+
+              {/* Option 2: Telegram App Deep Link & QR */}
+              <div className="p-3.5 rounded-xl bg-[#161616] border border-white/[0.06] space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-16 h-16 p-1.5 rounded-lg bg-white shrink-0 grid grid-cols-7 gap-0.5">
+                    {qrCells.map((filled, idx) => (
+                      <span
+                        key={idx}
+                        className={filled ? 'bg-[#171717] rounded-[1px]' : 'bg-transparent'}
+                      />
+                    ))}
+                  </div>
+                  <div className="min-w-0 space-y-0.5">
+                    <p className="text-sm font-bold text-[#ededed]">
+                      Прямо в приложении Telegram
+                    </p>
+                    <p className="text-xs text-[#888888] leading-tight">
+                      Нажмите кнопку ниже или отсканируйте QR. Бот мгновенно авторизует этот браузер.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <a
+                    href={effectiveTgResolveUrl}
+                    onClick={() => sound.playClick()}
+                    className="py-2.5 px-3 rounded-lg bg-[#262626] hover:bg-[#333333] border border-white/[0.08] text-white text-sm font-bold transition-all flex items-center justify-center gap-2"
+                  >
+                    <TelegramIcon className="w-4 h-4 text-[#229ED9]" />
+                    <span>Открыть бота</span>
+                    <ExternalLink className="w-3.5 h-3.5 opacity-70" />
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={handleBotDemoConfirm}
+                    disabled={isBotLoading}
+                    className="py-2.5 px-3 rounded-lg bg-[#283216] hover:bg-[#35431d] border border-[#789d2a]/50 text-[#9ac43e] text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>{isBotLoading ? 'Проверка...' : 'Тестовый вход бота'}</span>
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 

@@ -31,9 +31,22 @@ import {
   getPaymentByYookassaId,
   updatePaymentStatus,
   upgradeUserToPro,
+  upsertYandexUser,
+  upsertTelegramUser,
+  getUserByYandex,
+  getUserByTelegramId,
 } from './db.js';
 import { stickyManager } from './stickyBridge.js';
 import { createYooKassaPayment, getYooKassaPayment } from './yookassa.js';
+import {
+  getYandexClientCredentials,
+  exchangeYandexCode,
+  getTelegramBotCredentials,
+  verifyTelegramAuthData,
+  renderOAuthConsentScreen,
+  renderAuthSuccessCallback,
+  pendingBotSessions,
+} from './oauth.js';
 
 export function getLocalLanIp(): string {
   const interfaces = os.networkInterfaces();
@@ -236,6 +249,7 @@ function sanitizePeerName(raw: unknown, fallback = 'Гость'): string {
 
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 const emoteCache: Map<string, { buffer: Buffer; contentType: string }> = new Map();
 
@@ -424,6 +438,286 @@ app.delete('/api/user/devices/:deviceId', (req, res) => {
   const deviceId = req.params.deviceId;
   const deleted = deleteDevice(user.id, deviceId);
   return res.json({ success: deleted });
+});
+
+// --- Yandex ID & Telegram OAuth Endpoints ---
+
+// 1. Initiate Yandex login
+app.get('/api/auth/yandex', (req, res) => {
+  const state = (req.query.state as string) || crypto.randomUUID();
+  const host = req.get('host') || 'bridgik.ru';
+  const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
+  const redirectUri = `${protocol}://${host}/api/auth/yandex/callback`;
+
+  const { clientId, isConfigured } = getYandexClientCredentials();
+
+  if (isConfigured && clientId) {
+    const yandexUrl = `https://oauth.yandex.ru/authorize?response_type=code&client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}&force_confirm=yes`;
+    return res.redirect(yandexUrl);
+  }
+
+  // Fallback to simulated Yandex consent window
+  return res.redirect(`/api/auth/yandex/authorize-demo?state=${encodeURIComponent(state)}`);
+});
+
+// 2. Demo Yandex Consent Window (Styled like official Yandex OAuth)
+app.get('/api/auth/yandex/authorize-demo', (req, res) => {
+  const state = (req.query.state as string) || crypto.randomUUID();
+  const html = renderOAuthConsentScreen({
+    provider: 'yandex',
+    confirmActionUrl: '/api/auth/yandex/confirm-demo',
+    cancelUrl: '/?tab=profile&auth=canceled',
+    state,
+    defaultLogin: 'yandex.user@yandex.ru',
+    defaultName: 'Пользователь Яндекса',
+  });
+  return res.setHeader('Content-Type', 'text/html; charset=utf-8').send(html);
+});
+
+// 3. Demo Yandex Consent Form submit
+app.post('/api/auth/yandex/confirm-demo', (req, res) => {
+  const { login, displayName, avatarUrl } = req.body || {};
+  const cleanLogin = (login || 'yandex.user').replace(/@.*$/, '');
+  const cleanName = displayName || 'Пользователь Яндекса';
+  const cleanAvatar = avatarUrl || '/mascots/dino_avatar.jpg';
+
+  const user = upsertYandexUser({
+    id: `demo_ya_${cleanLogin}`,
+    login: cleanLogin,
+    displayName: cleanName,
+    avatarUrl: cleanAvatar,
+  });
+
+  const onlineSet = stickyManager.getOnlineDeviceIds(user.id);
+  const profileDto = toUserProfileDto(user, undefined, onlineSet);
+
+  const html = renderAuthSuccessCallback({
+    provider: 'yandex',
+    licenseKey: user.license_key,
+    userProfile: profileDto,
+  });
+  return res.setHeader('Content-Type', 'text/html; charset=utf-8').send(html);
+});
+
+// 4. Real Yandex OAuth Callback
+app.get('/api/auth/yandex/callback', async (req, res) => {
+  try {
+    const code = req.query.code as string;
+    const error = req.query.error as string;
+    if (error) {
+      return res.redirect(`/?tab=profile&auth=error&message=${encodeURIComponent(error)}`);
+    }
+    if (!code) {
+      return res.status(400).send('Код авторизации отсутствует');
+    }
+
+    const host = req.get('host') || 'bridgik.ru';
+    const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
+    const redirectUri = `${protocol}://${host}/api/auth/yandex/callback`;
+
+    const profile = await exchangeYandexCode(code, redirectUri);
+    const user = upsertYandexUser(profile);
+
+    const onlineSet = stickyManager.getOnlineDeviceIds(user.id);
+    const profileDto = toUserProfileDto(user, undefined, onlineSet);
+
+    const html = renderAuthSuccessCallback({
+      provider: 'yandex',
+      licenseKey: user.license_key,
+      userProfile: profileDto,
+    });
+    return res.setHeader('Content-Type', 'text/html; charset=utf-8').send(html);
+  } catch (err: any) {
+    console.error('[Yandex Auth Error]', err);
+    return res.status(500).send(`Ошибка авторизации через Яндекс: ${err.message}`);
+  }
+});
+
+// 5. Initiate Telegram login
+app.get('/api/auth/telegram', (req, res) => {
+  const host = req.get('host') || 'bridgik.ru';
+  const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
+  const origin = `${protocol}://${host}`;
+  const callbackUrl = `${origin}/api/auth/telegram/callback`;
+
+  const { botId, isConfigured } = getTelegramBotCredentials();
+
+  if (isConfigured && botId) {
+    const tgUrl = `https://oauth.telegram.org/auth?bot_id=${encodeURIComponent(botId)}&origin=${encodeURIComponent(origin)}&return_to=${encodeURIComponent(callbackUrl)}&request_access=write`;
+    return res.redirect(tgUrl);
+  }
+
+  // Fallback to simulated Telegram consent window
+  return res.redirect(`/api/auth/telegram/authorize-demo`);
+});
+
+// 6. Demo Telegram Consent Window
+app.get('/api/auth/telegram/authorize-demo', (req, res) => {
+  const state = (req.query.state as string) || crypto.randomUUID();
+  const html = renderOAuthConsentScreen({
+    provider: 'telegram',
+    confirmActionUrl: '/api/auth/telegram/confirm-demo',
+    cancelUrl: '/?tab=profile&auth=canceled',
+    state,
+    defaultLogin: '@bridgik_user',
+    defaultName: 'Пользователь Telegram',
+  });
+  return res.setHeader('Content-Type', 'text/html; charset=utf-8').send(html);
+});
+
+// 7. Demo Telegram Confirm
+app.post('/api/auth/telegram/confirm-demo', (req, res) => {
+  const { login, displayName, avatarUrl } = req.body || {};
+  const cleanUsername = (login || 'bridgik_user').replace(/^@/, '');
+  const cleanName = displayName || 'Пользователь Telegram';
+
+  const user = upsertTelegramUser({
+    id: 100000000 + Math.floor(Math.random() * 900000),
+    username: cleanUsername,
+    firstName: cleanName,
+    photoUrl: avatarUrl,
+  });
+
+  const onlineSet = stickyManager.getOnlineDeviceIds(user.id);
+  const profileDto = toUserProfileDto(user, undefined, onlineSet);
+
+  const html = renderAuthSuccessCallback({
+    provider: 'telegram',
+    licenseKey: user.license_key,
+    userProfile: profileDto,
+  });
+  return res.setHeader('Content-Type', 'text/html; charset=utf-8').send(html);
+});
+
+// 8. Real Telegram Callback
+app.get('/api/auth/telegram/callback', (req, res) => {
+  try {
+    const query = req.query as Record<string, string>;
+    const { botToken, isConfigured } = getTelegramBotCredentials();
+
+    if (isConfigured && botToken) {
+      const isValid = verifyTelegramAuthData(query, botToken);
+      if (!isValid) {
+        return res.status(403).send('Недействительная подпись данных Telegram');
+      }
+    }
+
+    const { id, first_name, last_name, username, photo_url } = query;
+    if (!id) {
+      return res.status(400).send('Отсутствует ID пользователя Telegram');
+    }
+
+    const user = upsertTelegramUser({
+      id,
+      username,
+      firstName: first_name,
+      lastName: last_name,
+      photoUrl: photo_url,
+    });
+
+    const onlineSet = stickyManager.getOnlineDeviceIds(user.id);
+    const profileDto = toUserProfileDto(user, undefined, onlineSet);
+
+    const html = renderAuthSuccessCallback({
+      provider: 'telegram',
+      licenseKey: user.license_key,
+      userProfile: profileDto,
+    });
+    return res.setHeader('Content-Type', 'text/html; charset=utf-8').send(html);
+  } catch (err: any) {
+    console.error('[Telegram Auth Callback Error]', err);
+    return res.status(500).send(`Ошибка авторизации через Telegram: ${err.message}`);
+  }
+});
+
+// 9. Telegram Bot Session API (for in-app @bridgik_bot pairing)
+app.get('/api/auth/telegram/session', (_req, res) => {
+  const token = crypto.randomBytes(8).toString('hex');
+  const { botUsername } = getTelegramBotCredentials();
+  pendingBotSessions.set(token, {
+    token,
+    createdAt: Date.now(),
+  });
+  return res.json({
+    token,
+    botUsername,
+    tgUrl: `tg://resolve?domain=${botUsername}&start=auth_${token}`,
+    webUrl: `https://t.me/${botUsername}?start=auth_${token}`,
+  });
+});
+
+// 10. Telegram Bot Webhook
+app.post('/api/auth/telegram/bot-webhook', (req, res) => {
+  try {
+    const body = req.body;
+    const message = body?.message;
+    const text = (message?.text || '').trim();
+    const from = message?.from;
+
+    if (text.startsWith('/start auth_') && from) {
+      const token = text.replace('/start auth_', '').trim();
+      const sess = pendingBotSessions.get(token);
+      if (sess) {
+        const user = upsertTelegramUser({
+          id: from.id,
+          username: from.username,
+          firstName: from.first_name,
+          lastName: from.last_name,
+        });
+
+        const onlineSet = stickyManager.getOnlineDeviceIds(user.id);
+        const profileDto = toUserProfileDto(user, undefined, onlineSet);
+
+        sess.completedUser = {
+          key: user.license_key,
+          user: profileDto,
+        };
+
+        io.emit(`telegram-auth-done:${token}`, {
+          key: user.license_key,
+          user: profileDto,
+        });
+      }
+    }
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('[Telegram Bot Webhook Error]', err);
+    return res.status(200).json({ ok: false });
+  }
+});
+
+// 11. Demo confirmation for bot session (for instant test from UI)
+app.post('/api/auth/telegram/bot-demo-confirm', (req, res) => {
+  const { token, username = 'bridgik_user' } = req.body || {};
+  if (!token) return res.status(400).json({ error: 'Token required' });
+
+  const user = upsertTelegramUser({
+    id: 100000000 + Math.floor(Math.random() * 900000),
+    username,
+    firstName: 'Пользователь Telegram',
+  });
+
+  const onlineSet = stickyManager.getOnlineDeviceIds(user.id);
+  const profileDto = toUserProfileDto(user, undefined, onlineSet);
+
+  io.emit(`telegram-auth-done:${token}`, {
+    key: user.license_key,
+    user: profileDto,
+  });
+
+  return res.json({ success: true, key: user.license_key, user: profileDto });
+});
+
+// 12. Check Telegram Bot Session status (polling fallback)
+app.get('/api/auth/telegram/session-status', (req, res) => {
+  const token = req.query.token as string;
+  if (!token) return res.status(400).json({ error: 'Token required' });
+  const sess = pendingBotSessions.get(token);
+  if (!sess) return res.status(404).json({ error: 'Session not found or expired' });
+  if (sess.completedUser) {
+    return res.json({ completed: true, ...sess.completedUser });
+  }
+  return res.json({ completed: false });
 });
 
 // --- Bridgik Pro & YooKassa Payment Endpoints ---

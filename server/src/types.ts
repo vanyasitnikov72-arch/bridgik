@@ -44,6 +44,7 @@ export interface DbUser {
   avatar_url?: string;
   tier: UserTier;
   pro_until?: string;
+  yandex_id?: string;
   yandex_login?: string;
   twitch_handle?: string;
   telegram_id?: string;

@@ -223,11 +223,47 @@ export function App() {
 
   const handleAuthSuccess = async (
     provider: AuthProvider,
-    payload?: { key?: string; isNew?: boolean }
+    payload?: { key?: string; isNew?: boolean; user?: any }
   ): Promise<boolean | void> => {
     const deviceId = getBrowserDeviceId();
     const deviceName = deviceType === 'mobile' ? 'Мой смартфон' : 'Этот ПК';
     const browserLabel = getBrowserLabel();
+
+    if (payload?.key) {
+      localStorage.setItem('bridgik_license_key', payload.key);
+      if (payload.user) {
+        saveProfile(payload.user);
+        setUserName(payload.user.displayName);
+        if (payload.user.avatarUrl) setUserAvatar(payload.user.avatarUrl);
+        if (payload.user.activeFrame) setAdminFrame(payload.user.activeFrame);
+        if (payload.user.activeEmote !== undefined) setStatusEmote(payload.user.activeEmote);
+        if (payload.user.defaultRoomTheme) setRoomTheme(payload.user.defaultRoomTheme);
+      } else {
+        try {
+          const res = await fetch(`/api/user/profile?key=${encodeURIComponent(payload.key)}&deviceId=${encodeURIComponent(deviceId)}`);
+          const data = await res.json();
+          if (data?.success && data?.user) {
+            saveProfile(data.user);
+            setUserName(data.user.displayName);
+            if (data.user.avatarUrl) setUserAvatar(data.user.avatarUrl);
+            if (data.user.activeFrame) setAdminFrame(data.user.activeFrame);
+            if (data.user.activeEmote !== undefined) setStatusEmote(data.user.activeEmote);
+            if (data.user.defaultRoomTheme) setRoomTheme(data.user.defaultRoomTheme);
+          }
+        } catch {}
+      }
+
+      if (socket && isConnected) {
+        socket.emit('auth-device', {
+          licenseKey: payload.key,
+          deviceId,
+          name: deviceName,
+          deviceType,
+          browserLabel,
+        });
+      }
+      return true;
+    }
 
     if (provider === 'key') {
       if (payload?.isNew) {
@@ -455,6 +491,28 @@ export function App() {
       setActiveTab('profile');
     }
 
+    const authParam = params.get('auth');
+    if (authParam === 'success') {
+      const urlKey = params.get('key') || localStorage.getItem('bridgik_license_key');
+      if (urlKey) {
+        localStorage.setItem('bridgik_license_key', urlKey);
+        const deviceId = getBrowserDeviceId();
+        fetch(`/api/user/profile?key=${encodeURIComponent(urlKey)}&deviceId=${encodeURIComponent(deviceId)}`)
+          .then((r) => r.json())
+          .then((data) => {
+            if (data?.success && data?.user) {
+              saveProfile(data.user);
+              setUserName(data.user.displayName);
+              if (data.user.avatarUrl) setUserAvatar(data.user.avatarUrl);
+              if (data.user.activeFrame) setAdminFrame(data.user.activeFrame);
+              sound.playConnect();
+              setActiveTab('profile');
+            }
+          })
+          .catch((e) => console.error('OAuth profile load error:', e));
+      }
+    }
+
     const paymentParam = params.get('payment');
     if (paymentParam === 'demo') {
       const demoKey = params.get('key') || localStorage.getItem('bridgik_license_key');
@@ -494,16 +552,50 @@ export function App() {
       }
     }
 
-    if (urlAdminKey || paymentParam) {
+    if (urlAdminKey || paymentParam || authParam) {
       const cleanUrl = new URL(window.location.href);
       cleanUrl.searchParams.delete('admin');
       cleanUrl.searchParams.delete('payment');
+      cleanUrl.searchParams.delete('auth');
       cleanUrl.searchParams.delete('demo_id');
       cleanUrl.searchParams.delete('days');
       cleanUrl.searchParams.delete('key');
       cleanUrl.searchParams.delete('payment_id');
       window.history.replaceState({}, document.title, cleanUrl.toString());
     }
+  }, []);
+
+  // Global listener for OAuth popup messages
+  useEffect(() => {
+    const handleAuthMessage = (e: MessageEvent) => {
+      if (e.data?.type === 'BRIDGIK_AUTH_SUCCESS' && e.data?.key) {
+        const { key, user } = e.data;
+        localStorage.setItem('bridgik_license_key', key);
+        if (user) {
+          saveProfile(user);
+          setUserName(user.displayName);
+          if (user.avatarUrl) setUserAvatar(user.avatarUrl);
+          if (user.activeFrame) setAdminFrame(user.activeFrame);
+          if (user.activeEmote !== undefined) setStatusEmote(user.activeEmote);
+          if (user.defaultRoomTheme) setRoomTheme(user.defaultRoomTheme);
+        } else {
+          const did = getBrowserDeviceId();
+          fetch(`/api/user/profile?key=${encodeURIComponent(key)}&deviceId=${encodeURIComponent(did)}`)
+            .then((r) => r.json())
+            .then((d) => {
+              if (d?.success && d?.user) {
+                saveProfile(d.user);
+                setUserName(d.user.displayName);
+                if (d.user.avatarUrl) setUserAvatar(d.user.avatarUrl);
+              }
+            });
+        }
+        sound.playConnect();
+        setIsAuthModalOpen(false);
+      }
+    };
+    window.addEventListener('message', handleAuthMessage);
+    return () => window.removeEventListener('message', handleAuthMessage);
   }, []);
 
   const [socket, setSocket] = useState<Socket | null>(null);
