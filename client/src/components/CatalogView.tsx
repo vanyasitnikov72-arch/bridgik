@@ -5,7 +5,6 @@ import {
   Sparkles,
   Laptop,
   HardDrive,
-  Check,
   CheckCircle2,
   Zap,
   CreditCard,
@@ -51,8 +50,6 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
   userProfile,
   onOpenPricing,
   onOpenProfile,
-  onUpdateFrame,
-  onUpdateDefaultTheme,
   onProfileUpdated,
 }) => {
   const [activeSection, setActiveSection] = useState<CatalogSection>('all');
@@ -185,6 +182,10 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
   ];
 
   // Sticky Bridge slot expansion items
+  const purchasedCatalogItems = userProfile.settings?.purchasedCatalogItems || [];
+  const isSticky1Purchased = purchasedCatalogItems.includes('devices:devices_1') || extraSlots >= 3;
+  const isSticky2Purchased = purchasedCatalogItems.includes('devices:devices_2') || extraSlots >= 3;
+
   const stickyItems: CatalogItem[] = [
     {
       id: 'devices_1',
@@ -193,7 +194,7 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
       subtitle: 'Подключите ещё один личный ноутбук или домашний ПК',
       description: 'Устройства навсегда привязываются к вашему аккаунту и находят друг друга без ввода PIN.',
       priceRub: 99,
-      isUnlocked: false,
+      isUnlocked: isSticky1Purchased,
     },
     {
       id: 'devices_2',
@@ -203,7 +204,7 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
       description: 'Связка смартфона, планшета, домашнего ПК и офисного ноутбука в единый защищенный канал.',
       priceRub: 149,
       badge: '-25% выгода',
-      isUnlocked: false,
+      isUnlocked: isSticky2Purchased,
     },
   ];
 
@@ -221,6 +222,11 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
       isUnlocked: hasDrop500,
     },
   ];
+
+  // Items available to buy in Catalog (strictly those the user DOES NOT already have)
+  const availableFrames = frameItems.filter((item) => !item.isUnlocked);
+  const availableRooms = roomItems.filter((item) => !item.isUnlocked);
+  const availableSticky = stickyItems.filter((item) => !item.isUnlocked);
 
   const handleOpenPurchase = (item: CatalogItem) => {
     sound.playClick();
@@ -306,7 +312,7 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
             Каталог возможностей
           </h1>
           <p className="text-sm sm:text-base text-[#a8a8a8] max-w-2xl leading-relaxed">
-            Поштучное приобретение элементов оформления, расширение пула подключенных устройств и увеличенный офлайн-буфер для комфортной работы.
+            Поштучное приобретение элементов оформления, расширение пула подключенных устройств и увеличенный офлайн-буфер. Все допы закрепляются за вашим аккаунтом навсегда и доступны как с подпиской Pro, так и без неё.
           </p>
         </div>
       </div>
@@ -421,64 +427,41 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
           </div>
 
           {appearanceSubTab === 'frames' ? (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-              {frameItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="rounded-2xl bg-[#1b1b1b] border border-white/[0.08] hover:border-white/20 transition-all overflow-hidden flex flex-col justify-between group"
-                >
-                  <div className="relative h-32 w-full bg-[#141414] flex items-center justify-center overflow-hidden">
-                    <div
-                      className={`absolute inset-0 bg-radial ${item.previewData.auraClass} opacity-80 group-hover:opacity-100 transition-opacity`}
-                    />
-                    <img
-                      src={avatarSrc}
-                      alt={item.title}
-                      className={`relative w-16 h-16 rounded-full object-cover bg-[#141414] transition-transform group-hover:scale-105 ${item.previewData.frameClass}`}
-                      style={{ imageRendering: 'pixelated' }}
-                    />
-                    {item.badge && !item.isUnlocked && (
-                      <span className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md bg-black/75 border border-white/10 text-[10px] font-bold text-amber-300">
-                        {item.badge}
-                      </span>
-                    )}
-                    {item.isUnlocked && (
-                      <span className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md bg-[#283216]/90 border border-[#789d2a] text-[10px] font-bold text-[#bbf348] flex items-center gap-1">
-                        <Check className="w-3 h-3" />
-                        <span>В инвентаре</span>
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
-                    <div>
-                      <h3 className="font-extrabold text-base text-[#ededed]">{item.title}</h3>
-                      <p className="text-xs text-[#888888] mt-1 leading-relaxed">{item.subtitle}</p>
+            availableFrames.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                {availableFrames.map((item) => (
+                  <div
+                    key={item.id}
+                    className="rounded-2xl bg-[#1b1b1b] border border-white/[0.08] hover:border-white/20 transition-all overflow-hidden flex flex-col justify-between group"
+                  >
+                    <div className="relative h-32 w-full bg-[#141414] flex items-center justify-center overflow-hidden">
+                      <div
+                        className={`absolute inset-0 bg-radial ${item.previewData.auraClass} opacity-80 group-hover:opacity-100 transition-opacity`}
+                      />
+                      <img
+                        src={avatarSrc}
+                        alt={item.title}
+                        className={`relative w-16 h-16 rounded-full object-cover bg-[#141414] transition-transform group-hover:scale-105 ${item.previewData.frameClass}`}
+                        style={{ imageRendering: 'pixelated' }}
+                      />
+                      {item.badge && (
+                        <span className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md bg-black/75 border border-white/10 text-[10px] font-bold text-amber-300">
+                          {item.badge}
+                        </span>
+                      )}
                     </div>
 
-                    <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between gap-2">
-                      <span className="font-mono font-extrabold text-base text-[#ededed]">
-                        {item.priceRub} ₽
-                      </span>
+                    <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                      <div>
+                        <h3 className="font-extrabold text-base text-[#ededed]">{item.title}</h3>
+                        <p className="text-xs text-[#888888] mt-1 leading-relaxed">{item.subtitle}</p>
+                      </div>
 
-                      {item.isUnlocked ? (
-                        item.isActive ? (
-                          <span className="px-3 py-1.5 rounded-xl bg-[#283216] border border-[#789d2a]/40 text-xs font-bold text-[#bbf348]">
-                            Надето
-                          </span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              sound.playClick();
-                              onUpdateFrame?.(item.id as AvatarFrameId);
-                            }}
-                            className="px-3 py-1.5 rounded-xl bg-[#2a2a2a] hover:bg-[#333333] border border-white/10 text-xs font-bold text-[#ededed] transition-colors cursor-pointer"
-                          >
-                            Надеть
-                          </button>
-                        )
-                      ) : (
+                      <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between gap-2">
+                        <span className="font-mono font-extrabold text-base text-[#ededed]">
+                          {item.priceRub} ₽
+                        </span>
+
                         <button
                           type="button"
                           onClick={() => handleOpenPurchase(item)}
@@ -486,15 +469,38 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
                         >
                           Купить
                         </button>
-                      )}
+                      </div>
                     </div>
                   </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-6 rounded-2xl bg-[#1b1b1b] border border-white/[0.08] text-center space-y-3">
+                <div className="w-12 h-12 rounded-xl bg-[#283216] border border-[#789d2a]/40 flex items-center justify-center text-[#9ac43e] mx-auto">
+                  <CheckCircle2 className="w-6 h-6" />
                 </div>
-              ))}
-            </div>
-          ) : (
+                <h3 className="font-extrabold text-base text-[#ededed]">Все рамки уже в вашем инвентаре!</h3>
+                <p className="text-xs text-[#888888] max-w-md mx-auto">
+                  Все доступные в каталоге рамки аватара уже есть на вашем аккаунте. Вы можете надеть и переключать их во вкладке «Профиль».
+                </p>
+                {onOpenProfile && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sound.playClick();
+                      onOpenProfile();
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#283216] hover:bg-[#33411c] border border-[#789d2a] text-xs font-bold text-[#ededed] transition-colors cursor-pointer"
+                  >
+                    <span>Перейти в Профиль</span>
+                    <ChevronRight className="w-3.5 h-3.5 text-[#9ac43e]" />
+                  </button>
+                )}
+              </div>
+            )
+          ) : availableRooms.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-              {roomItems.map((item) => (
+              {availableRooms.map((item) => (
                 <div
                   key={item.id}
                   className="rounded-2xl bg-[#1b1b1b] border border-white/[0.08] hover:border-white/20 transition-all overflow-hidden flex flex-col justify-between group"
@@ -506,16 +512,11 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
                       className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
-                    {item.isUnlocked ? (
-                      <span className="absolute top-2.5 right-2.5 px-2.5 py-0.5 rounded-md bg-[#283216]/95 border border-[#789d2a] text-[10px] font-bold text-[#bbf348] flex items-center gap-1 backdrop-blur-sm">
-                        <Check className="w-3 h-3" />
-                        <span>В инвентаре</span>
-                      </span>
-                    ) : item.badge ? (
+                    {item.badge && (
                       <span className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md bg-black/80 border border-white/10 text-[10px] font-bold text-amber-300 backdrop-blur-sm">
                         {item.badge}
                       </span>
-                    ) : null}
+                    )}
                   </div>
 
                   <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
@@ -535,36 +536,40 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
                         {item.priceRub} ₽
                       </span>
 
-                      {item.isUnlocked ? (
-                        item.isActive ? (
-                          <span className="px-3 py-1.5 rounded-xl bg-[#283216] border border-[#789d2a]/40 text-xs font-bold text-[#bbf348]">
-                            Выбрана
-                          </span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              sound.playClick();
-                              onUpdateDefaultTheme?.(item.id);
-                            }}
-                            className="px-3 py-1.5 rounded-xl bg-[#2a2a2a] hover:bg-[#333333] border border-white/10 text-xs font-bold text-[#ededed] transition-colors cursor-pointer"
-                          >
-                            Выбрать
-                          </button>
-                        )
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleOpenPurchase(item)}
-                          className="px-3.5 py-1.5 rounded-xl bg-[#789d2a] hover:bg-[#8bb730] text-black font-extrabold text-xs transition-colors cursor-pointer shadow-md shadow-[#789d2a]/20"
-                        >
-                          Купить
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleOpenPurchase(item)}
+                        className="px-3.5 py-1.5 rounded-xl bg-[#789d2a] hover:bg-[#8bb730] text-black font-extrabold text-xs transition-colors cursor-pointer shadow-md shadow-[#789d2a]/20"
+                      >
+                        Купить
+                      </button>
                     </div>
                   </div>
                 </div>
               ))}
+            </div>
+          ) : (
+            <div className="p-6 rounded-2xl bg-[#1b1b1b] border border-white/[0.08] text-center space-y-3">
+              <div className="w-12 h-12 rounded-xl bg-[#283216] border border-[#789d2a]/40 flex items-center justify-center text-[#9ac43e] mx-auto">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+              <h3 className="font-extrabold text-base text-[#ededed]">Все локации комнат уже в вашем инвентаре!</h3>
+              <p className="text-xs text-[#888888] max-w-md mx-auto">
+                Все темы онлайн-комнат уже разблокированы на вашем аккаунте. Вы можете выбрать активную локацию в Профиле или прямо внутри Комнаты.
+              </p>
+              {onOpenProfile && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    sound.playClick();
+                    onOpenProfile();
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#283216] hover:bg-[#33411c] border border-[#789d2a] text-xs font-bold text-[#ededed] transition-colors cursor-pointer"
+                >
+                  <span>Перейти в Профиль</span>
+                  <ChevronRight className="w-3.5 h-3.5 text-[#9ac43e]" />
+                </button>
+              )}
             </div>
           )}
         </section>
@@ -592,51 +597,63 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            {stickyItems.map((item) => (
-              <div
-                key={item.id}
-                className="p-5 rounded-2xl bg-[#1b1b1b] border border-white/[0.08] hover:border-white/20 transition-all flex flex-col justify-between space-y-4"
-              >
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="w-10 h-10 rounded-xl bg-[#283216] border border-[#789d2a]/40 flex items-center justify-center text-[#9ac43e]">
-                      {item.id === 'devices_2' ? (
-                        <Smartphone className="w-5 h-5" />
-                      ) : (
-                        <Laptop className="w-5 h-5" />
+          {availableSticky.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {availableSticky.map((item) => (
+                <div
+                  key={item.id}
+                  className="p-5 rounded-2xl bg-[#1b1b1b] border border-white/[0.08] hover:border-white/20 transition-all flex flex-col justify-between space-y-4"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="w-10 h-10 rounded-xl bg-[#283216] border border-[#789d2a]/40 flex items-center justify-center text-[#9ac43e]">
+                        {item.id === 'devices_2' ? (
+                          <Smartphone className="w-5 h-5" />
+                        ) : (
+                          <Laptop className="w-5 h-5" />
+                        )}
+                      </div>
+                      {item.badge && (
+                        <span className="px-2.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[11px] font-bold">
+                          {item.badge}
+                        </span>
                       )}
                     </div>
-                    {item.badge && (
-                      <span className="px-2.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[11px] font-bold">
-                        {item.badge}
+
+                    <h3 className="font-extrabold text-base text-[#ededed]">{item.title}</h3>
+                    <p className="text-xs text-[#888888] leading-relaxed">{item.description}</p>
+                  </div>
+
+                  <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between gap-3">
+                    <div>
+                      <span className="font-mono font-extrabold text-lg text-[#ededed]">
+                        {item.priceRub} ₽
                       </span>
-                    )}
+                      <span className="text-[11px] text-[#777777] ml-1.5">/ навсегда</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleOpenPurchase(item)}
+                      className="px-4 py-2 rounded-xl bg-[#789d2a] hover:bg-[#8bb730] text-black font-extrabold text-xs transition-colors cursor-pointer shadow-md shadow-[#789d2a]/20"
+                    >
+                      Добавить слот
+                    </button>
                   </div>
-
-                  <h3 className="font-extrabold text-base text-[#ededed]">{item.title}</h3>
-                  <p className="text-xs text-[#888888] leading-relaxed">{item.description}</p>
                 </div>
-
-                <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between gap-3">
-                  <div>
-                    <span className="font-mono font-extrabold text-lg text-[#ededed]">
-                      {item.priceRub} ₽
-                    </span>
-                    <span className="text-[11px] text-[#777777] ml-1.5">/ навсегда</span>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleOpenPurchase(item)}
-                    className="px-4 py-2 rounded-xl bg-[#789d2a] hover:bg-[#8bb730] text-black font-extrabold text-xs transition-colors cursor-pointer shadow-md shadow-[#789d2a]/20"
-                  >
-                    Добавить слот
-                  </button>
-                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-6 rounded-2xl bg-[#1b1b1b] border border-white/[0.08] text-center space-y-3">
+              <div className="w-12 h-12 rounded-xl bg-[#283216] border border-[#789d2a]/40 flex items-center justify-center text-[#9ac43e] mx-auto">
+                <CheckCircle2 className="w-6 h-6" />
               </div>
-            ))}
-          </div>
+              <h3 className="font-extrabold text-base text-[#ededed]">Все доступные слоты Sticky Bridge уже добавлены!</h3>
+              <p className="text-xs text-[#888888] max-w-md mx-auto">
+                Все слоты для постоянной связки устройств уже активированы на вашем аккаунте.
+              </p>
+            </div>
+          )}
         </section>
       )}
 
@@ -662,53 +679,42 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-3.5">
-            {dropItems.map((item) => (
-              <div
-                key={item.id}
-                className="p-5 sm:p-6 rounded-2xl bg-[#1b1b1b] border border-white/[0.08] hover:border-white/20 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-5"
-              >
-                <div className="flex items-start sm:items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-[#283216] border border-[#789d2a]/40 flex items-center justify-center text-[#9ac43e] shrink-0">
-                    <Zap className="w-6 h-6" />
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-extrabold text-base sm:text-lg text-[#ededed]">
-                        {item.title}
-                      </h3>
-                      {item.isUnlocked ? (
-                        <span className="px-2 py-0.5 rounded-md bg-[#283216] border border-[#789d2a]/50 text-xs font-bold text-[#bbf348] flex items-center gap-1">
-                          <Check className="w-3 h-3" />
-                          <span>Активно</span>
-                        </span>
-                      ) : (
-                        item.badge && (
+          {!hasDrop500 ? (
+            <div className="grid grid-cols-1 gap-3.5">
+              {dropItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="p-5 sm:p-6 rounded-2xl bg-[#1b1b1b] border border-white/[0.08] hover:border-white/20 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-5"
+                >
+                  <div className="flex items-start sm:items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-[#283216] border border-[#789d2a]/40 flex items-center justify-center text-[#9ac43e] shrink-0">
+                      <Zap className="w-6 h-6" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-extrabold text-base sm:text-lg text-[#ededed]">
+                          {item.title}
+                        </h3>
+                        {item.badge && (
                           <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-bold">
                             {item.badge}
                           </span>
-                        )
-                      )}
+                        )}
+                      </div>
+                      <p className="text-xs sm:text-sm text-[#888888] leading-relaxed max-w-xl">
+                        {item.description}
+                      </p>
                     </div>
-                    <p className="text-xs sm:text-sm text-[#888888] leading-relaxed max-w-xl">
-                      {item.description}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-3 shrink-0 pt-3 sm:pt-0 border-t sm:border-t-0 border-white/[0.06]">
-                  <div>
-                    <span className="font-mono font-extrabold text-xl text-[#ededed]">
-                      {item.priceRub} ₽
-                    </span>
-                    <span className="text-xs text-[#777777] ml-1.5">/ навсегда</span>
                   </div>
 
-                  {item.isUnlocked ? (
-                    <span className="px-4 py-2 rounded-xl bg-[#283216] text-[#bbf348] font-bold text-xs border border-[#789d2a]/40">
-                      Лимит увеличен
-                    </span>
-                  ) : (
+                  <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-3 shrink-0 pt-3 sm:pt-0 border-t sm:border-t-0 border-white/[0.06]">
+                    <div>
+                      <span className="font-mono font-extrabold text-xl text-[#ededed]">
+                        {item.priceRub} ₽
+                      </span>
+                      <span className="text-xs text-[#777777] ml-1.5">/ навсегда</span>
+                    </div>
+
                     <button
                       type="button"
                       onClick={() => handleOpenPurchase(item)}
@@ -716,11 +722,21 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
                     >
                       Расширить до 500 МБ
                     </button>
-                  )}
+                  </div>
                 </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-6 rounded-2xl bg-[#1b1b1b] border border-white/[0.08] text-center space-y-3">
+              <div className="w-12 h-12 rounded-xl bg-[#283216] border border-[#789d2a]/40 flex items-center justify-center text-[#9ac43e] mx-auto">
+                <CheckCircle2 className="w-6 h-6" />
               </div>
-            ))}
-          </div>
+              <h3 className="font-extrabold text-base text-[#ededed]">Буфер 500 МБ уже подключен!</h3>
+              <p className="text-xs text-[#888888] max-w-md mx-auto">
+                Офлайн-буфер Drop & Go расширен до 500 МБ и привязан к вашему аккаунту навсегда.
+              </p>
+            </div>
+          )}
         </section>
       )}
 
