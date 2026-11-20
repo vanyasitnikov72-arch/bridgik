@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   Share2,
-  QrCode,
   LogOut,
   File,
   Download,
@@ -412,32 +411,6 @@ export const RoomView: React.FC<RoomViewProps> = ({
                   <span className="hidden sm:inline">Папка на диске</span>
                 </button>
               ))}
-
-            <button
-              onClick={onOpenQR}
-              className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg bg-[#2d2d2d] hover:bg-[#3a3a3a] text-[#ededed] text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <QrCode className="w-4 h-4 text-[#9ac43e]" />
-              <span className="sm:hidden">QR</span>
-              <span className="hidden sm:inline">QR-код</span>
-            </button>
-
-            <button
-              onClick={handleCopyLink}
-              className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg bg-[#2d2d2d] hover:bg-[#3a3a3a] text-[#ededed] text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              {copiedLink ? (
-                <>
-                  <Check className="w-4 h-4 text-[#9ac43e]" />
-                  <span className="text-[#9ac43e]">Скопировано</span>
-                </>
-              ) : (
-                <>
-                  <Share2 className="w-4 h-4" />
-                  <span>Ссылка</span>
-                </>
-              )}
-            </button>
 
             <button
               onClick={onLeaveRoom}
