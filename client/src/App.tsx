@@ -47,6 +47,8 @@ import {
   UserProfile,
   StickyDevice,
   DropDto,
+  UserSettings,
+  DEFAULT_USER_SETTINGS,
 } from './types/index.js';
 import {
   detectDeviceType,
@@ -123,26 +125,82 @@ export function App() {
   const [dropTargetDevice, setDropTargetDevice] = useState<StickyDevice | null>(null);
   const [pendingDrops, setPendingDrops] = useState<DropDto[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(() => sound.isEnabled());
-  const [radarVisible, setRadarVisible] = useState(() => {
-    return localStorage.getItem('bridgik_radar_visible') !== 'false';
+
+  // Unified persistent settings (saved to localStorage & synced to user account on server)
+  const [userSettings, setUserSettings] = useState<UserSettings>(() => {
+    let initial: UserSettings = { ...DEFAULT_USER_SETTINGS };
+    try {
+      const stored = localStorage.getItem('bridgik_user_settings');
+      if (stored) {
+        initial = { ...initial, ...JSON.parse(stored) };
+      } else {
+        const legAuto = localStorage.getItem('bridgik_auto_download');
+        if (legAuto !== null) initial.autoDownload = legAuto !== 'false';
+        const legRadar = localStorage.getItem('bridgik_radar_visible');
+        if (legRadar !== null) initial.radarVisible = legRadar !== 'false';
+        const legSticky = localStorage.getItem('bridgik_sticky_auto_accept');
+        if (legSticky !== null) initial.stickyAutoAccept = legSticky !== 'false';
+        const legToasts = localStorage.getItem('bridgik_participant_toasts');
+        if (legToasts !== null) initial.participantToasts = legToasts !== 'false';
+        const legTgDown = localStorage.getItem('bridgik_tg_notify_download');
+        if (legTgDown !== null) initial.tgNotifyDownload = legTgDown !== 'false';
+        const legTgDev = localStorage.getItem('bridgik_tg_notify_device');
+        if (legTgDev !== null) initial.tgNotifyDevice = legTgDev === 'true';
+        initial.soundEnabled = sound.isEnabled();
+      }
+    } catch {}
+    return initial;
   });
-  const [stickyAutoAccept, setStickyAutoAccept] = useState(() => {
-    return localStorage.getItem('bridgik_sticky_auto_accept') !== 'false';
-  });
-  const [participantToasts, setParticipantToasts] = useState(() => {
-    return localStorage.getItem('bridgik_participant_toasts') !== 'false';
-  });
-  const [tgNotifyDownload, setTgNotifyDownload] = useState(() => {
-    return localStorage.getItem('bridgik_tg_notify_download') !== 'false';
-  });
-  const [tgNotifyDevice, setTgNotifyDevice] = useState(() => {
-    return localStorage.getItem('bridgik_tg_notify_device') === 'true';
-  });
+
+  const [soundEnabled, setSoundEnabled] = useState(() => userSettings.soundEnabled);
+  const [radarVisible, setRadarVisible] = useState(() => userSettings.radarVisible);
+  const [participantToasts, setParticipantToasts] = useState(() => userSettings.participantToasts);
+
+  const handleUpdateSetting = <K extends keyof UserSettings>(key: K, value: UserSettings[K]) => {
+    setUserSettings((prev) => {
+      const updated = { ...prev, [key]: value };
+      try {
+        localStorage.setItem('bridgik_user_settings', JSON.stringify(updated));
+        if (key === 'soundEnabled') {
+          sound.setEnabled(Boolean(value));
+          setSoundEnabled(Boolean(value));
+        }
+        if (key === 'autoDownload') {
+          setAutoDownload(Boolean(value));
+          localStorage.setItem('bridgik_auto_download', String(value));
+        }
+        if (key === 'radarVisible') {
+          setRadarVisible(Boolean(value));
+          localStorage.setItem('bridgik_radar_visible', String(value));
+        }
+        if (key === 'participantToasts') {
+          setParticipantToasts(Boolean(value));
+          localStorage.setItem('bridgik_participant_toasts', String(value));
+        }
+        if (key === 'stickyAutoAccept') {
+          localStorage.setItem('bridgik_sticky_auto_accept', String(value));
+        }
+        if (key === 'tgNotifyDownload') {
+          localStorage.setItem('bridgik_tg_notify_download', String(value));
+        }
+        if (key === 'tgNotifyDevice') {
+          localStorage.setItem('bridgik_tg_notify_device', String(value));
+        }
+      } catch {}
+
+      // Persist to user account in DB if logged in
+      if (userProfile?.licenseKeyPreview || localStorage.getItem('bridgik_license_key')) {
+        patchBackendProfile({ settings: { [key]: value } });
+      }
+
+      return updated;
+    });
+  };
 
   const handleToggleSound = () => {
     const next = sound.toggle();
     setSoundEnabled(next);
+    handleUpdateSetting('soundEnabled', next);
     if (next) sound.playMessage();
   };
 
@@ -155,6 +213,20 @@ export function App() {
       }
       if (next.isAdmin) {
         setIsAdmin(true);
+      }
+      if (next.settings) {
+        setUserSettings((prev) => {
+          const merged = { ...prev, ...next.settings };
+          try {
+            localStorage.setItem('bridgik_user_settings', JSON.stringify(merged));
+            sound.setEnabled(merged.soundEnabled);
+            setSoundEnabled(merged.soundEnabled);
+            setAutoDownload(merged.autoDownload);
+            setRadarVisible(merged.radarVisible);
+            setParticipantToasts(merged.participantToasts);
+          } catch {}
+          return merged;
+        });
       }
     } else {
       localStorage.removeItem('bridgik_demo_profile');
@@ -174,6 +246,7 @@ export function App() {
     activeFrame?: any;
     activeEmote?: string | null;
     defaultRoomTheme?: string;
+    settings?: Partial<UserSettings>;
   }) => {
     const key = userProfile?.licenseKeyPreview || localStorage.getItem('bridgik_license_key');
     if (!key) return;
@@ -1482,6 +1555,14 @@ export function App() {
     };
 
     const handleIncomingPair = (req: PairRequest) => {
+      if (userSettings.stickyAutoAccept && req.isSameAccount) {
+        sound.playConnect();
+        socket.emit('direct-pair-response', {
+          toSocketId: req.fromSocketId,
+          accepted: true,
+        });
+        return;
+      }
       sound.playMessage();
       setIncomingPairRequest(req);
     };
@@ -1635,11 +1716,7 @@ export function App() {
   };
 
   const handleToggleAutoDownload = () => {
-    setAutoDownload((prev) => {
-      const next = !prev;
-      localStorage.setItem('bridgik_auto_download', String(next));
-      return next;
-    });
+    handleUpdateSetting('autoDownload', !userSettings.autoDownload);
   };
 
   const handleCreateMeeting = () => {
@@ -1922,7 +1999,7 @@ export function App() {
 
   const handleSendText = (text: string, isClipboard = false, isBurner = false) => {
     if (!webrtcRef.current) return;
-    webrtcRef.current.sendTextMessage(text, isClipboard, isBurner);
+    webrtcRef.current.sendTextMessage(text, isClipboard, isBurner, userSettings.defaultBurnTimer);
   };
 
   const handleSendSharedBundle = () => {
@@ -1988,7 +2065,12 @@ export function App() {
     }
 
     try {
-      const active = await webrtcRef.current.toggleMicrophone();
+      const active = await webrtcRef.current.toggleMicrophone({
+        deviceId: userSettings.selectedAudioDeviceId || undefined,
+        echoCancellation: userSettings.echoCancellation,
+        noiseSuppression: userSettings.noiseSuppression,
+        autoGainControl: userSettings.autoGainControl,
+      });
       setIsMicActive(active);
       sound.playClick();
       setPeers((prev) =>
@@ -2299,6 +2381,7 @@ export function App() {
             onCancelTransfer={handleCancelTransfer}
             onDismissTransfer={handleDismissTransfer}
             onClearCompletedTransfers={handleClearCompletedTransfers}
+            onOpenAppSettings={() => setIsSettingsOpen(true)}
           />
         ) : (
           <RoomView
@@ -2441,49 +2524,12 @@ export function App() {
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
-        autoDownload={autoDownload}
-        onToggleAutoDownload={handleToggleAutoDownload}
-        soundEnabled={soundEnabled}
-        onToggleSound={handleToggleSound}
-        radarVisible={radarVisible}
-        onToggleRadarVisible={() => {
-          setRadarVisible((v) => {
-            const next = !v;
-            localStorage.setItem('bridgik_radar_visible', String(next));
-            return next;
-          });
-        }}
-        stickyAutoAccept={stickyAutoAccept}
-        onToggleStickyAutoAccept={() => {
-          setStickyAutoAccept((v) => {
-            const next = !v;
-            localStorage.setItem('bridgik_sticky_auto_accept', String(next));
-            return next;
-          });
-        }}
-        participantToasts={participantToasts}
-        onToggleParticipantToasts={() => {
-          setParticipantToasts((v) => {
-            const next = !v;
-            localStorage.setItem('bridgik_participant_toasts', String(next));
-            return next;
-          });
-        }}
-        tgNotifyDownload={tgNotifyDownload}
-        onToggleTgNotifyDownload={() => {
-          setTgNotifyDownload((v) => {
-            const next = !v;
-            localStorage.setItem('bridgik_tg_notify_download', String(next));
-            return next;
-          });
-        }}
-        tgNotifyDevice={tgNotifyDevice}
-        onToggleTgNotifyDevice={() => {
-          setTgNotifyDevice((v) => {
-            const next = !v;
-            localStorage.setItem('bridgik_tg_notify_device', String(next));
-            return next;
-          });
+        settings={userSettings}
+        onUpdateSetting={handleUpdateSetting}
+        isAuthed={Boolean(userProfile)}
+        onOpenAuth={(provider) => {
+          setAuthModalProvider(provider || 'yandex');
+          setIsAuthModalOpen(true);
         }}
         hasTelegramLinked={Boolean(userProfile?.providers.telegram)}
       />

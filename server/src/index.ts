@@ -493,13 +493,14 @@ app.patch('/api/user/profile', (req, res) => {
   if (!user) {
     return res.status(401).json({ error: 'Неверный ключ' });
   }
-  const { displayName, avatarUrl, activeFrame, activeEmote, defaultRoomTheme } = req.body || {};
+  const { displayName, avatarUrl, activeFrame, activeEmote, defaultRoomTheme, settings } = req.body || {};
   const updated = updateUserProfile(user.id, {
     displayName,
     avatarUrl,
     activeFrame,
     activeEmote,
     defaultRoomTheme,
+    settings,
   });
   if (!updated) {
     return res.status(500).json({ error: 'Не удалось обновить профиль' });

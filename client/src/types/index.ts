@@ -6,6 +6,58 @@ export type AuthProvider = 'yandex' | 'telegram' | 'key';
 export type UserTier = 'free' | 'pro';
 export type AvatarFrameId = 'none' | 'gold' | 'rgb' | 'plasma';
 
+export interface UserSettings {
+  // Общие
+  soundEnabled: boolean;
+  animationsEnabled: boolean;
+  browserNotifications: boolean;
+  verifyFileIntegrity: boolean;
+
+  // Мост и передача
+  autoDownload: boolean;
+  radarVisible: boolean;
+  stickyAutoAccept: boolean;
+  confirmLargeFiles: boolean;
+
+  // Комната и звук
+  selectedAudioDeviceId: string;
+  noiseSuppression: boolean;
+  echoCancellation: boolean;
+  autoGainControl: boolean;
+  muteMicOnJoin: boolean;
+  defaultBurnTimer: number;
+
+  // Уведомления
+  participantToasts: boolean;
+  tgNotifyDownload: boolean;
+  tgNotifyDevice: boolean;
+  chatSoundNotify: boolean;
+}
+
+export const DEFAULT_USER_SETTINGS: UserSettings = {
+  soundEnabled: true,
+  animationsEnabled: true,
+  browserNotifications: false,
+  verifyFileIntegrity: true,
+
+  autoDownload: true,
+  radarVisible: true,
+  stickyAutoAccept: true,
+  confirmLargeFiles: false,
+
+  selectedAudioDeviceId: '',
+  noiseSuppression: true,
+  echoCancellation: true,
+  autoGainControl: true,
+  muteMicOnJoin: true,
+  defaultBurnTimer: 10,
+
+  participantToasts: true,
+  tgNotifyDownload: true,
+  tgNotifyDevice: false,
+  chatSoundNotify: true,
+};
+
 export interface StickyDevice {
   id: string;
   name: string;
@@ -33,6 +85,7 @@ export interface UserProfile {
   activeFrame: AvatarFrameId;
   activeEmote?: string | null;
   defaultRoomTheme: string;
+  settings?: UserSettings;
   s3QuotaUsedMb: number;
   s3QuotaLimitMb: number;
   devices: StickyDevice[];
@@ -162,6 +215,8 @@ export interface PairRequest {
   fromOs?: string;
   fromBrowser?: string;
   fromModel?: string;
+  fromDeviceId?: string;
+  isSameAccount?: boolean;
   roomId: string;
   pin: string;
   isAdmin?: boolean;

@@ -37,6 +37,58 @@ export interface SignalData {
 export type AvatarFrameId = 'none' | 'gold' | 'rgb' | 'plasma';
 export type UserTier = 'free' | 'pro';
 
+export interface UserSettings {
+  // Общие
+  soundEnabled: boolean;
+  animationsEnabled: boolean;
+  browserNotifications: boolean;
+  verifyFileIntegrity: boolean;
+
+  // Мост и передача
+  autoDownload: boolean;
+  radarVisible: boolean;
+  stickyAutoAccept: boolean;
+  confirmLargeFiles: boolean;
+
+  // Комната и звук
+  selectedAudioDeviceId: string;
+  noiseSuppression: boolean;
+  echoCancellation: boolean;
+  autoGainControl: boolean;
+  muteMicOnJoin: boolean;
+  defaultBurnTimer: number;
+
+  // Уведомления
+  participantToasts: boolean;
+  tgNotifyDownload: boolean;
+  tgNotifyDevice: boolean;
+  chatSoundNotify: boolean;
+}
+
+export const DEFAULT_USER_SETTINGS: UserSettings = {
+  soundEnabled: true,
+  animationsEnabled: true,
+  browserNotifications: false,
+  verifyFileIntegrity: true,
+
+  autoDownload: true,
+  radarVisible: true,
+  stickyAutoAccept: true,
+  confirmLargeFiles: false,
+
+  selectedAudioDeviceId: '',
+  noiseSuppression: true,
+  echoCancellation: true,
+  autoGainControl: true,
+  muteMicOnJoin: true,
+  defaultBurnTimer: 10,
+
+  participantToasts: true,
+  tgNotifyDownload: true,
+  tgNotifyDevice: false,
+  chatSoundNotify: true,
+};
+
 export interface DbUser {
   id: string;
   license_key: string;
@@ -57,6 +109,7 @@ export interface DbUser {
   s3_quota_used_mb: number;
   s3_quota_limit_mb: number;
   is_admin?: number;
+  settings?: string;
   created_at: number;
   updated_at: number;
 }
@@ -112,6 +165,7 @@ export interface UserProfileDto {
   activeFrame: AvatarFrameId;
   activeEmote?: string | null;
   defaultRoomTheme: string;
+  settings: UserSettings;
   s3QuotaUsedMb: number;
   s3QuotaLimitMb: number;
   devices: StickyDeviceDto[];

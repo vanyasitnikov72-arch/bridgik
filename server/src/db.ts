@@ -14,6 +14,8 @@ import {
   AvatarFrameId,
   UserTier,
   DbPayment,
+  UserSettings,
+  DEFAULT_USER_SETTINGS,
 } from './types.js';
 
 const DATA_DIR = process.env.DATA_DIR || path.resolve(process.cwd(), 'data');
@@ -122,6 +124,9 @@ try {
 } catch {}
 try {
   db.exec(`ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0`);
+} catch {}
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN settings TEXT`);
 } catch {}
 
 // Automatically promote owner account to Admin & Pro
@@ -383,6 +388,7 @@ export function updateUserProfile(
     activeFrame?: AvatarFrameId;
     activeEmote?: string | null;
     defaultRoomTheme?: string;
+    settings?: Partial<UserSettings>;
   }
 ): DbUser | null {
   const user = getUserById(userId);
@@ -395,6 +401,18 @@ export function updateUserProfile(
   const newEmote = (updates.activeEmote !== undefined ? updates.activeEmote : user.active_emote) ?? null;
   const newTheme = updates.defaultRoomTheme !== undefined ? updates.defaultRoomTheme : user.default_room_theme;
 
+  let newSettingsStr = user.settings || null;
+  if (updates.settings !== undefined) {
+    let existingSettings: UserSettings = { ...DEFAULT_USER_SETTINGS };
+    if (user.settings) {
+      try {
+        existingSettings = { ...DEFAULT_USER_SETTINGS, ...JSON.parse(user.settings) };
+      } catch {}
+    }
+    const merged = { ...existingSettings, ...updates.settings };
+    newSettingsStr = JSON.stringify(merged);
+  }
+
   db.prepare(`
     UPDATE users SET
       display_name = ?,
@@ -402,9 +420,10 @@ export function updateUserProfile(
       active_frame = ?,
       active_emote = ?,
       default_room_theme = ?,
+      settings = ?,
       updated_at = ?
     WHERE id = ?
-  `).run(newName, newAvatar, newFrame, newEmote, newTheme, now, userId);
+  `).run(newName, newAvatar, newFrame, newEmote, newTheme, newSettingsStr, now, userId);
 
   return getUserById(userId);
 }
@@ -509,6 +528,14 @@ export function toUserProfileDto(
     unlockedThemes = JSON.parse(user.unlocked_themes);
   } catch {}
 
+  let userSettings: UserSettings = { ...DEFAULT_USER_SETTINGS };
+  if (user.settings) {
+    try {
+      const parsed = JSON.parse(user.settings);
+      userSettings = { ...DEFAULT_USER_SETTINGS, ...parsed };
+    } catch {}
+  }
+
   return {
     id: user.id,
     displayName: user.display_name,
@@ -528,6 +555,7 @@ export function toUserProfileDto(
     activeFrame: user.active_frame,
     activeEmote: user.active_emote || null,
     defaultRoomTheme: user.default_room_theme,
+    settings: userSettings,
     s3QuotaUsedMb: user.s3_quota_used_mb,
     s3QuotaLimitMb: user.s3_quota_limit_mb,
     devices,

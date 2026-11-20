@@ -39,6 +39,8 @@ import {
   Flame,
   Code,
   Package,
+  Sliders,
+  ChevronRight,
 } from 'lucide-react';
 import { FileTransfer, Peer, TextMessage } from '../types/index.js';
 import { sound } from '../utils/sound.js';
@@ -636,6 +638,7 @@ interface MeetingRoomViewProps {
   onCancelTransfer?: (transferId: string) => void;
   onDismissTransfer?: (transferId: string) => void;
   onClearCompletedTransfers?: () => void;
+  onOpenAppSettings?: () => void;
 }
 export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   socket,
@@ -691,6 +694,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   onCancelTransfer,
   onDismissTransfer,
   onClearCompletedTransfers,
+  onOpenAppSettings,
 }) => {
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedNotes, setCopiedNotes] = useState(false);
@@ -2727,6 +2731,24 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                   </button>
                 </div>
               </div>
+
+              {onOpenAppSettings && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSettingsOpen(false);
+                    sound.playClick();
+                    onOpenAppSettings();
+                  }}
+                  className="w-full py-3 px-4 rounded-xl bg-[#23232c] hover:bg-[#2c2c38] text-[#ededed] border border-white/10 text-xs sm:text-sm font-bold flex items-center justify-between transition-colors cursor-pointer"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Sliders className="w-4 h-4 text-[#9ac43e]" />
+                    <span>Параметры микрофона, звука и уведомлений</span>
+                  </span>
+                  <ChevronRight className="w-4 h-4 text-[#888888]" />
+                </button>
+              )}
 
               <div className="p-3.5 rounded-xl bg-[#121216] border border-[#2a2a35] text-xs text-[#888888] space-y-1 font-mono">
                 <div className="flex items-center justify-between text-[#ededed] font-bold">

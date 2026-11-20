@@ -754,8 +754,8 @@ export class WebRTCManager {
     this.broadcastControlMessage(msg);
   }
 
-  public sendTextMessage(text: string, isClipboard = false, isBurner = false) {
-    const expiresAt = isBurner ? Date.now() + 10000 : undefined;
+  public sendTextMessage(text: string, isClipboard = false, isBurner = false, burnSeconds = 10) {
+    const expiresAt = isBurner ? Date.now() + Math.max(3, burnSeconds) * 1000 : undefined;
     const msg: WebRTCMessage = {
       type: 'TEXT',
       id: Math.random().toString(36).substring(2, 10),
@@ -1270,7 +1270,12 @@ export class WebRTCManager {
     }
   }
 
-  public async toggleMicrophone(): Promise<boolean> {
+  public async toggleMicrophone(audioOptions?: {
+    deviceId?: string;
+    echoCancellation?: boolean;
+    noiseSuppression?: boolean;
+    autoGainControl?: boolean;
+  }): Promise<boolean> {
     if (this.localStream) {
       const audioTracks = this.localStream.getAudioTracks().filter((t) => t.readyState === 'live');
       if (audioTracks.length > 0) {
@@ -1312,14 +1317,19 @@ export class WebRTCManager {
       );
     }
 
+    const audioConstraints: MediaTrackConstraints = {
+      echoCancellation: audioOptions?.echoCancellation ?? true,
+      noiseSuppression: audioOptions?.noiseSuppression ?? true,
+      autoGainControl: audioOptions?.autoGainControl ?? true,
+    };
+    if (audioOptions?.deviceId) {
+      audioConstraints.deviceId = { exact: audioOptions.deviceId };
+    }
+
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
+        audio: audioConstraints,
       });
     } catch (firstErr: any) {
       console.warn('Advanced audio constraints failed, trying basic audio: true', firstErr);
