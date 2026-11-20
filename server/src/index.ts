@@ -341,8 +341,15 @@ function sanitizePeerName(raw: unknown, fallback = 'Гость'): string {
 }
 
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/drop/upload') || req.path.includes('/drop')) {
+    return next();
+  }
+  express.json()(req, res, (err) => {
+    if (err) return next(err);
+    express.urlencoded({ extended: true })(req, res, next);
+  });
+});
 
 const emoteCache: Map<string, { buffer: Buffer; contentType: string }> = new Map();
 
