@@ -53,6 +53,7 @@ import {
   UserSettings,
   DEFAULT_USER_SETTINGS,
   hasRoomPro,
+  hasBridgePro,
 } from './types/index.js';
 import {
   detectDeviceType,
@@ -2602,6 +2603,8 @@ export function App() {
             pendingSharedText={pendingSharedText}
             onSendSharedBundle={handleSendSharedBundle}
             onDismissSharedBundle={handleDismissSharedBundle}
+            isBridgePro={Boolean(hasBridgePro(userProfile?.tier) || isAdmin)}
+            onOpenPricing={() => setActiveTab('pricing')}
           />
         )}
       </main>

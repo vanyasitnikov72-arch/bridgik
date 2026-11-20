@@ -25,6 +25,7 @@ import {
   Flame,
   Code,
   Play,
+  Lock,
 } from 'lucide-react';
 import { FileTransfer, Peer, TextMessage } from '../types/index.js';
 import { formatBytes, formatSpeed, getAvatarForName } from '../utils/device.js';
@@ -74,6 +75,8 @@ interface RoomViewProps {
   pendingSharedText?: string;
   onSendSharedBundle?: () => void;
   onDismissSharedBundle?: () => void;
+  isBridgePro?: boolean;
+  onOpenPricing?: () => void;
 }
 
 export const RoomView: React.FC<RoomViewProps> = ({
@@ -82,6 +85,8 @@ export const RoomView: React.FC<RoomViewProps> = ({
   myPeerId,
   userAvatar,
   isAdmin,
+  isBridgePro = false,
+  onOpenPricing,
   adminFrame: _adminFrame = 'gold',
   statusEmote,
   roomUrl,
@@ -789,15 +794,36 @@ export const RoomView: React.FC<RoomViewProps> = ({
                 {downloadableTransfers.length >= 2 && (
                   <button
                     type="button"
-                    onClick={handleDownloadAllZip}
+                    onClick={() => {
+                      if (!isBridgePro) {
+                        onOpenPricing?.();
+                        return;
+                      }
+                      handleDownloadAllZip();
+                    }}
                     disabled={isZipping}
-                    className="px-3.5 py-1.5 rounded-lg bg-[#789d2a] hover:bg-[#8cb632] disabled:opacity-60 text-white text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+                    className={`px-3.5 py-1.5 rounded-lg disabled:opacity-60 text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm ${
+                      isBridgePro
+                        ? 'bg-[#789d2a] hover:bg-[#8cb632] text-white'
+                        : 'bg-[#222226] hover:bg-[#2c2c33] border border-amber-400/40 text-amber-300'
+                    }`}
+                    title={
+                      isBridgePro
+                        ? 'Скачать все файлы моста одним ZIP-архивом'
+                        : 'Пакетное скачивание в ZIP доступно в тарифе Data Link и Overdrive'
+                    }
                   >
-                    <Package className="w-4 h-4" />
+                    {isBridgePro ? (
+                      <Package className="w-4 h-4" />
+                    ) : (
+                      <Lock className="w-3.5 h-3.5 text-amber-400" />
+                    )}
                     <span>
                       {isZipping
                         ? 'Собираем ZIP...'
-                        : `Скачать всё ZIP (${downloadableTransfers.length})`}
+                        : isBridgePro
+                        ? `Скачать всё ZIP (${downloadableTransfers.length})`
+                        : `ZIP-архив (${downloadableTransfers.length}) PRO`}
                     </span>
                   </button>
                 )}

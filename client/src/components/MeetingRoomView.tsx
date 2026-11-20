@@ -44,7 +44,7 @@ import {
   Folder,
   Play,
 } from 'lucide-react';
-import { FileTransfer, Peer, TextMessage, UserProfile } from '../types/index.js';
+import { FileTransfer, Peer, TextMessage, UserProfile, hasBridgePro } from '../types/index.js';
 import { sound } from '../utils/sound.js';
 import { createZipFromBlobUrls } from '../utils/zip.js';
 import { extractFilesFromDataTransfer } from '../utils/files.js';
@@ -911,6 +911,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   useScreenWakeLock(hasActiveTransfer);
 
   const [isZipping, setIsZipping] = useState(false);
+  const isBridgePro = Boolean(hasBridgePro(userProfile?.tier) || isAdmin);
   const downloadableTransfers = transfers.filter(
     (t) => t.status === 'completed' && Boolean(t.blobUrl)
   );
@@ -1716,16 +1717,36 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 {downloadableTransfers.length >= 2 && (
                   <button
                     type="button"
-                    onClick={handleDownloadAllZip}
+                    onClick={() => {
+                      if (!isBridgePro) {
+                        onOpenPricing?.();
+                        return;
+                      }
+                      handleDownloadAllZip();
+                    }}
                     disabled={isZipping}
-                    className="px-3 py-1.5 rounded-lg bg-[#789d2a] hover:bg-[#8cb632] disabled:opacity-60 text-white text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
-                    title="Скачать все файлы комнаты одним ZIP-архивом"
+                    className={`px-3 py-1.5 rounded-lg disabled:opacity-60 text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm ${
+                      isBridgePro
+                        ? 'bg-[#789d2a] hover:bg-[#8cb632] text-white'
+                        : 'bg-[#222226] hover:bg-[#2c2c33] border border-amber-400/40 text-amber-300'
+                    }`}
+                    title={
+                      isBridgePro
+                        ? 'Скачать все файлы комнаты одним ZIP-архивом'
+                        : 'Пакетное скачивание в ZIP доступно в тарифе Data Link и Overdrive'
+                    }
                   >
-                    <Package className="w-3.5 h-3.5" />
+                    {isBridgePro ? (
+                      <Package className="w-3.5 h-3.5" />
+                    ) : (
+                      <Lock className="w-3 h-3 text-amber-400" />
+                    )}
                     <span>
                       {isZipping
                         ? 'Собираем ZIP...'
-                        : `Скачать всё ZIP (${downloadableTransfers.length})`}
+                        : isBridgePro
+                        ? `Скачать всё ZIP (${downloadableTransfers.length})`
+                        : `ZIP-архив (${downloadableTransfers.length}) PRO`}
                     </span>
                   </button>
                 )}
