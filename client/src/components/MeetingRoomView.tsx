@@ -639,6 +639,8 @@ interface MeetingRoomViewProps {
   onDismissTransfer?: (transferId: string) => void;
   onClearCompletedTransfers?: () => void;
   onOpenAppSettings?: () => void;
+  isPro?: boolean;
+  onOpenPricing?: () => void;
 }
 export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   socket,
@@ -695,6 +697,8 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   onDismissTransfer,
   onClearCompletedTransfers,
   onOpenAppSettings,
+  isPro = false,
+  onOpenPricing,
 }) => {
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedNotes, setCopiedNotes] = useState(false);
@@ -1095,6 +1099,10 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
 
   const handleUpdateMaxSeats = (newMax: number) => {
     sound.playClick();
+    if (newMax > 4 && !isPro) {
+      if (onOpenPricing) onOpenPricing();
+      return;
+    }
     onUpdateMaxSeats(newMax);
   };
 
@@ -1205,6 +1213,12 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
 
   const handleSelectRoom = (roomId: RoomId) => {
     if (!isHost) return;
+    if (!isPro && roomId !== 'cyber-lounge') {
+      sound.playClick();
+      setIsRoomPickerOpen(false);
+      if (onOpenPricing) onOpenPricing();
+      return;
+    }
     setCurrentRoomId(roomId);
     localStorage.setItem('bridgik_pixel_room', roomId);
     setIsRoomPickerOpen(false);
@@ -1608,6 +1622,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 <div className="space-y-1.5 max-h-60 overflow-y-auto">
                   {Object.values(ROOM_PRESETS).map((r) => {
                     const isSelected = currentRoomId === r.id;
+                    const isLocked = !isPro && r.id !== 'cyber-lounge';
                     return (
                       <button
                         key={r.id}
@@ -1615,6 +1630,8 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                         className={`w-full p-2 rounded-xl border text-left flex items-center gap-2.5 transition-all cursor-pointer ${
                           isSelected
                             ? 'bg-[#222230] border-[#9ac43e]'
+                            : isLocked
+                            ? 'bg-[#14141a] border-amber-500/20 opacity-80 hover:opacity-100 hover:border-amber-400/40'
                             : 'bg-[#181820] border-white/5 hover:border-white/20'
                         }`}
                       >
@@ -1624,13 +1641,23 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                           className="w-14 h-9 rounded-lg object-cover border border-white/10 shrink-0"
                         />
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-extrabold text-[#ededed] truncate">
-                            {r.title}
-                          </p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-xs font-extrabold text-[#ededed] truncate">
+                              {r.title}
+                            </p>
+                            {isLocked && (
+                              <span className="text-[9px] font-extrabold uppercase px-1 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                                PRO
+                              </span>
+                            )}
+                          </div>
                           <p className="text-[10px] text-[#888888] truncate">{r.subtitle}</p>
                         </div>
                         {isSelected && (
                           <CheckCircle2 className="w-4 h-4 text-[#9ac43e] shrink-0" />
+                        )}
+                        {isLocked && !isSelected && (
+                          <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                         )}
                       </button>
                     );
@@ -2455,21 +2482,31 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                       Количество мест в комнате (на диванах и креслах):
                     </label>
                     <div className="grid grid-cols-4 gap-2">
-                      {[2, 4, 6, 8].map((seatsCount) => (
-                        <button
-                          key={seatsCount}
-                          type="button"
-                          onClick={() => handleUpdateMaxSeats(seatsCount)}
-                          className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                            maxSeats === seatsCount
-                              ? 'bg-[#789d2a] text-white shadow-md'
-                              : 'bg-[#1e1e28] text-[#cccccc] hover:bg-[#282836] border border-white/5'
-                          }`}
-                        >
-                          <Armchair className="w-3.5 h-3.5" />
-                          <span>{seatsCount} мест</span>
-                        </button>
-                      ))}
+                      {[2, 4, 6, 8].map((seatsCount) => {
+                        const isProLocked = !isPro && seatsCount > 4;
+                        return (
+                          <button
+                            key={seatsCount}
+                            type="button"
+                            onClick={() => handleUpdateMaxSeats(seatsCount)}
+                            className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                              maxSeats === seatsCount
+                                ? 'bg-[#789d2a] text-white shadow-md'
+                                : isProLocked
+                                ? 'bg-[#181820] text-[#777777] border border-amber-500/20 hover:border-amber-500/40'
+                                : 'bg-[#1e1e28] text-[#cccccc] hover:bg-[#282836] border border-white/5'
+                            }`}
+                          >
+                            <Armchair className="w-3.5 h-3.5" />
+                            <span>{seatsCount} мест</span>
+                            {isProLocked && (
+                              <span className="text-[9px] font-extrabold uppercase px-1 py-0.2 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                                PRO
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -2577,6 +2614,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {Object.values(ROOM_PRESETS).map((r) => {
                       const isSelected = currentRoomId === r.id;
+                      const isLocked = !isPro && r.id !== 'cyber-lounge';
                       return (
                         <button
                           key={r.id}
@@ -2584,6 +2622,8 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                           className={`p-3 rounded-2xl border text-left transition-all cursor-pointer relative flex flex-col gap-2 ${
                             isSelected
                               ? 'bg-[#222230] border-[#9ac43e] shadow-lg'
+                              : isLocked
+                              ? 'bg-[#15151a] border-amber-500/25 opacity-85 hover:opacity-100 hover:border-amber-400/50'
                               : 'bg-[#15151a] border-[#2f2f3a] hover:border-[#444455]'
                           }`}
                         >
@@ -2599,9 +2639,22 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                                 <span>Выбрано</span>
                               </div>
                             )}
+                            {isLocked && !isSelected && (
+                              <div className="absolute top-2 right-2 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/80 backdrop-blur-xs text-white shadow-md flex items-center gap-1 border border-amber-400/40">
+                                <Lock className="w-3 h-3" />
+                                <span>PRO</span>
+                              </div>
+                            )}
                           </div>
                           <div>
-                            <p className="font-extrabold text-sm text-[#ededed]">{r.title}</p>
+                            <div className="flex items-center justify-between">
+                              <p className="font-extrabold text-sm text-[#ededed]">{r.title}</p>
+                              {isLocked && (
+                                <span className="text-[10px] font-bold text-amber-400 font-mono">
+                                  Подписка Pro
+                                </span>
+                              )}
+                            </div>
                             <p className="text-xs text-[#888888] leading-tight mt-0.5">
                               {r.subtitle}
                             </p>

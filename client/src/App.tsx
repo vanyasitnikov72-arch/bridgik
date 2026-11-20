@@ -1621,6 +1621,11 @@ export function App() {
     setRoomMode(mode);
     setActiveTab(mode);
 
+    const isProUser = Boolean(userProfile?.tier === 'pro' || isAdmin);
+    const effectiveMaxSeats = isProUser ? 8 : 4;
+    const effectiveRoomTheme = isProUser ? roomTheme : 'cyber-lounge';
+    const currentLicenseKey = userProfile?.licenseKeyPreview || localStorage.getItem('bridgik_license_key') || undefined;
+
     socket.emit(
       'create-room',
       {
@@ -1630,9 +1635,10 @@ export function App() {
         statusEmote: statusEmote || undefined,
         deviceType,
         mode,
-        maxSeats: 8,
-        roomTheme,
+        maxSeats: effectiveMaxSeats,
+        roomTheme: effectiveRoomTheme,
         browserId: getBrowserDeviceId(),
+        licenseKey: currentLicenseKey,
       },
       (res: any) => {
         setIsLoading(false);
@@ -2382,6 +2388,8 @@ export function App() {
             onDismissTransfer={handleDismissTransfer}
             onClearCompletedTransfers={handleClearCompletedTransfers}
             onOpenAppSettings={() => setIsSettingsOpen(true)}
+            isPro={Boolean(userProfile?.tier === 'pro' || isAdmin)}
+            onOpenPricing={() => setActiveTab('pricing')}
           />
         ) : (
           <RoomView

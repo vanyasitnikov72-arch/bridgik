@@ -7,8 +7,6 @@ import {
   Bell,
   Volume2,
   Flame,
-  ShieldCheck,
-  Info,
 } from 'lucide-react';
 import { sound } from '../utils/sound.js';
 import { UserSettings, AuthProvider } from '../types/index.js';
@@ -30,8 +28,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose,
   settings,
   onUpdateSetting,
-  isAuthed,
-  onOpenAuth,
+  isAuthed: _isAuthed,
+  onOpenAuth: _onOpenAuth,
   hasTelegramLinked = false,
 }) => {
   const [tab, setTab] = useState<SettingsTab>('general');
@@ -181,7 +179,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       }}
     >
       <div
-        className="w-full max-w-xl rounded-2xl bg-[#1a1a1e] border border-white/[0.12] shadow-[0_24px_70px_rgba(0,0,0,0.85)] overflow-hidden flex flex-col max-h-[90vh]"
+        className="w-full max-w-2xl rounded-2xl bg-[#1a1a1e] border border-white/[0.12] shadow-[0_24px_70px_rgba(0,0,0,0.85)] overflow-hidden flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -212,15 +210,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </button>
         </div>
 
-        {/* Categories Tab Navigation */}
-        <div className="px-5 sm:px-6 flex items-center gap-2 sm:gap-4 border-b border-white/[0.08] bg-[#17171a] overflow-x-auto no-scrollbar py-2">
+        {/* Categories Tab Navigation: exactly 4 columns without any horizontal scroll */}
+        <div className="grid grid-cols-4 gap-1 sm:gap-2 p-2 sm:p-2.5 border-b border-white/[0.08] bg-[#151518]">
           <TabButton
             active={tab === 'general'}
             onClick={() => {
               sound.playClick();
               setTab('general');
             }}
-            icon={<Sliders className="w-4 h-4" />}
+            icon={<Sliders className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />}
             label="Общие"
           />
           <TabButton
@@ -229,8 +227,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               sound.playClick();
               setTab('bridge');
             }}
-            icon={<Share2 className="w-4 h-4" />}
-            label="Мост и файлы"
+            icon={<Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />}
+            label="Мост"
           />
           <TabButton
             active={tab === 'room'}
@@ -238,8 +236,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               sound.playClick();
               setTab('room');
             }}
-            icon={<Mic className="w-4 h-4" />}
-            label="Комната и звук"
+            icon={<Mic className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />}
+            label="Комната"
           />
           <TabButton
             active={tab === 'notifications'}
@@ -247,7 +245,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               sound.playClick();
               setTab('notifications');
             }}
-            icon={<Bell className="w-4 h-4" />}
+            icon={<Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />}
             label="Уведомления"
           />
         </div>
@@ -491,38 +489,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </>
           )}
         </div>
-
-        {/* Footer Persistence Status Banner */}
-        <div className="px-6 py-3.5 bg-[#121215] border-t border-white/[0.08] flex items-center justify-between gap-3 text-xs">
-          {isAuthed ? (
-            <div className="flex items-center gap-2 text-[#9ac43e]">
-              <ShieldCheck className="w-4 h-4 shrink-0 text-[#9ac43e]" />
-              <span className="font-medium text-[#cccccc]">
-                ✓ Настройки синхронизированы с вашим аккаунтом на сервере
-              </span>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between w-full gap-3">
-              <div className="flex items-center gap-2 text-[#888888]">
-                <Info className="w-4 h-4 shrink-0 text-[#aaaaaa]" />
-                <span>Сохранено в браузере. Войдите для синхронизации между устройствами</span>
-              </div>
-              {onOpenAuth && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    sound.playClick();
-                    onClose();
-                    onOpenAuth('yandex');
-                  }}
-                  className="px-2.5 py-1 rounded-lg bg-[#789d2a] hover:bg-[#8bb532] text-white font-bold text-[11px] shrink-0 cursor-pointer transition-colors"
-                >
-                  Войти
-                </button>
-              )}
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );
@@ -543,14 +509,14 @@ function TabButton({
     <button
       type="button"
       onClick={onClick}
-      className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap outline-none ${
+      className={`w-full py-2 px-1 sm:px-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 outline-none text-center ${
         active
           ? 'bg-[#283818] text-[#c0e078] border border-[#789d2a]/60 shadow-sm'
-          : 'text-[#888888] hover:text-[#cccccc] hover:bg-white/[0.04]'
+          : 'text-[#888888] hover:text-[#cccccc] hover:bg-white/[0.04] border border-transparent'
       }`}
     >
       <span className={active ? 'text-[#9ac43e]' : 'text-[#777777]'}>{icon}</span>
-      <span>{label}</span>
+      <span className="truncate max-w-full">{label}</span>
     </button>
   );
 }

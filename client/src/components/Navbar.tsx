@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Volume2, VolumeX, LogIn, ChevronDown, Check } from 'lucide-react';
+import { LogIn, ChevronDown, Check } from 'lucide-react';
 import { AuthProvider, ThemeMode, AppTab, RoomMode, UserProfile } from '../types/index.js';
 import { sound } from '../utils/sound.js';
 import { ProfileDropdown, ProfileSectionTab } from './ProfileDropdown.js';
@@ -60,14 +60,12 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenAuthModal,
   onOpenProfile,
   onOpenSettings,
-  soundEnabled: externalSoundEnabled,
-  onToggleSound: externalOnToggleSound,
+  soundEnabled: _externalSoundEnabled,
+  onToggleSound: _externalOnToggleSound,
   onToggleDemoTier,
   onLogout,
 }) => {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const [localSoundEnabled, setLocalSoundEnabled] = useState(() => sound.isEnabled());
-  const soundEnabled = externalSoundEnabled ?? localSoundEnabled;
 
   const effectiveFrame = userProfile ? userProfile.activeFrame : adminFrame;
   const hasFrameAccess = Boolean(
@@ -87,18 +85,6 @@ export const Navbar: React.FC<NavbarProps> = ({
       return 'border-2 border-purple-400 animate-admin-plasma';
     }
     return 'border-2 border-amber-400 animate-admin-gold';
-  };
-
-  const handleToggleSound = () => {
-    if (externalOnToggleSound) {
-      externalOnToggleSound();
-      return;
-    }
-    const nextState = sound.toggle();
-    setLocalSoundEnabled(nextState);
-    if (nextState) {
-      sound.playMessage();
-    }
   };
 
   const goHome = () => {
@@ -240,18 +226,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-            <button
-              onClick={handleToggleSound}
-              className={`p-2 sm:p-2.5 rounded-lg border transition-colors cursor-pointer flex items-center justify-center shrink-0 ${
-                soundEnabled
-                  ? 'bg-[#222222] border-[#3a3a3a] text-[#9ac43e] hover:border-[#789d2a]'
-                  : 'bg-[#1e1e1e] border-[#333333] text-[#777777] hover:text-[#aaaaaa]'
-              }`}
-              title={soundEnabled ? '8-bit звуки включены' : '8-bit звуки выключены'}
-            >
-              {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-            </button>
-
             {userProfile ? (
               <div className="relative flex items-center min-w-0">
                 <button

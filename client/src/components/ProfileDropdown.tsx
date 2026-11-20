@@ -140,7 +140,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
           className="w-full px-3 py-2 rounded-xl flex items-center gap-3 text-[#dddddd] hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer text-left"
         >
           <User className="w-4 h-4 text-[#a8a8a8] shrink-0" />
-          <span>Профиль и кастомизация</span>
+          <span>Профиль</span>
         </button>
 
         {Boolean(isAdmin || profile.isAdmin) && onOpenAdmin && (

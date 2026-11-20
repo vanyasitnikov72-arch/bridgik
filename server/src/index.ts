@@ -1526,6 +1526,10 @@ io.on('connection', (socket) => {
 
       stickyManager.registerDevice(io, socket, user.id, data.deviceId);
 
+      socket.data.userId = user.id;
+      socket.data.tier = user.tier;
+      socket.data.isPro = user.tier === 'pro' || user.is_admin === 1 || user.yandex_login === 'vanessosit';
+
       if (user.is_admin === 1 || user.yandex_login === 'vanessosit') {
         socket.data.isAdmin = true;
         socket.emit('admin-status', {
@@ -1758,15 +1762,29 @@ io.on('connection', (socket) => {
         maxSeats?: number;
         roomTheme?: string;
         browserId?: string;
+        licenseKey?: string;
       },
       callback
     ) => {
       removeFromLobby(socket.id);
       try {
+        let isPro = Boolean(socket.data.isPro || socket.data.isAdmin);
+        if (!isPro && data.licenseKey) {
+          const u = getUserByLicenseKey(data.licenseKey);
+          if (u && (u.tier === 'pro' || u.is_admin === 1 || u.yandex_login === 'vanessosit')) {
+            isPro = true;
+          }
+        }
+        const maxAllowed = isPro ? 8 : 4;
+
         const room = roomManager.createRoom(data.customId);
         room.mode = data.mode || 'bridge';
-        room.maxSeats = Math.max(2, Math.min(Number(data.maxSeats) || 8, 20));
-        room.currentRoomTheme = data.roomTheme || 'cyber-lounge';
+        room.maxSeats = Math.max(2, Math.min(Number(data.maxSeats) || maxAllowed, maxAllowed));
+        if (!isPro && data.roomTheme && data.roomTheme !== 'cyber-lounge') {
+          room.currentRoomTheme = 'cyber-lounge';
+        } else {
+          room.currentRoomTheme = data.roomTheme || 'cyber-lounge';
+        }
         room.peerSeats = { [socket.id]: 0 };
 
         const peerId = socket.id;
@@ -2044,8 +2062,11 @@ io.on('connection', (socket) => {
       const peer = room.peers.get(socket.id);
       if (!peer?.isHost && room.peers.size > 1) return;
 
+      const isPro = Boolean(socket.data.isPro || socket.data.isAdmin);
+      const maxAllowed = isPro ? 8 : 4;
+
       if (data.maxSeats !== undefined) {
-        room.maxSeats = Math.max(2, Math.min(Number(data.maxSeats) || 8, 20));
+        room.maxSeats = Math.max(2, Math.min(Number(data.maxSeats) || maxAllowed, maxAllowed));
       }
       if (data.isLocked !== undefined) room.isLocked = data.isLocked;
       if (data.knockRequired !== undefined) room.knockRequired = data.knockRequired;
@@ -2099,6 +2120,11 @@ io.on('connection', (socket) => {
     if (!room) return;
     const sender = room.peers.get(socket.id);
     if (!sender?.isHost && room.peers.size > 1) return;
+
+    const isPro = Boolean(socket.data.isPro || socket.data.isAdmin);
+    if (!isPro && data.theme !== 'cyber-lounge') {
+      return;
+    }
 
     room.currentRoomTheme = data.theme;
     io.to(room.id).to(room.pin).emit('room-theme-changed', {
