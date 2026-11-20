@@ -8,6 +8,7 @@ import {
   HelpCircle,
   ChevronDown,
   ChevronUp,
+  User,
 } from 'lucide-react';
 import { AuthProvider, UserProfile } from '../types/index.js';
 import { ProfileSectionTab } from './ProfileDropdown.js';
@@ -100,69 +101,73 @@ export const PricingView: React.FC<PricingViewProps> = ({
         </h1>
         <p className="text-base sm:text-xl text-[#bbbbbb] leading-relaxed">
           Базовая передача любого объёма файлов напрямую между устройствами{' '}
-          <strong className="text-white">всегда бесплатна и анонимна</strong>. Авторизация открывает память устройств, а подписка Pro — расширенный комфорт.
+          <strong className="text-white">всегда бесплатна и анонимна</strong>. Авторизация открывает связку личных устройств, а подписка Pro — расширенный комфорт.
         </p>
       </div>
 
-      {/* 3 Pricing Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-14">
-        {/* Card 1: Free (Без входа) */}
-        <div className="rounded-2xl bg-[#1c1c1c] border border-white/[0.09] p-6 flex flex-col justify-between hover:border-white/[0.18] transition-all relative">
+      {/* 2 Main Pricing Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 mb-10 max-w-4xl mx-auto">
+        {/* Card 1: Free (Бесплатный) */}
+        <div className="rounded-2xl bg-[#1c1c1c] border border-white/[0.09] p-6 sm:p-7 flex flex-col justify-between hover:border-white/[0.18] transition-all relative">
           <div>
             <div className="flex items-center justify-between mb-4">
               <span className="px-2.5 py-1 rounded-md text-xs font-mono font-bold uppercase tracking-wider bg-[#262626] text-[#aaaaaa]">
-                Без входа
+                Бесплатный тариф
               </span>
               <span className="text-xs text-[#789d2a] font-mono font-bold">P2P DIRECT</span>
             </div>
 
-            <h3 className="text-2xl font-extrabold text-[#ededed] mb-1">
-              Бесплатный гость
+            <h3 className="text-2xl sm:text-3xl font-extrabold text-[#ededed] mb-1">
+              Базовый
             </h3>
-            <p className="text-xs text-[#888888] mb-5">
-              Для быстрой разовой передачи файлов с любого устройства
+            <p className="text-xs sm:text-sm text-[#888888] mb-5">
+              Для быстрой, безопасной и неограниченной передачи файлов напрямую
             </p>
 
             <div className="mb-6">
               <div className="flex items-baseline gap-1">
-                <span className="text-4xl font-extrabold text-[#ededed]">0 ₽</span>
+                <span className="text-4xl sm:text-5xl font-extrabold text-[#ededed]">0 ₽</span>
                 <span className="text-xs text-[#888888]">/ навсегда</span>
               </div>
-              <p className="text-xs text-[#789d2a] mt-1">Регистрация не требуется</p>
+              <p className="text-xs text-[#789d2a] mt-1">Без скрытых условий и ограничений скорости</p>
             </div>
 
-            <ul className="space-y-3 text-xs sm:text-sm text-[#cccccc] mb-6">
+            <ul className="space-y-3.5 text-xs sm:text-sm text-[#cccccc] mb-6">
               <li className="flex items-start gap-2.5">
                 <Check className="w-4 h-4 text-[#9ac43e] shrink-0 mt-0.5" />
                 <span>
-                  <strong>Прямой P2P-канал:</strong> трафик идёт напрямую от браузера к браузеру
+                  <strong>Прямой P2P-канал:</strong> файлы передаются от браузера к браузеру без серверов хранения
                 </span>
               </li>
               <li className="flex items-start gap-2.5">
                 <Check className="w-4 h-4 text-[#9ac43e] shrink-0 mt-0.5" />
                 <span>
-                  <strong>Без лимитов на размер:</strong> отправляйте архивы 10 ГБ, 50 ГБ и более
+                  <strong>Без лимитов на размер:</strong> передавайте файлы и архивы 10 ГБ, 50 ГБ и более
                 </span>
               </li>
               <li className="flex items-start gap-2.5">
                 <Check className="w-4 h-4 text-[#9ac43e] shrink-0 mt-0.5" />
                 <span>
-                  <strong>Максимальная скорость:</strong> без искусственных ограничений
+                  <strong>Сквозное шифрование DTLS/SRTP:</strong> трафик защищён алгоритмами AES
                 </span>
               </li>
               <li className="flex items-start gap-2.5">
                 <Check className="w-4 h-4 text-[#9ac43e] shrink-0 mt-0.5" />
                 <span>
-                  <strong>0 байт на сервере:</strong> файлы не сохраняются в базах
+                  <strong>Онлайн-комнаты до 4 участников:</strong> голосовая связь, чат со сгорающими сообщениями и Канвас
                 </span>
               </li>
               <li className="flex items-start gap-2.5">
                 <Check className="w-4 h-4 text-[#9ac43e] shrink-0 mt-0.5" />
-                <span>Быстрый вход по 4-значному PIN или QR-коду</span>
+                <span>
+                  <strong>Мгновенное подключение:</strong> по 4-значному PIN-коду или QR-коду
+                </span>
               </li>
               <li className="flex items-start gap-2.5">
                 <Check className="w-4 h-4 text-[#9ac43e] shrink-0 mt-0.5" />
-                <span>Онлайн-комната до 4 участников (чат, файлы, аудио, экран)</span>
+                <span>
+                  <strong>Работает гостем или с профилем:</strong> регистрация не обязательна
+                </span>
               </li>
             </ul>
           </div>
@@ -170,99 +175,17 @@ export const PricingView: React.FC<PricingViewProps> = ({
           <button
             type="button"
             onClick={handleStartTransfer}
-            className="w-full py-3 px-4 rounded-xl bg-[#262626] hover:bg-[#323232] text-[#ededed] font-bold text-sm sm:text-base transition-colors cursor-pointer flex items-center justify-center gap-2 border border-white/[0.08]"
+            className="w-full py-3.5 px-4 rounded-xl bg-[#262626] hover:bg-[#323232] text-[#ededed] font-bold text-sm sm:text-base transition-colors cursor-pointer flex items-center justify-center gap-2 border border-white/[0.08]"
           >
             <span>Начать передачу</span>
             <ArrowRight className="w-4 h-4 text-[#9ac43e]" />
           </button>
         </div>
 
-        {/* Card 2: Bridgik ID (Авторизованный) */}
-        <div className="rounded-2xl bg-[#1f2618] border-2 border-[#789d2a] p-6 flex flex-col justify-between shadow-[0_0_25px_rgba(120,157,42,0.18)] relative">
-          <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-[#789d2a] text-white text-[11px] font-extrabold uppercase tracking-wider shadow-md">
-            Рекомендуется
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <span className="px-2.5 py-1 rounded-md text-xs font-mono font-bold uppercase tracking-wider bg-[#283618] text-[#c0e078] border border-[#789d2a]/50">
-                Bridgik ID
-              </span>
-              <span className="text-xs text-[#9ac43e] font-mono font-bold">БЕСПЛАТНО</span>
-            </div>
-
-            <h3 className="text-2xl font-extrabold text-[#ededed] mb-1">
-              Профиль
-            </h3>
-            <p className="text-xs text-[#a8b890] mb-5">
-              Для регулярной работы и связки ваших личных устройств
-            </p>
-
-            <div className="mb-6">
-              <div className="flex items-baseline gap-1">
-                <span className="text-4xl font-extrabold text-[#ededed]">0 ₽</span>
-                <span className="text-xs text-[#a8b890]">/ навсегда</span>
-              </div>
-              <p className="text-xs text-[#bbf348] mt-1">
-                Вход через Яндекс ID, Telegram или Ключ
-              </p>
-            </div>
-
-            <ul className="space-y-3 text-xs sm:text-sm text-[#e0eed0] mb-6">
-              <li className="flex items-start gap-2.5">
-                <Check className="w-4 h-4 text-[#bbf348] shrink-0 mt-0.5" />
-                <span>
-                  <strong>Всё из Бесплатного тарифа</strong>
-                </span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <Check className="w-4 h-4 text-[#bbf348] shrink-0 mt-0.5" />
-                <span>
-                  <strong>Sticky Bridge (до 2 устройств):</strong> привязка ПК и телефона — связь открывается сразу без ввода PIN
-                </span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <Check className="w-4 h-4 text-[#bbf348] shrink-0 mt-0.5" />
-                <span>
-                  <strong>Сохранение профиля:</strong> персональный никнейм, аватар и статус
-                </span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <Check className="w-4 h-4 text-[#bbf348] shrink-0 mt-0.5" />
-                <span>
-                  <strong>Тема Cyber Lounge</strong> для онлайн-комнаты
-                </span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <Check className="w-4 h-4 text-[#bbf348] shrink-0 mt-0.5" />
-                <span>Вход в 1 клик без паролей и спама</span>
-              </li>
-            </ul>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleAuthClick}
-            className="w-full py-3 px-4 rounded-xl bg-[#789d2a] hover:bg-[#8bb532] text-white font-extrabold text-sm sm:text-base transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-[#789d2a]/30"
-          >
-            {isAuthed ? (
-              <>
-                <span>Ваш текущий тариф</span>
-                <ChevronRight className="w-4 h-4" />
-              </>
-            ) : (
-              <>
-                <span>Подключить профиль (0 ₽)</span>
-                <ArrowRight className="w-4 h-4" />
-              </>
-            )}
-          </button>
-        </div>
-
-        {/* Card 3: Bridgik Pro */}
-        <div className="rounded-2xl bg-[#1c1c1c] border border-amber-400/40 p-6 flex flex-col justify-between hover:border-amber-400/70 transition-all relative shadow-[0_0_20px_rgba(245,158,11,0.08)]">
+        {/* Card 2: Bridgik Pro */}
+        <div className="rounded-2xl bg-[#1c1c1c] border-2 border-amber-400/50 p-6 sm:p-7 flex flex-col justify-between hover:border-amber-400/80 transition-all relative shadow-[0_0_30px_rgba(245,158,11,0.12)]">
           <div className="absolute -top-3.5 right-6 px-3 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 text-white text-[11px] font-extrabold uppercase tracking-wider shadow-md">
-            PRO
+            PRO ПОДПИСКА
           </div>
 
           <div>
@@ -273,16 +196,16 @@ export const PricingView: React.FC<PricingViewProps> = ({
               <span className="text-xs text-amber-400 font-mono font-bold">ПОДПИСКА</span>
             </div>
 
-            <h3 className="text-2xl font-extrabold text-[#ededed] mb-1">
+            <h3 className="text-2xl sm:text-3xl font-extrabold text-[#ededed] mb-1">
               Bridgik Pro
             </h3>
-            <p className="text-xs text-[#888888] mb-5">
-              Для профессионалов с парком устройств и команд
+            <p className="text-xs sm:text-sm text-[#888888] mb-5">
+              Для профессионалов, парка личных устройств и командной работы
             </p>
 
             <div className="mb-6">
               <div className="flex items-baseline gap-1">
-                <span className="text-4xl font-extrabold text-[#ededed]">199 ₽</span>
+                <span className="text-4xl sm:text-5xl font-extrabold text-[#ededed]">199 ₽</span>
                 <span className="text-xs text-[#888888]">/ месяц</span>
               </div>
               <p className="text-xs text-amber-400/90 mt-1">
@@ -290,11 +213,11 @@ export const PricingView: React.FC<PricingViewProps> = ({
               </p>
             </div>
 
-            <ul className="space-y-3 text-xs sm:text-sm text-[#cccccc] mb-6">
+            <ul className="space-y-3.5 text-xs sm:text-sm text-[#cccccc] mb-6">
               <li className="flex items-start gap-2.5">
                 <Check className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Всё из Профиля</strong>
+                  <strong>Drop & Go (Офлайн-буфер до 200 МБ):</strong> отправка на выключенные устройства с хранением до 24 часов
                 </span>
               </li>
               <li className="flex items-start gap-2.5">
@@ -306,28 +229,26 @@ export const PricingView: React.FC<PricingViewProps> = ({
               <li className="flex items-start gap-2.5">
                 <Check className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Drop & Go (Офлайн-буфер до 200 МБ):</strong> передача на выключенные устройства с хранением до 24 часов
+                  <strong>Все темы комнат:</strong> Кибер-гостиная, Уютный лофт, Скайлайн-пентхаус, Ретро 98-го
                 </span>
               </li>
               <li className="flex items-start gap-2.5">
                 <Check className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Все эксклюзивные рамки:</strong> Gold, RGB-радуга и Plasma
+                  <strong>Расширенные комнаты:</strong> до 8 участников одновременно
                 </span>
               </li>
               <li className="flex items-start gap-2.5">
                 <Check className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Все темы комнат:</strong> Retro Room, Cozy Loft, Cyber Lounge
+                  <strong>Все эксклюзивные рамки аватара:</strong> Gold, RGB-радуга и Plasma
                 </span>
               </li>
               <li className="flex items-start gap-2.5">
                 <Check className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                <span>Расширенная комната до 8 участников</span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <Check className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                <span>Приоритетный TURN-релей для обхода строгих файрволов</span>
+                <span>
+                  <strong>Приоритетный TURN-релей:</strong> гарантированный обход строгих файрволов
+                </span>
               </li>
             </ul>
           </div>
@@ -335,14 +256,14 @@ export const PricingView: React.FC<PricingViewProps> = ({
           <button
             type="button"
             onClick={handleProClick}
-            className={`w-full py-3 px-4 rounded-xl font-extrabold text-sm sm:text-base transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg ${
+            className={`w-full py-3.5 px-4 rounded-xl font-extrabold text-sm sm:text-base transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg ${
               isPro
                 ? 'bg-[#283618] text-[#c0e078] border border-[#789d2a]'
                 : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-amber-500/25'
             }`}
           >
             {isPro ? (
-              <span>Ваш Pro активен</span>
+              <span>✓ Ваш Pro активен</span>
             ) : (
               <>
                 <Sparkles className="w-4 h-4" />
@@ -353,26 +274,93 @@ export const PricingView: React.FC<PricingViewProps> = ({
         </div>
       </div>
 
+      {/* Profile & Account Identity Banner */}
+      <div className="max-w-4xl mx-auto rounded-2xl bg-gradient-to-r from-[#172014] via-[#1a1a1a] to-[#172014] border border-[#789d2a]/40 p-6 sm:p-7 shadow-xl relative overflow-hidden mb-12">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="space-y-2 max-w-xl">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full bg-[#789d2a]/20 border border-[#789d2a]/50 text-[#bbf348] text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-1.5">
+                <User className="w-3 h-3" />
+                <span>Аккаунт системы</span>
+              </span>
+              <span className="text-xs text-[#888888] font-mono">Бесплатно</span>
+            </div>
+            <h3 className="text-xl sm:text-2xl font-extrabold text-[#ededed]">
+              Личный профиль Bridgik
+            </h3>
+            <p className="text-sm text-[#aaaaaa] leading-relaxed">
+              Создайте профиль в 1 клик через Яндекс ID: это сохранит ваш постоянный никнейм, аватарку и свяжет ваши устройства через <strong className="text-white">Sticky Bridge</strong>, чтобы мгновенно передавать файлы между своим ПК и телефоном без ручного ввода PIN-кода.
+            </p>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-1 text-xs text-[#888888]">
+              <span className="flex items-center gap-1.5 text-[#bbf348]">
+                <Check className="w-3.5 h-3.5" /> Вход в 1 клик через Яндекс ID
+              </span>
+              <span className="flex items-center gap-1.5 text-[#bbf348]">
+                <Check className="w-3.5 h-3.5" /> Без паролей и смс
+              </span>
+              <span className="flex items-center gap-1.5 text-[#bbf348]">
+                <Check className="w-3.5 h-3.5" /> Навсегда бесплатно
+              </span>
+            </div>
+          </div>
+
+          <div className="shrink-0 w-full md:w-auto">
+            {isAuthed ? (
+              <div className="flex flex-col sm:flex-row md:flex-col gap-2">
+                <div className="px-4 py-2.5 rounded-xl bg-[#1f2916] border border-[#789d2a]/50 text-xs font-mono text-[#bbf348] flex items-center gap-2.5 shadow-sm">
+                  {userProfile?.avatarUrl ? (
+                    <img
+                      src={userProfile.avatarUrl}
+                      alt={userProfile.displayName}
+                      className="w-5 h-5 rounded-full object-cover border border-[#789d2a]"
+                    />
+                  ) : (
+                    <span className="w-2 h-2 rounded-full bg-[#789d2a] animate-pulse" />
+                  )}
+                  <span className="truncate max-w-[160px]">
+                    {userProfile?.displayName || 'Профиль активен'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onOpenProfile?.('appearance')}
+                  className="py-2.5 px-4 rounded-xl bg-[#262626] hover:bg-[#323232] text-[#ededed] text-xs sm:text-sm font-bold border border-white/10 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <span>Настройки профиля</span>
+                  <ChevronRight className="w-4 h-4 text-[#9ac43e]" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleAuthClick}
+                className="w-full md:w-auto py-3 px-5 rounded-xl bg-[#789d2a] hover:bg-[#8bb532] text-white font-extrabold text-sm sm:text-base transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-[#789d2a]/30"
+              >
+                <span>Войти через Яндекс ID</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Feature Comparison Matrix */}
-      <div className="mb-14">
+      <div className="mb-14 max-w-4xl mx-auto">
         <h2 className="text-2xl sm:text-3xl font-extrabold text-[#ededed] mb-6 text-center">
           Сравнение возможностей
         </h2>
 
         <div className="overflow-x-auto rounded-2xl border border-white/[0.08] bg-[#1a1a1a]">
-          <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[620px]">
+          <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[560px]">
             <thead>
               <tr className="border-b border-white/[0.08] bg-[#141414]">
                 <th className="py-4 px-5 text-[#888888] font-mono uppercase text-xs">
                   Функция
                 </th>
-                <th className="py-4 px-4 text-[#ededed] font-bold text-center w-36">
-                  Гость (Free)
+                <th className="py-4 px-4 text-[#9ac43e] font-bold text-center w-48">
+                  Бесплатный тариф
                 </th>
-                <th className="py-4 px-4 text-[#9ac43e] font-bold text-center w-40 bg-[#1f2618]/50">
-                  Профиль (0 ₽)
-                </th>
-                <th className="py-4 px-4 text-amber-400 font-bold text-center w-40">
+                <th className="py-4 px-4 text-amber-400 font-bold text-center w-48">
                   Bridgik Pro
                 </th>
               </tr>
@@ -383,9 +371,6 @@ export const PricingView: React.FC<PricingViewProps> = ({
                   Прямая передача P2P (WebRTC)
                 </td>
                 <td className="py-3.5 px-4 text-center">
-                  <Check className="w-4 h-4 text-[#9ac43e] mx-auto" />
-                </td>
-                <td className="py-3.5 px-4 text-center bg-[#1f2618]/30">
                   <Check className="w-4 h-4 text-[#9ac43e] mx-auto" />
                 </td>
                 <td className="py-3.5 px-4 text-center">
@@ -399,9 +384,6 @@ export const PricingView: React.FC<PricingViewProps> = ({
                 <td className="py-3.5 px-4 text-center font-bold text-[#9ac43e]">
                   Безлимитно
                 </td>
-                <td className="py-3.5 px-4 text-center font-bold text-[#9ac43e] bg-[#1f2618]/30">
-                  Безлимитно
-                </td>
                 <td className="py-3.5 px-4 text-center font-bold text-[#9ac43e]">
                   Безлимитно
                 </td>
@@ -413,48 +395,38 @@ export const PricingView: React.FC<PricingViewProps> = ({
                 <td className="py-3.5 px-4 text-center text-[#aaaaaa]">
                   100% скорости сети
                 </td>
-                <td className="py-3.5 px-4 text-center text-[#aaaaaa] bg-[#1f2618]/30">
-                  100% скорости сети
-                </td>
                 <td className="py-3.5 px-4 text-center text-[#aaaaaa]">
                   100% скорости сети
                 </td>
               </tr>
               <tr>
                 <td className="py-3.5 px-5 font-semibold text-[#ededed]">
-                  Хранение файлов на сервере
+                  Хранение файлов на сервере (Zero-Storage)
                 </td>
                 <td className="py-3.5 px-4 text-center font-mono text-[#9ac43e]">
                   0 байт
                 </td>
-                <td className="py-3.5 px-4 text-center font-mono text-[#9ac43e] bg-[#1f2618]/30">
-                  0 байт
-                </td>
                 <td className="py-3.5 px-4 text-center font-mono text-[#9ac43e]">
-                  0 байт (+ буфер до 200 МБ)
+                  0 байт (+ офлайн-буфер)
                 </td>
               </tr>
               <tr>
                 <td className="py-3.5 px-5 font-semibold text-[#ededed]">
-                  Обязательный вход / регистрация
+                  Личный профиль (Яндекс ID)
                 </td>
-                <td className="py-3.5 px-4 text-center text-[#888888]">
-                  Не нужен
+                <td className="py-3.5 px-4 text-center font-semibold text-[#bbf348]">
+                  Бесплатно в 1 клик
                 </td>
-                <td className="py-3.5 px-4 text-center text-[#9ac43e] bg-[#1f2618]/30">
-                  Яндекс ID / TG / Ключ
-                </td>
-                <td className="py-3.5 px-4 text-center text-[#9ac43e]">
-                  Яндекс ID / TG / Ключ
+                <td className="py-3.5 px-4 text-center font-semibold text-amber-300">
+                  Включён
                 </td>
               </tr>
               <tr>
                 <td className="py-3.5 px-5 font-semibold text-[#ededed]">
                   Связанные устройства (Sticky Bridge)
                 </td>
-                <td className="py-3.5 px-4 text-center text-[#666666]">—</td>
-                <td className="py-3.5 px-4 text-center font-bold text-[#ededed] bg-[#1f2618]/30">
-                  До 2 устройств
+                <td className="py-3.5 px-4 text-center font-bold text-[#ededed]">
+                  До 2 устройств (с профилем)
                 </td>
                 <td className="py-3.5 px-4 text-center font-bold text-amber-400">
                   До 10 устройств
@@ -465,7 +437,6 @@ export const PricingView: React.FC<PricingViewProps> = ({
                   Drop & Go (Офлайн-доставка до 24 ч)
                 </td>
                 <td className="py-3.5 px-4 text-center text-[#666666]">—</td>
-                <td className="py-3.5 px-4 text-center text-[#666666] bg-[#1f2618]/30">—</td>
                 <td className="py-3.5 px-4 text-center font-bold text-amber-400">
                   До 200 МБ
                 </td>
@@ -474,22 +445,20 @@ export const PricingView: React.FC<PricingViewProps> = ({
                 <td className="py-3.5 px-5 font-semibold text-[#ededed]">
                   Участников в онлайн-комнате
                 </td>
-                <td className="py-3.5 px-4 text-center text-[#aaaaaa]">До 4</td>
-                <td className="py-3.5 px-4 text-center text-[#aaaaaa] bg-[#1f2618]/30">До 4</td>
+                <td className="py-3.5 px-4 text-center text-[#aaaaaa]">До 4 мест</td>
                 <td className="py-3.5 px-4 text-center font-bold text-amber-400">
-                  До 8 участников
+                  До 8 мест
                 </td>
               </tr>
               <tr>
                 <td className="py-3.5 px-5 font-semibold text-[#ededed]">
                   Рамки аватара и темы комнат
                 </td>
-                <td className="py-3.5 px-4 text-center text-[#666666]">—</td>
-                <td className="py-3.5 px-4 text-center text-[#aaaaaa] bg-[#1f2618]/30">
-                  Базовые темы
+                <td className="py-3.5 px-4 text-center text-[#aaaaaa]">
+                  Базовая + Cyber Lounge
                 </td>
                 <td className="py-3.5 px-4 text-center font-bold text-amber-400">
-                  Gold, RGB, Plasma + все темы
+                  Gold, RGB, Plasma + все 4 темы
                 </td>
               </tr>
               <tr>
@@ -497,7 +466,6 @@ export const PricingView: React.FC<PricingViewProps> = ({
                   Приоритетный TURN-релей
                 </td>
                 <td className="py-3.5 px-4 text-center text-[#888888]">Базовый</td>
-                <td className="py-3.5 px-4 text-center text-[#888888] bg-[#1f2618]/30">Базовый</td>
                 <td className="py-3.5 px-4 text-center font-bold text-[#9ac43e]">
                   Приоритетный
                 </td>
