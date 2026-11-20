@@ -33,6 +33,7 @@ import { sound } from '../utils/sound.js';
 import { useScreenWakeLock } from '../utils/wakeLock.js';
 import { CustomAudioPlayer } from './CustomAudioPlayer.js';
 import { CustomVideoPlayer } from './CustomVideoPlayer.js';
+import { BurnMessageWrapper, BurnCountdownBadge } from './BurnEffectOverlay.js';
 
 interface RoomViewProps {
   roomId: string;
@@ -980,100 +981,105 @@ export const RoomView: React.FC<RoomViewProps> = ({
                   : peer?.avatar || m.senderAvatar || getAvatarForName(m.senderName);
                 const messageIsAdmin = isMe ? isAdmin : Boolean(peer?.isAdmin || m.isAdmin);
                 return (
-                  <div
+                  <BurnMessageWrapper
                     key={m.id}
-                    className={`p-3.5 rounded-lg border group ${
-                      messageIsAdmin
-                        ? 'bg-gradient-to-br from-[#22180b] to-[#161616] border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.15)]'
-                        : 'bg-[#171717] border-[#3a3a3a]'
-                    }`}
+                    isBurner={m.isBurner}
+                    expiresAt={m.expiresAt}
+                    className="rounded-lg"
                   >
-                    <div className="flex items-center justify-between text-xs text-[#aaaaaa] mb-2 font-semibold">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <img
-                          src={currentAvatar}
-                          alt={m.senderName}
-                          className={`w-5 h-5 rounded-full object-cover bg-[#222] shrink-0 ${
-                            messageIsAdmin ? 'border border-amber-400' : 'border border-[#789d2a]/50'
-                          }`}
-                          style={{ imageRendering: 'pixelated' }}
-                        />
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          {messageIsAdmin && (
-                            <span className="px-1 py-0.2 rounded text-[9px] font-mono font-black bg-amber-400/20 text-amber-300 border border-amber-400/40 uppercase tracking-wider select-none shrink-0">
-                              DEV
-                            </span>
-                          )}
-                          <span
-                            className={`font-bold truncate ${
-                              messageIsAdmin ? 'admin-name-shimmer text-amber-300' : 'text-[#ededed]'
+                    <div
+                      className={`p-3.5 rounded-lg border group ${
+                        messageIsAdmin
+                          ? 'bg-gradient-to-br from-[#22180b] to-[#161616] border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.15)]'
+                          : m.isBurner
+                          ? 'bg-gradient-to-br from-[#241208] to-[#140b06] border-orange-500/60 shadow-[0_0_14px_rgba(249,115,22,0.25)] text-orange-100'
+                          : 'bg-[#171717] border-[#3a3a3a]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-xs text-[#aaaaaa] mb-2 font-semibold">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <img
+                            src={currentAvatar}
+                            alt={m.senderName}
+                            className={`w-5 h-5 rounded-full object-cover bg-[#222] shrink-0 ${
+                              messageIsAdmin ? 'border border-amber-400' : 'border border-[#789d2a]/50'
                             }`}
-                          >
-                            {m.senderName}
-                          </span>
-                          {(m.senderStatusEmote ||
-                            (isMe ? statusEmote || undefined : peer?.statusEmote)) && (
-                            <img
-                              src={
-                                m.senderStatusEmote ||
-                                (isMe ? statusEmote || undefined : peer?.statusEmote)
-                              }
-                              alt="status"
-                              className="w-4 h-4 object-contain inline-block select-none filter drop-shadow-[0_0_4px_rgba(255,255,255,0.3)] shrink-0"
-                            />
+                            style={{ imageRendering: 'pixelated' }}
+                          />
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            {messageIsAdmin && (
+                              <span className="px-1 py-0.2 rounded text-[9px] font-mono font-black bg-amber-400/20 text-amber-300 border border-amber-400/40 uppercase tracking-wider select-none shrink-0">
+                                DEV
+                              </span>
+                            )}
+                            <span
+                              className={`font-bold truncate ${
+                                messageIsAdmin ? 'admin-name-shimmer text-amber-300' : 'text-[#ededed]'
+                              }`}
+                            >
+                              {m.senderName}
+                            </span>
+                            {(m.senderStatusEmote ||
+                              (isMe ? statusEmote || undefined : peer?.statusEmote)) && (
+                              <img
+                                src={
+                                  m.senderStatusEmote ||
+                                  (isMe ? statusEmote || undefined : peer?.statusEmote)
+                                }
+                                alt="status"
+                                className="w-4 h-4 object-contain inline-block select-none filter drop-shadow-[0_0_4px_rgba(255,255,255,0.3)] shrink-0"
+                              />
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                          {m.isBurner && m.expiresAt && (
+                            <BurnCountdownBadge expiresAt={m.expiresAt} />
                           )}
+                          <span className="text-xs text-[#888888]">
+                            {new Date(m.timestamp).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                        {m.isBurner && m.expiresAt && (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse">
-                            <Flame className="w-2.5 h-2.5" />
-                            {Math.max(0, Math.ceil((m.expiresAt - Date.now()) / 1000))}с
-                          </span>
+
+                      <p className="text-base sm:text-lg text-[#ededed] break-words whitespace-pre-wrap select-all leading-relaxed">
+                        {m.text}
+                      </p>
+
+                      <div className="mt-3 pt-2.5 border-t border-[#222222] flex items-center justify-end gap-2">
+                        {isUrl(m.text) && (
+                          <a
+                            href={m.text}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-3 py-1.5 rounded-lg bg-[#222222] hover:bg-[#2d2d2d] text-xs font-bold text-[#9ac43e] flex items-center gap-1.5 transition-colors"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span>Открыть</span>
+                          </a>
                         )}
-                        <span className="text-xs text-[#888888]">
-                          {new Date(m.timestamp).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </span>
+                        <button
+                          onClick={() => handleCopyText(m.id, m.text)}
+                          className="px-3 py-1.5 rounded-lg bg-[#222222] hover:bg-[#2d2d2d] text-xs font-bold text-[#ededed] flex items-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          {copiedTextId === m.id ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-[#9ac43e]" />
+                              <span className="text-[#9ac43e]">Скопировано!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3.5 h-3.5" />
+                              <span>Скопировать</span>
+                            </>
+                          )}
+                        </button>
                       </div>
                     </div>
-
-                    <p className="text-base sm:text-lg text-[#ededed] break-words whitespace-pre-wrap select-all leading-relaxed">
-                      {m.text}
-                    </p>
-
-                    <div className="mt-3 pt-2.5 border-t border-[#222222] flex items-center justify-end gap-2">
-                      {isUrl(m.text) && (
-                        <a
-                          href={m.text}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="px-3 py-1.5 rounded-lg bg-[#222222] hover:bg-[#2d2d2d] text-xs font-bold text-[#9ac43e] flex items-center gap-1.5 transition-colors"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                          <span>Открыть</span>
-                        </a>
-                      )}
-                      <button
-                        onClick={() => handleCopyText(m.id, m.text)}
-                        className="px-3 py-1.5 rounded-lg bg-[#222222] hover:bg-[#2d2d2d] text-xs font-bold text-[#ededed] flex items-center gap-1.5 transition-colors cursor-pointer"
-                      >
-                        {copiedTextId === m.id ? (
-                          <>
-                            <Check className="w-3.5 h-3.5 text-[#9ac43e]" />
-                            <span className="text-[#9ac43e]">Скопировано!</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-3.5 h-3.5" />
-                            <span>Скопировать</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
+                  </BurnMessageWrapper>
                 );
               })
             )}

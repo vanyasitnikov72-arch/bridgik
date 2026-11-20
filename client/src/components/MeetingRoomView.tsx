@@ -1106,7 +1106,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   const handleSendChat = (e: React.FormEvent) => {
     e.preventDefault();
     if (chatInput.trim()) {
-      onSendText(chatInput.trim());
+      onSendText(chatInput.trim(), false, isBurnerChat);
       setChatInput('');
     }
   };

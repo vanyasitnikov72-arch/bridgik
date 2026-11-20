@@ -23,6 +23,7 @@ import {
   EmoteItem,
 } from '../utils/emotes.js';
 import { getAvatarForName } from '../utils/device.js';
+import { BurnMessageWrapper, BurnCountdownBadge } from './BurnEffectOverlay.js';
 
 interface ChatMessageBubbleProps {
   senderName: string;
@@ -51,20 +52,6 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
   isBurner,
   expiresAt,
 }) => {
-  const [secondsLeft, setSecondsLeft] = useState(() => {
-    if (!expiresAt) return 0;
-    return Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
-  });
-
-  React.useEffect(() => {
-    if (!expiresAt) return;
-    const interval = setInterval(() => {
-      const left = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
-      setSecondsLeft(left);
-      if (left <= 0) clearInterval(interval);
-    }, 500);
-    return () => clearInterval(interval);
-  }, [expiresAt]);
   if (isSystem || senderName === 'Система') {
     const isJoin = text.includes('присоединился');
     return (
@@ -201,11 +188,8 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
       >
         {isMe ? (
           <div className="flex items-center gap-2 mb-1 px-1">
-            {isBurner && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400 border border-orange-500/40 text-[9px] font-mono font-bold animate-pulse">
-                <span>🔥</span>
-                <span>{secondsLeft}с</span>
-              </span>
+            {isBurner && expiresAt && (
+              <BurnCountdownBadge expiresAt={expiresAt} />
             )}
             {time && <span className="text-[10px] text-[#666666] font-mono">{time}</span>}
           </div>
@@ -232,29 +216,31 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
                 />
               )}
             </div>
-            {isBurner && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400 border border-orange-500/40 text-[9px] font-mono font-bold animate-pulse">
-                <span>🔥</span>
-                <span>{secondsLeft}с</span>
-              </span>
+            {isBurner && expiresAt && (
+              <BurnCountdownBadge expiresAt={expiresAt} />
             )}
             {time && <span className="text-[10px] text-[#666666] font-mono">{time}</span>}
           </div>
         )}
 
-        <div
-          className={`rounded-2xl text-base leading-relaxed break-words shadow-sm transition-all ${
-            allTokensAreEmotes
-              ? 'bg-transparent border-0 p-1'
-              : isPureLink
-              ? 'p-1.5 bg-transparent border-0'
-              : isAdmin
-              ? 'p-3.5 bg-gradient-to-br from-[#22180b] to-[#161616] border border-amber-500/50 text-[#fef08a] shadow-[0_0_12px_rgba(245,158,11,0.18)]'
-              : isMe
-              ? 'p-3.5 bg-[#1b2413] border border-[#789d2a]/50 text-[#d4e8a8]'
-              : 'p-3.5 bg-[#252525] border border-[#383838] text-[#ededed]'
-          }`}
-        >
+        <BurnMessageWrapper isBurner={isBurner} expiresAt={expiresAt} className="rounded-2xl max-w-full">
+          <div
+            className={`rounded-2xl text-base leading-relaxed break-words shadow-sm transition-all ${
+              allTokensAreEmotes
+                ? 'bg-transparent border-0 p-1'
+                : isPureLink
+                ? 'p-1.5 bg-transparent border-0'
+                : isAdmin
+                ? 'p-3.5 bg-gradient-to-br from-[#22180b] to-[#161616] border border-amber-500/50 text-[#fef08a] shadow-[0_0_12px_rgba(245,158,11,0.18)]'
+                : isBurner
+                ? isMe
+                  ? 'p-3.5 bg-gradient-to-br from-[#2b1408] to-[#160d07] border border-orange-500/60 text-orange-100 shadow-[0_0_14px_rgba(249,115,22,0.25)]'
+                  : 'p-3.5 bg-gradient-to-br from-[#241208] to-[#140b06] border border-orange-500/60 text-orange-100 shadow-[0_0_14px_rgba(249,115,22,0.25)]'
+                : isMe
+                ? 'p-3.5 bg-[#1b2413] border border-[#789d2a]/50 text-[#d4e8a8]'
+                : 'p-3.5 bg-[#252525] border border-[#383838] text-[#ededed]'
+            }`}
+          >
           {!isPureLink && <div className="leading-snug">{renderedContent}</div>}
 
           {urls.length > 0 && !allTokensAreEmotes && (
@@ -594,6 +580,7 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
             </div>
           )}
         </div>
+        </BurnMessageWrapper>
       </div>
     </div>
   );
