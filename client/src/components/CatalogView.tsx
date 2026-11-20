@@ -30,11 +30,11 @@ interface CatalogViewProps {
   onProfileUpdated?: (updated: UserProfile) => void;
 }
 
-type CatalogSection = 'all' | 'appearance' | 'sticky' | 'drop';
+type CatalogSection = 'all' | 'appearance' | 'sticky' | 'drop' | 'relay';
 
 interface CatalogItem {
   id: string;
-  type: 'frame' | 'theme' | 'devices' | 'drop_quota';
+  type: 'frame' | 'theme' | 'devices' | 'drop_quota' | 'turn_relay';
   title: string;
   subtitle: string;
   description: string;
@@ -223,10 +223,29 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
     },
   ];
 
+  // Turbo TURN Relay item
+  const hasTurboRelay =
+    hasFullAccess || Boolean(userProfile.settings?.purchasedCatalogItems?.includes('turn:turn_relay'));
+
+  const relayItems: CatalogItem[] = [
+    {
+      id: 'turn_relay',
+      type: 'turn_relay',
+      title: 'Турбо-релей: Обход строгих сетей',
+      subtitle: 'Гарантированная 100% связь через мобильный 4G/5G, офисные фаерволы и строгий Wi-Fi',
+      description:
+        'Выделенный зашифрованный туннель Coturn на защищённом порту. Если прямой P2P-канал блокируется сетью или фаерволом, релей автоматически подхватывает передачу на максимальной скорости.',
+      priceRub: 149,
+      badge: '100% надёжность',
+      isUnlocked: hasTurboRelay,
+    },
+  ];
+
   // Items available to buy in Catalog (strictly those the user DOES NOT already have)
   const availableFrames = frameItems.filter((item) => !item.isUnlocked);
   const availableRooms = roomItems.filter((item) => !item.isUnlocked);
   const availableSticky = stickyItems.filter((item) => !item.isUnlocked);
+  const availableRelay = relayItems.filter((item) => !item.isUnlocked);
 
   const handleOpenPurchase = (item: CatalogItem) => {
     sound.playClick();
@@ -377,6 +396,21 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
         >
           <HardDrive className="w-3.5 h-3.5" />
           <span>Drop & Go (до 500 МБ)</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            sound.playClick();
+            setActiveSection('relay');
+          }}
+          className={`px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
+            activeSection === 'relay'
+              ? 'bg-[#283216] text-[#ededed] border border-[#789d2a]/60 shadow-md'
+              : 'text-[#888888] hover:text-[#cccccc] hover:bg-white/[0.04]'
+          }`}
+        >
+          <ShieldCheck className="w-3.5 h-3.5" />
+          <span>Турбо-релей</span>
         </button>
       </div>
 
@@ -734,6 +768,89 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
               <h3 className="font-extrabold text-base text-[#ededed]">Буфер 500 МБ уже подключен!</h3>
               <p className="text-xs text-[#888888] max-w-md mx-auto">
                 Офлайн-буфер Drop & Go расширен до 500 МБ и привязан к вашему аккаунту навсегда.
+              </p>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* SECTION 4: Турбо-релей (Обход строгих сетей) */}
+      {(activeSection === 'all' || activeSection === 'relay') && (
+        <section className="space-y-4 pt-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-[#9ac43e]" />
+                <h2 className="text-lg font-extrabold text-[#ededed]">Турбо-релей: Обход строгих сетей</h2>
+              </div>
+              <p className="text-xs text-[#888888] mt-0.5">
+                Гарантированное соединение Моста через мобильный 4G/5G, офисные фаерволы и строгий Wi-Fi
+              </p>
+            </div>
+
+            <div className="px-3 py-1.5 rounded-xl bg-[#1b1b1b] border border-white/[0.08] text-xs font-bold text-[#a8a8a8] flex items-center gap-2 self-start sm:self-auto">
+              <span>Статус:</span>
+              <span className={`font-mono font-extrabold ${hasTurboRelay ? 'text-[#9ac43e]' : 'text-[#888888]'}`}>
+                {hasTurboRelay ? 'Активен' : 'Базовый P2P'}
+              </span>
+            </div>
+          </div>
+
+          {availableRelay.length > 0 ? (
+            <div className="grid grid-cols-1 gap-3.5">
+              {availableRelay.map((item) => (
+                <div
+                  key={item.id}
+                  className="p-5 sm:p-6 rounded-2xl bg-[#1b1b1b] border border-white/[0.08] hover:border-white/20 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-5"
+                >
+                  <div className="flex items-start sm:items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-[#283216] border border-[#789d2a]/40 flex items-center justify-center text-[#9ac43e] shrink-0">
+                      <ShieldCheck className="w-6 h-6" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-extrabold text-base sm:text-lg text-[#ededed]">
+                          {item.title}
+                        </h3>
+                        {item.badge && (
+                          <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-bold">
+                            {item.badge}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs sm:text-sm text-[#888888] leading-relaxed max-w-xl">
+                        {item.description}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-3 shrink-0 pt-3 sm:pt-0 border-t sm:border-t-0 border-white/[0.06]">
+                    <div>
+                      <span className="font-mono font-extrabold text-xl text-[#ededed]">
+                        {item.priceRub} ₽
+                      </span>
+                      <span className="text-xs text-[#777777] ml-1.5">/ навсегда</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleOpenPurchase(item)}
+                      className="px-5 py-2.5 rounded-xl bg-[#789d2a] hover:bg-[#8bb730] text-black font-extrabold text-xs transition-colors cursor-pointer shadow-md shadow-[#789d2a]/20"
+                    >
+                      Подключить Турбо-релей
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-6 rounded-2xl bg-[#1b1b1b] border border-white/[0.08] text-center space-y-3">
+              <div className="w-12 h-12 rounded-xl bg-[#283216] border border-[#789d2a]/40 flex items-center justify-center text-[#9ac43e] mx-auto">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+              <h3 className="font-extrabold text-base text-[#ededed]">Турбо-релей уже подключен к вашему аккаунту!</h3>
+              <p className="text-xs text-[#888888] max-w-md mx-auto">
+                Ваши соединения автоматически используют зашифрованный Coturn-релей при блокировках сети.
               </p>
             </div>
           )}

@@ -433,7 +433,7 @@ export function updateUserProfile(
  */
 export function purchaseCatalogItem(
   userId: string,
-  itemType: 'frame' | 'theme' | 'devices' | 'drop_quota',
+  itemType: 'frame' | 'theme' | 'devices' | 'drop_quota' | 'turn_relay',
   itemId: string
 ): DbUser | null {
   const user = getUserById(userId);
@@ -479,6 +479,8 @@ export function purchaseCatalogItem(
   } else if (itemType === 'drop_quota') {
     purchased.add('drop_quota:500');
     newQuotaLimit = Math.max(newQuotaLimit, 500);
+  } else if (itemType === 'turn_relay') {
+    purchased.add('turn:turn_relay');
   }
 
   userSettings.purchasedCatalogItems = Array.from(purchased);
@@ -556,6 +558,22 @@ export function getDevicesByUserId(userId: string): DbDevice[] {
     .prepare('SELECT * FROM devices WHERE user_id = ? ORDER BY last_seen_at DESC')
     .all(userId);
   return (rows as unknown as DbDevice[]) || [];
+}
+
+/**
+ * Finds user owning a specific device ID
+ */
+export function getUserByDeviceId(deviceId: string): DbUser | null {
+  const row = db
+    .prepare(`
+      SELECT u.* FROM users u
+      JOIN devices d ON d.user_id = u.id
+      WHERE d.id = ?
+      ORDER BY d.last_seen_at DESC
+      LIMIT 1
+    `)
+    .get(deviceId) as DbUser | undefined;
+  return row || null;
 }
 
 /**

@@ -42,8 +42,47 @@ export function createMediaBlobUrl(file: File): string {
   return URL.createObjectURL(file);
 }
 
+let cachedIceServers: RTCIceServer[] | null = null;
+let lastFetchTime = 0;
+
+export async function refreshIceServers(licenseKey?: string | null, deviceId?: string | null): Promise<RTCConfiguration> {
+  const now = Date.now();
+  if (cachedIceServers && now - lastFetchTime < 60_000) {
+    return getIceServers();
+  }
+
+  try {
+    const key = licenseKey || (typeof window !== 'undefined' ? localStorage.getItem('bridgik_license_key') : '') || '';
+    const devId = deviceId || (typeof window !== 'undefined' ? localStorage.getItem('bridgik_device_id') : '') || '';
+    const res = await fetch(`/api/webrtc/ice-config?deviceId=${encodeURIComponent(devId)}`, {
+      headers: key ? { Authorization: `Bearer ${key}` } : {},
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.iceServers && Array.isArray(data.iceServers) && data.iceServers.length > 0) {
+        cachedIceServers = data.iceServers;
+        lastFetchTime = now;
+        if (typeof window !== 'undefined') {
+          (window as any).__BRIDGIK_ICE_CONFIG = data;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Could not fetch dynamic ICE config:', e);
+  }
+  return getIceServers();
+}
+
 export function getIceServers(): RTCConfiguration {
+  if (cachedIceServers && cachedIceServers.length > 0) {
+    return {
+      iceServers: cachedIceServers,
+      iceCandidatePoolSize: 2,
+    };
+  }
+
   const baseServers: RTCIceServer[] = [
+    { urls: 'stun:bridgik.ru:3478' },
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun.cloudflare.com:3478' },

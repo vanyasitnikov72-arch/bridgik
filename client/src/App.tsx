@@ -65,7 +65,7 @@ import {
   getSharedAudioContext,
   monitorStreamVoiceActivity,
 } from './utils/audioAnalyzer.js';
-import { WebRTCManager } from './services/webrtc.js';
+import { WebRTCManager, refreshIceServers } from './services/webrtc.js';
 import { sound } from './utils/sound.js';
 import { useScreenWakeLock } from './utils/wakeLock.js';
 
@@ -212,6 +212,7 @@ export function App() {
       if (next.licenseKeyPreview) {
         localStorage.setItem('bridgik_license_key', next.licenseKeyPreview);
       }
+      refreshIceServers(next.licenseKeyPreview, getBrowserDeviceId());
       if (next.isAdmin) {
         setIsAdmin(true);
       }
@@ -234,6 +235,10 @@ export function App() {
       localStorage.removeItem('bridgik_license_key');
     }
   };
+
+  useEffect(() => {
+    refreshIceServers(userProfile?.licenseKeyPreview, getBrowserDeviceId());
+  }, []);
 
   useEffect(() => {
     if (userProfile?.isAdmin && !isAdmin) {

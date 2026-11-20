@@ -18,6 +18,7 @@ import {
   purchaseCatalogItem,
   registerOrUpdateDevice,
   deleteDevice,
+  getUserByDeviceId,
   toUserProfileDto,
   DROPS_DIR,
   createDropRecord,
@@ -416,6 +417,85 @@ function extractLicenseKey(req: express.Request): string | null {
   }
   return null;
 }
+
+// ==========================================
+// WEBRTC ICE & TURBO TURN CONFIG API
+// ==========================================
+
+const TURN_SECRET = process.env.TURN_SECRET || 'bridgik_turbo_turn_secret_2026_x89f';
+const TURN_HOST = process.env.TURN_HOST || 'bridgik.ru';
+
+app.get('/api/webrtc/ice-config', (req, res) => {
+  try {
+    const key = extractLicenseKey(req);
+    let user = key ? getUserByLicenseKey(key) : null;
+    if (!user && typeof req.query.deviceId === 'string') {
+      user = getUserByDeviceId(req.query.deviceId);
+    }
+
+    let isEligible = false;
+    if (user) {
+      if (user.tier === 'pro' || Boolean(user.is_admin)) {
+        isEligible = true;
+      } else if (user.settings) {
+        try {
+          const s = JSON.parse(user.settings);
+          if (s.purchasedCatalogItems && s.purchasedCatalogItems.includes('turn:turn_relay')) {
+            isEligible = true;
+          }
+        } catch {}
+      }
+    }
+
+    const stunServers = [
+      { urls: `stun:${TURN_HOST}:3478` },
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun.cloudflare.com:3478' },
+    ];
+
+    if (isEligible) {
+      const ttl = 24 * 3600; // 24 hours
+      const timestamp = Math.floor(Date.now() / 1000) + ttl;
+      const username = `${timestamp}:${user ? user.id : 'pro_user'}`;
+      const credential = crypto.createHmac('sha1', TURN_SECRET).update(username).digest('base64');
+
+      const iceServers = [
+        ...stunServers,
+        {
+          urls: [
+            `turn:${TURN_HOST}:3478?transport=udp`,
+            `turn:${TURN_HOST}:3478?transport=tcp`,
+          ],
+          username,
+          credential,
+        },
+      ];
+
+      return res.json({
+        success: true,
+        isEligible: true,
+        tier: 'turbo',
+        iceServers,
+        ttl,
+      });
+    }
+
+    return res.json({
+      success: true,
+      isEligible: false,
+      tier: 'base',
+      iceServers: stunServers,
+    });
+  } catch (err: any) {
+    console.error('Error generating ICE config:', err);
+    return res.status(500).json({
+      success: false,
+      isEligible: false,
+      tier: 'base',
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+    });
+  }
+});
 
 // 1. Create a new user with an anonymous license key
 app.post('/api/auth/key/create', (req, res) => {
