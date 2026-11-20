@@ -15,8 +15,10 @@ export interface YooKassaPaymentRequest {
     userId: string;
     licenseKey: string;
     period: string;
+    tier?: string;
     days: number;
     paymentId: string;
+    [key: string]: any;
   };
 }
 

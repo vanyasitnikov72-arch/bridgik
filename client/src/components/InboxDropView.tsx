@@ -14,7 +14,7 @@ import {
   Send,
   RotateCcw,
 } from 'lucide-react';
-import { PublicInboxUser, DropDto, AvatarFrameId } from '../types/index.js';
+import { PublicInboxUser, DropDto, AvatarFrameId, hasBridgePro } from '../types/index.js';
 import { formatBytes, getAvatarForName } from '../utils/device.js';
 import { sound } from '../utils/sound.js';
 
@@ -187,7 +187,7 @@ export function InboxDropView({ handle, onGoHome }: InboxDropViewProps) {
     return 'border-2 border-[#789d2a]';
   };
 
-  const isPro = user?.tier === 'pro';
+  const isPro = hasBridgePro(user?.tier);
 
   return (
     <div className="min-h-screen bg-[#0e0e0e] text-[#ededed] flex flex-col justify-between selection:bg-[#789d2a]/30">

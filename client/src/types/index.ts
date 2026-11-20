@@ -3,8 +3,20 @@ export type AppTab = 'bridge' | 'meeting' | 'about' | 'legal' | 'profile' | 'pri
 export type RoomMode = 'bridge' | 'meeting';
 
 export type AuthProvider = 'yandex' | 'telegram' | 'key';
-export type UserTier = 'free' | 'pro';
+export type UserTier = 'free' | 'data-link' | 'live-hub' | 'overdrive' | 'pro';
 export type AvatarFrameId = 'none' | 'gold' | 'rgb' | 'plasma';
+
+export function hasBridgePro(tier?: UserTier | null): boolean {
+  return tier === 'data-link' || tier === 'overdrive' || tier === 'pro';
+}
+
+export function hasRoomPro(tier?: UserTier | null): boolean {
+  return tier === 'live-hub' || tier === 'overdrive' || tier === 'pro';
+}
+
+export function hasFullPro(tier?: UserTier | null): boolean {
+  return tier === 'overdrive' || tier === 'pro';
+}
 
 export interface UserSettings {
   // Общие

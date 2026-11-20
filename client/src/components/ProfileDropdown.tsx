@@ -11,7 +11,7 @@ import {
   Shield,
   ShoppingBag,
 } from 'lucide-react';
-import { UserProfile } from '../types/index.js';
+import { UserProfile, hasBridgePro, hasFullPro } from '../types/index.js';
 import { getAvatarForName } from '../utils/device.js';
 import { sound } from '../utils/sound.js';
 
@@ -67,7 +67,8 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
     ? `@${profile.providers.telegram.username}`
     : profile.licenseKeyPreview || 'Анонимный профиль';
 
-  const isPro = profile.tier === 'pro';
+  const isPro = hasFullPro(profile.tier);
+  const hasBridge = hasBridgePro(profile.tier);
   const hasFrameAccess = Boolean(
     isAdmin || isPro || profile.unlockedFrames.includes(profile.activeFrame)
   );
@@ -81,7 +82,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
       ? 'border-2 border-purple-400 animate-admin-plasma'
       : 'border-2 border-amber-400 animate-admin-gold';
 
-  const maxDevices = (isPro ? 10 : 2) + (profile.extraDeviceSlots || profile.settings?.extraDeviceSlots || 0);
+  const maxDevices = (isPro ? 10 : hasBridge ? 6 : 2) + (profile.extraDeviceSlots || profile.settings?.extraDeviceSlots || 0);
 
   return (
     <div
@@ -105,14 +106,28 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
                 <Wrench className="w-2.5 h-2.5" />
               </span>
             )}
-            {isPro && (
+            {isPro ? (
               <span
                 className="w-4 h-4 rounded bg-[#789d2a] flex items-center justify-center text-white shrink-0"
-                title="Bridgik Pro"
+                title="Bridgik Overdrive"
               >
                 <Check className="w-2.5 h-2.5 stroke-[3]" />
               </span>
-            )}
+            ) : profile.tier === 'data-link' ? (
+              <span
+                className="px-1.5 py-0.2 rounded bg-lime-500/20 text-[#bbf348] border border-lime-500/40 text-[9px] font-mono font-bold shrink-0"
+                title="Тариф Data Link"
+              >
+                DATA
+              </span>
+            ) : profile.tier === 'live-hub' ? (
+              <span
+                className="px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-[9px] font-mono font-bold shrink-0"
+                title="Тариф Live Hub"
+              >
+                HUB
+              </span>
+            ) : null}
             {profile.activeEmote && (
               <img
                 src={profile.activeEmote}

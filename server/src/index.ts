@@ -10,7 +10,7 @@ import os from 'os';
 import crypto from 'crypto';
 import { PassThrough } from 'stream';
 import { RoomManager } from './roomManager.js';
-import { PeerInfo } from './types.js';
+import { PeerInfo, UserTier, hasBridgePro, hasRoomPro, hasFullPro } from './types.js';
 import {
   createUser,
   getUserByLicenseKey,
@@ -444,7 +444,7 @@ app.get('/api/webrtc/ice-config', (req, res) => {
 
     let isEligible = false;
     if (user) {
-      if (user.tier === 'pro' || Boolean(user.is_admin)) {
+      if (hasBridgePro(user.tier as any) || Boolean(user.is_admin)) {
         isEligible = true;
       } else if (user.settings) {
         try {
@@ -898,16 +898,20 @@ app.get('/api/auth/telegram/session-status', (req, res) => {
 
 // --- Bridgik Pro & YooKassa Payment Endpoints ---
 
-const PRO_PLANS: Record<string, { amount: number; days: number; title: string }> = {
-  '1m': { amount: 199, days: 30, title: 'Bridgik Pro (1 месяц)' },
-  '3m': { amount: 499, days: 90, title: 'Bridgik Pro (3 месяца)' },
-  '1y': { amount: 1490, days: 365, title: 'Bridgik Pro (1 год)' },
+const PRO_PLANS: Record<string, { amount: number; days: number; title: string; tier: UserTier }> = {
+  'data-link': { amount: 199, days: 30, title: 'Тариф Data Link (1 месяц)', tier: 'data-link' },
+  'live-hub': { amount: 199, days: 30, title: 'Тариф Live Hub (1 месяц)', tier: 'live-hub' },
+  'overdrive': { amount: 299, days: 30, title: 'Тариф Overdrive (1 месяц)', tier: 'overdrive' },
+  // Legacy aliases
+  '1m': { amount: 299, days: 30, title: 'Тариф Overdrive (1 месяц)', tier: 'overdrive' },
+  '3m': { amount: 499, days: 90, title: 'Тариф Overdrive (3 месяца)', tier: 'overdrive' },
+  '1y': { amount: 1490, days: 365, title: 'Тариф Overdrive (1 год)', tier: 'overdrive' },
 };
 
 // 1. Create payment in YooKassa
 app.post('/api/payment/create', async (req, res) => {
   try {
-    const { key, period = '1m', returnUrl } = req.body || {};
+    const { key, period = 'overdrive', returnUrl } = req.body || {};
     if (!key || typeof key !== 'string') {
       return res.status(400).json({ error: 'Укажите ключ пользователя' });
     }
@@ -917,7 +921,7 @@ app.post('/api/payment/create', async (req, res) => {
     }
     const plan = PRO_PLANS[period];
     if (!plan) {
-      return res.status(400).json({ error: 'Неверный тариф. Доступно: 1m, 3m, 1y' });
+      return res.status(400).json({ error: 'Неверный тариф. Доступно: data-link, live-hub, overdrive' });
     }
 
     const paymentId = crypto.randomUUID();
@@ -949,6 +953,7 @@ app.post('/api/payment/create', async (req, res) => {
         userId: user.id,
         licenseKey: user.license_key,
         period,
+        tier: plan.tier,
         days: plan.days,
         paymentId,
       },
@@ -981,7 +986,7 @@ app.post('/api/payment/webhook', async (req, res) => {
       const paymentObj = event.object;
       const yooId = paymentObj.id;
       const metadata = paymentObj.metadata || {};
-      const { userId, days, paymentId } = metadata;
+      const { userId, days, paymentId, tier: targetTier } = metadata;
 
       let dbPayment = getPaymentByYookassaId(yooId);
       if (!dbPayment && paymentId) {
@@ -990,18 +995,19 @@ app.post('/api/payment/webhook', async (req, res) => {
 
       const targetUserId = userId || dbPayment?.user_id;
       const targetDays = Number(days) || dbPayment?.days || 30;
+      const planTier: UserTier = targetTier || PRO_PLANS[dbPayment?.period || 'overdrive']?.tier || 'overdrive';
 
       if (targetUserId) {
-        const updatedUser = upgradeUserToPro(targetUserId, targetDays);
+        const updatedUser = upgradeUserToPro(targetUserId, targetDays, planTier);
         if (dbPayment) {
           updatePaymentStatus(dbPayment.id, 'succeeded', yooId);
         }
-        console.log(`[YooKassa] Activated Pro for user ${targetUserId} (+${targetDays} days)`);
+        console.log(`[YooKassa] Activated ${planTier} for user ${targetUserId} (+${targetDays} days)`);
 
         io.emit('user-pro-activated', {
           userId: targetUserId,
           proUntil: updatedUser?.pro_until,
-          tier: 'pro',
+          tier: planTier,
         });
       }
     }
@@ -1016,25 +1022,26 @@ app.post('/api/payment/webhook', async (req, res) => {
 // 3. Demo / Instant confirmation
 app.post('/api/payment/demo-confirm', (req, res) => {
   try {
-    const { key, days = 30 } = req.body || {};
+    const { key, period = 'overdrive', days = 30 } = req.body || {};
     if (!key) return res.status(400).json({ error: 'Укажите ключ' });
     const user = getUserByLicenseKey(key);
     if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
 
-    const updated = upgradeUserToPro(user.id, Number(days) || 30);
+    const planTier: UserTier = PRO_PLANS[period]?.tier || (period as UserTier) || 'overdrive';
+    const updated = upgradeUserToPro(user.id, Number(days) || 30, planTier);
     const onlineSet = stickyManager.getOnlineDeviceIds(user.id);
     const profile = toUserProfileDto(updated!, undefined, onlineSet);
 
     io.emit('user-pro-activated', {
       userId: user.id,
       proUntil: updated?.pro_until,
-      tier: 'pro',
+      tier: planTier,
     });
 
     return res.json({ success: true, user: profile });
   } catch (err: any) {
     console.error('Demo payment confirm error:', err);
-    return res.status(500).json({ error: 'Ошибка активации Pro' });
+    return res.status(500).json({ error: 'Ошибка активации тарифа' });
   }
 });
 
@@ -1376,7 +1383,7 @@ app.get(['/api/inbox/@:handle', '/api/inbox/:handle'], (req, res) => {
 
   const onlineSet = stickyManager.getOnlineDeviceIds(user.id);
   const isOnline = onlineSet.size > 0;
-  const isProUser = Boolean(user.tier === 'pro' || user.is_admin === 1 || user.yandex_login === 'vanessosit');
+  const isBridgePro = Boolean(hasBridgePro(user.tier as any) || user.is_admin === 1 || user.yandex_login === 'vanessosit');
   const handle =
     user.yandex_login ||
     user.telegram_username?.replace(/^@/, '') ||
@@ -1393,7 +1400,7 @@ app.get(['/api/inbox/@:handle', '/api/inbox/:handle'], (req, res) => {
       activeFrame: user.active_frame || 'none',
       tier: user.tier,
       isOnline,
-      s3QuotaLimitMb: user.s3_quota_limit_mb || (isProUser ? 200 : 50),
+      s3QuotaLimitMb: user.s3_quota_limit_mb || (isBridgePro ? 2048 : 150),
     },
   });
 });
@@ -1413,10 +1420,13 @@ app.post(['/api/inbox/@:handle/drop', '/api/inbox/:handle/drop'], async (req, re
     fileName = rawName;
   }
   const fileSize = Number(req.headers['x-file-size']) || 0;
-  if (fileSize > MAX_DROP_SIZE) {
+  const isTargetBridgePro = Boolean(hasBridgePro(targetUser.tier as any) || targetUser.is_admin === 1 || targetUser.yandex_login === 'vanessosit');
+  const allowedDropSize = isTargetBridgePro ? 2 * 1024 * 1024 * 1024 : 150 * 1024 * 1024; // 2 GB for Data Link / Overdrive, 150 MB for Free
+
+  if (fileSize > allowedDropSize) {
     return res.status(413).json({
       success: false,
-      error: 'Размер файла превышает лимит буфера Drop & Go (максимум 200 МБ)',
+      error: `Размер файла превышает лимит буфера (${isTargetBridgePro ? 'максимум 2 ГБ' : 'максимум 150 МБ на бесплатном тарифе'})`,
     });
   }
 
@@ -1427,7 +1437,8 @@ app.post(['/api/inbox/@:handle/drop', '/api/inbox/:handle/drop'], async (req, re
   } catch {
     senderName = (req.headers['x-sender-name'] as string) || 'Гость';
   }
-  const ttlHours = Math.max(1, Math.min(Number(req.headers['x-ttl-hours']) || 24, 24)); // max 24 hours
+  const maxTtl = isTargetBridgePro ? 48 : 24;
+  const ttlHours = Math.max(1, Math.min(Number(req.headers['x-ttl-hours']) || maxTtl, maxTtl));
 
   const dropId = crypto.randomBytes(6).toString('hex');
   const safeExt = path.extname(fileName) || '.bin';
@@ -1445,7 +1456,7 @@ app.post(['/api/inbox/@:handle/drop', '/api/inbox/:handle/drop'], async (req, re
 
     pass.on('data', (chunk) => {
       bytesWritten += chunk.length;
-      if (bytesWritten > MAX_DROP_SIZE && !exceeded) {
+      if (bytesWritten > allowedDropSize && !exceeded) {
         exceeded = true;
         req.destroy();
         pass.destroy();
@@ -1453,7 +1464,7 @@ app.post(['/api/inbox/@:handle/drop', '/api/inbox/:handle/drop'], async (req, re
         if (!res.headersSent) {
           res.status(413).json({
             success: false,
-            error: 'Размер файла превышает лимит буфера Drop & Go (максимум 200 МБ)',
+            error: `Размер файла превышает лимит буфера (${isTargetBridgePro ? 'максимум 2 ГБ' : 'максимум 150 МБ'})`,
           });
         }
       }
@@ -1679,16 +1690,17 @@ app.post('/api/admin/users/:id/tier', (req, res) => {
   const { id } = req.params;
   const { tier, days } = req.body || {};
 
-  if (tier !== 'free' && tier !== 'pro') {
-    return res.status(400).json({ success: false, error: 'Неверный тариф: допустимы free или pro' });
+  const validTiers: UserTier[] = ['free', 'data-link', 'live-hub', 'overdrive', 'pro'];
+  if (!validTiers.includes(tier)) {
+    return res.status(400).json({ success: false, error: 'Неверный тариф: допустимы free, data-link, live-hub, overdrive, pro' });
   }
 
   let proUntil: string | null = null;
-  if (tier === 'pro') {
+  if (tier !== 'free') {
     if (typeof days === 'number' && days > 0) {
       proUntil = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
     } else {
-      proUntil = null; // Lifetime Pro
+      proUntil = null; // Lifetime
     }
   }
 

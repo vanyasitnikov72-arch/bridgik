@@ -13,6 +13,9 @@ import {
   StickyDeviceDto,
   AvatarFrameId,
   UserTier,
+  hasBridgePro,
+  hasRoomPro,
+  hasFullPro,
   DbPayment,
   UserSettings,
   DEFAULT_USER_SETTINGS,
@@ -630,7 +633,7 @@ export function toUserProfileDto(
     lastSeenAt: d.last_seen_at,
   }));
 
-  const isProUser = Boolean(user.tier === 'pro' || user.is_admin === 1 || user.yandex_login === 'vanessosit');
+  const isProUser = Boolean(hasFullPro(user.tier as any) || user.is_admin === 1 || user.yandex_login === 'vanessosit');
 
   let userSettings: UserSettings = { ...DEFAULT_USER_SETTINGS };
   if (user.settings) {
@@ -908,7 +911,7 @@ export function updatePaymentStatus(id: string, status: string, yooId?: string):
 /**
  * Upgrades user to Pro tier and extends expiration
  */
-export function upgradeUserToPro(userId: string, durationDays: number): DbUser | null {
+export function upgradeUserToPro(userId: string, durationDays: number, targetTier: UserTier = 'overdrive'): DbUser | null {
   const user = getUserById(userId);
   if (!user) return null;
   const now = Date.now();
@@ -916,15 +919,18 @@ export function upgradeUserToPro(userId: string, durationDays: number): DbUser |
   const baseTime = currentProUntil > now ? currentProUntil : now;
   const newProUntil = new Date(baseTime + durationDays * 24 * 60 * 60 * 1000).toISOString();
 
-  // Unlock VIP frames for Pro
-  const frames: AvatarFrameId[] = ['none', 'gold', 'rgb', 'plasma'];
-  const activeFrame = user.active_frame && user.active_frame !== 'none' ? user.active_frame : 'gold';
+  let frames: AvatarFrameId[] = ['none'];
+  let activeFrame = user.active_frame || 'none';
+  if (hasFullPro(targetTier)) {
+    frames = ['none', 'gold', 'rgb', 'plasma'];
+    activeFrame = user.active_frame && user.active_frame !== 'none' ? user.active_frame : 'gold';
+  }
 
   db.prepare(`
     UPDATE users 
-    SET tier = 'pro', pro_until = ?, unlocked_frames = ?, active_frame = ?, updated_at = ?
+    SET tier = ?, pro_until = ?, unlocked_frames = ?, active_frame = ?, updated_at = ?
     WHERE id = ?
-  `).run(newProUntil, JSON.stringify(frames), activeFrame, now, userId);
+  `).run(targetTier, newProUntil, JSON.stringify(frames), activeFrame, now, userId);
 
   return getUserById(userId);
 }
@@ -996,7 +1002,7 @@ export function setUserTier(userId: string, tier: UserTier, proUntil?: string | 
   let unlockedFrames = '["none"]';
   let activeFrame = 'none';
 
-  if (tier === 'pro') {
+  if (hasFullPro(tier)) {
     unlockedFrames = '["none","gold","rgb","plasma"]';
     activeFrame = 'gold';
   }
@@ -1023,7 +1029,7 @@ export function getAllDropsAdmin(): DbDrop[] {
  */
 export function getDbStats() {
   const totalUsers = (db.prepare('SELECT COUNT(*) as count FROM users').get() as any)?.count || 0;
-  const proUsers = (db.prepare("SELECT COUNT(*) as count FROM users WHERE tier = 'pro'").get() as any)?.count || 0;
+  const proUsers = (db.prepare("SELECT COUNT(*) as count FROM users WHERE tier IN ('pro', 'overdrive', 'data-link', 'live-hub')").get() as any)?.count || 0;
   const adminUsers = (db.prepare("SELECT COUNT(*) as count FROM users WHERE is_admin = 1").get() as any)?.count || 0;
   const totalDevices = (db.prepare('SELECT COUNT(*) as count FROM devices').get() as any)?.count || 0;
   const totalDrops = (db.prepare('SELECT COUNT(*) as count FROM drops').get() as any)?.count || 0;

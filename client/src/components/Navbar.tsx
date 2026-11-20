@@ -8,6 +8,7 @@ import {
   UserProfile,
   DropDto,
   BridgikNotificationItem,
+  hasFullPro,
 } from '../types/index.js';
 import { sound } from '../utils/sound.js';
 import { ProfileDropdown, ProfileSectionTab } from './ProfileDropdown.js';
@@ -98,7 +99,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const hasFrameAccess = Boolean(
     isAdmin ||
       (userProfile &&
-        (userProfile.tier === 'pro' || userProfile.unlockedFrames.includes(effectiveFrame)))
+        (hasFullPro(userProfile.tier) || userProfile.unlockedFrames.includes(effectiveFrame)))
   );
 
   const getAdminFrameClass = () => {
@@ -252,7 +253,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="h-16 sm:h-20 flex items-center justify-between gap-4">
           {/* Left section: Logo + Anchored Nav tabs */}
-          <div className="flex items-center gap-8 lg:gap-10 xl:gap-12 min-w-0">
+          <div className="flex items-center gap-6 lg:gap-8 xl:gap-10 min-w-0">
             <div
               onClick={goHome}
               className="flex items-center cursor-pointer select-none group py-1 shrink-0"
@@ -266,12 +267,12 @@ export const Navbar: React.FC<NavbarProps> = ({
               />
             </div>
 
-            <nav className="hidden md:flex items-center gap-5 lg:gap-7 text-sm lg:text-base font-bold whitespace-nowrap">
+            <nav className="hidden md:flex items-center gap-4 lg:gap-6 text-sm lg:text-base font-bold whitespace-nowrap">
               {navLinks}
             </nav>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0 ml-auto pl-4">
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0 ml-auto pl-6 sm:pl-8">
             {onOpenSettings && !userProfile && (
               <button
                 type="button"
@@ -362,14 +363,28 @@ export const Navbar: React.FC<NavbarProps> = ({
                         DEV
                       </span>
                     )}
-                    {userProfile.tier === 'pro' && (
+                    {hasFullPro(userProfile.tier) ? (
                       <span
                         className="w-4 h-4 rounded bg-[#789d2a] flex items-center justify-center text-white shrink-0"
-                        title="Bridgik Pro"
+                        title="Bridgik Overdrive"
                       >
                         <Check className="w-2.5 h-2.5 stroke-[3]" />
                       </span>
-                    )}
+                    ) : userProfile.tier === 'data-link' ? (
+                      <span
+                        className="px-1.5 py-0.2 rounded bg-lime-500/20 text-[#bbf348] border border-lime-500/40 text-[9px] font-mono font-bold shrink-0"
+                        title="Тариф Data Link"
+                      >
+                        DATA
+                      </span>
+                    ) : userProfile.tier === 'live-hub' ? (
+                      <span
+                        className="px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-[9px] font-mono font-bold shrink-0"
+                        title="Тариф Live Hub"
+                      >
+                        HUB
+                      </span>
+                    ) : null}
                     {userProfile.activeEmote && (
                       <img
                         src={userProfile.activeEmote}
@@ -379,7 +394,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     )}
                     <span
                       className={`font-extrabold text-sm sm:text-base max-w-[78px] sm:max-w-[140px] truncate ${
-                        isAdmin || userProfile.tier === 'pro'
+                        isAdmin || hasFullPro(userProfile.tier)
                           ? 'admin-name-shimmer'
                           : 'text-[#ededed]'
                       }`}

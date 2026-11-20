@@ -16,7 +16,7 @@ import {
   Loader2,
   Gift,
 } from 'lucide-react';
-import { UserProfile, AvatarFrameId } from '../types/index.js';
+import { UserProfile, AvatarFrameId, hasFullPro, hasBridgePro } from '../types/index.js';
 import { getAvatarForName } from '../utils/device.js';
 import { sound } from '../utils/sound.js';
 
@@ -62,12 +62,13 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
 
-  const isPro = userProfile.tier === 'pro';
+  const isPro = hasFullPro(userProfile.tier);
+  const hasBridge = hasBridgePro(userProfile.tier);
   const isAdmin = Boolean(userProfile.isAdmin);
   const hasFullAccess = isPro || isAdmin;
 
   const extraSlots = userProfile.extraDeviceSlots || userProfile.settings?.extraDeviceSlots || 0;
-  const maxDevices = (isPro ? 10 : 2) + extraSlots;
+  const maxDevices = (isPro ? 10 : hasBridge ? 6 : 2) + extraSlots;
   const hasDrop500 =
     (userProfile.s3QuotaLimitMb && userProfile.s3QuotaLimitMb >= 500) ||
     Boolean(userProfile.settings?.purchasedCatalogItems?.includes('drop_quota:500'));

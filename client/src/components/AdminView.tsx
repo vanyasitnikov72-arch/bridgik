@@ -21,7 +21,7 @@ import {
   Lock,
   Layers,
 } from 'lucide-react';
-import { AdminStats, AdminUser, AdminDrop, UserProfile, AppTab } from '../types/index.js';
+import { AdminStats, AdminUser, AdminDrop, UserProfile, AppTab, UserTier } from '../types/index.js';
 import { sound } from '../utils/sound.js';
 
 interface AdminViewProps {
@@ -152,7 +152,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   }, [fetchStats, fetchUsers, fetchDrops]);
 
   // Change user tier
-  const handleSetUserTier = async (userId: string, tier: 'free' | 'pro', days: number | null) => {
+  const handleSetUserTier = async (userId: string, tier: UserTier, days: number | null) => {
     sound.playClick();
     try {
       const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/tier`, {
@@ -163,9 +163,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
       const data = await res.json();
       if (data?.success) {
         showToast(
-          tier === 'pro'
-            ? `Пользователю успешно активирован статус Pro (${days ? `${days} дн.` : 'Бессрочно'})`
-            : 'Статус Pro снят'
+          tier !== 'free'
+            ? `Пользователю активирован тариф ${tier} (${days ? `${days} дн.` : 'Бессрочно'})`
+            : 'Тариф сброшен на Free'
         );
         fetchUsers();
         fetchStats();
@@ -306,7 +306,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
       u.id.toLowerCase().includes(userSearch.toLowerCase());
 
     if (!matchesSearch) return false;
-    if (userFilter === 'pro') return u.tier === 'pro';
+    if (userFilter === 'pro') return u.tier !== 'free';
     if (userFilter === 'admin') return u.isAdmin;
     return true;
   });
@@ -738,7 +738,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                       : 'text-[#888888] hover:text-white'
                   }`}
                 >
-                  Pro ({users.filter((u) => u.tier === 'pro').length})
+                  Подписчики ({users.filter((u) => u.tier !== 'free').length})
                 </button>
                 <button
                   onClick={() => setUserFilter('admin')}
@@ -762,7 +762,23 @@ export const AdminView: React.FC<AdminViewProps> = ({
               ) : (
                 filteredUsers.map((user) => {
                   const isOwner = user.yandexLogin === 'vanessosit';
-                  const isPro = user.tier === 'pro';
+                  const isPro = user.tier && user.tier !== 'free';
+                  const tierLabel =
+                    user.tier === 'overdrive' || user.tier === 'pro'
+                      ? 'OVERDRIVE'
+                      : user.tier === 'data-link'
+                      ? 'DATA LINK'
+                      : user.tier === 'live-hub'
+                      ? 'LIVE HUB'
+                      : 'FREE';
+                  const tierColor =
+                    user.tier === 'overdrive' || user.tier === 'pro'
+                      ? 'bg-amber-400 text-black'
+                      : user.tier === 'data-link'
+                      ? 'bg-sky-400 text-black'
+                      : user.tier === 'live-hub'
+                      ? 'bg-emerald-400 text-black'
+                      : 'bg-white/10 text-[#aaaaaa]';
 
                   return (
                     <div
@@ -792,15 +808,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
                                 🛡️ АДМИНИСТРАТОР
                               </span>
                             )}
-                            {isPro ? (
-                              <span className="px-2 py-0.5 rounded bg-[#789d2a] text-white font-bold text-[10px] font-mono">
-                                PRO {user.proUntil ? `до ${new Date(user.proUntil).toLocaleDateString('ru')}` : 'БЕССРОЧНО'}
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded bg-white/10 text-[#aaaaaa] font-bold text-[10px] font-mono">
-                                FREE
-                              </span>
-                            )}
+                            <span className={`px-2 py-0.5 rounded font-extrabold text-[10px] font-mono ${tierColor}`}>
+                              {tierLabel} {user.proUntil ? `до ${new Date(user.proUntil).toLocaleDateString('ru')}` : (isPro ? 'БЕССРОЧНО' : '')}
+                            </span>
                           </div>
 
                           <div className="flex items-center gap-3 text-xs text-[#8c9c82] mt-1 font-mono flex-wrap">
@@ -819,31 +829,44 @@ export const AdminView: React.FC<AdminViewProps> = ({
                       {/* Right: Actions */}
                       <div className="flex items-center gap-2 flex-wrap shrink-0">
                         {/* Pro tier action */}
-                        {isPro ? (
+                        {isPro && (
                           <button
                             onClick={() => handleSetUserTier(user.id, 'free', null)}
-                            className="px-3 py-1.5 rounded-xl bg-[#2b1818] hover:bg-[#3b1f1f] border border-[#d94848]/40 text-[#ff8f8f] font-bold text-xs transition-colors cursor-pointer"
+                            className="px-2.5 py-1.5 rounded-xl bg-[#2b1818] hover:bg-[#3b1f1f] border border-[#d94848]/40 text-[#ff8f8f] font-bold text-xs transition-colors cursor-pointer"
                           >
-                            Снять Pro
+                            Снять тариф
                           </button>
-                        ) : (
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => handleSetUserTier(user.id, 'pro', 30)}
-                              className="px-2.5 py-1.5 rounded-xl bg-[#1b2b14] hover:bg-[#253d1b] border border-[#789d2a]/60 text-[#bbf348] font-bold text-xs transition-colors cursor-pointer"
-                              title="Выдать Pro на 30 дней"
-                            >
-                              +30 дн. Pro
-                            </button>
-                            <button
-                              onClick={() => handleSetUserTier(user.id, 'pro', null)}
-                              className="px-2.5 py-1.5 rounded-xl bg-[#2d2a13] hover:bg-[#3d3819] border border-amber-400/50 text-amber-300 font-bold text-xs transition-colors cursor-pointer"
-                              title="Выдать вечный Pro"
-                            >
-                              Вечный Pro
-                            </button>
-                          </div>
                         )}
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <button
+                            onClick={() => handleSetUserTier(user.id, 'data-link', 30)}
+                            className="px-2 py-1.5 rounded-xl bg-[#12222d] hover:bg-[#1b3445] border border-sky-400/40 text-sky-300 font-bold text-xs transition-colors cursor-pointer"
+                            title="Выдать Data Link на 30 дней"
+                          >
+                            +Data Link
+                          </button>
+                          <button
+                            onClick={() => handleSetUserTier(user.id, 'live-hub', 30)}
+                            className="px-2 py-1.5 rounded-xl bg-[#132a1e] hover:bg-[#1d3f2d] border border-emerald-400/40 text-emerald-300 font-bold text-xs transition-colors cursor-pointer"
+                            title="Выдать Live Hub на 30 дней"
+                          >
+                            +Live Hub
+                          </button>
+                          <button
+                            onClick={() => handleSetUserTier(user.id, 'overdrive', 30)}
+                            className="px-2 py-1.5 rounded-xl bg-[#2b2512] hover:bg-[#3d3419] border border-amber-400/50 text-amber-300 font-bold text-xs transition-colors cursor-pointer"
+                            title="Выдать Overdrive на 30 дней"
+                          >
+                            +Overdrive
+                          </button>
+                          <button
+                            onClick={() => handleSetUserTier(user.id, 'overdrive', null)}
+                            className="px-2 py-1.5 rounded-xl bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/30 text-amber-200 font-bold text-xs transition-colors cursor-pointer"
+                            title="Выдать вечный Overdrive"
+                          >
+                            ∞ Overdrive
+                          </button>
+                        </div>
 
                         {/* Admin Toggle */}
                         {!isOwner && (

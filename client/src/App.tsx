@@ -52,6 +52,7 @@ import {
   BridgikNotificationItem,
   UserSettings,
   DEFAULT_USER_SETTINGS,
+  hasRoomPro,
 } from './types/index.js';
 import {
   detectDeviceType,
@@ -1728,9 +1729,9 @@ export function App() {
     setRoomMode(mode);
     setActiveTab(mode);
 
-    const isProUser = Boolean(userProfile?.tier === 'pro' || isAdmin);
-    const effectiveMaxSeats = isProUser ? 8 : 4;
-    const effectiveRoomTheme = isProUser ? roomTheme : 'cyber-lounge';
+    const isRoomProUser = Boolean(hasRoomPro(userProfile?.tier) || isAdmin);
+    const effectiveMaxSeats = isRoomProUser ? 8 : 4;
+    const effectiveRoomTheme = isRoomProUser ? roomTheme : 'cyber-lounge';
     const currentLicenseKey = userProfile?.licenseKeyPreview || localStorage.getItem('bridgik_license_key') || undefined;
 
     socket.emit(
@@ -2558,7 +2559,7 @@ export function App() {
             onDismissTransfer={handleDismissTransfer}
             onClearCompletedTransfers={handleClearCompletedTransfers}
             onOpenAppSettings={() => setIsSettingsOpen(true)}
-            isPro={Boolean(userProfile?.tier === 'pro' || isAdmin)}
+            isPro={Boolean(hasRoomPro(userProfile?.tier) || isAdmin)}
             onOpenPricing={() => setActiveTab('pricing')}
             userProfile={userProfile}
           />
