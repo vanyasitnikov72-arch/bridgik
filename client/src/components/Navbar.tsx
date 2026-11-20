@@ -249,26 +249,29 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="border-b border-white/[0.08] bg-[#171717] sticky top-0 z-40">
-      <div className="max-w-5xl mx-auto px-3 sm:px-4">
-        <div className="h-16 sm:h-20 flex items-center justify-between gap-2">
-          <div
-            onClick={goHome}
-            className="flex items-center cursor-pointer select-none group py-1 shrink-0"
-            title="bridgik · На главную"
-          >
-            <img
-              src="/mascots/dino_logo_transparent.png"
-              alt="bridgik"
-              className="h-10 sm:h-14 md:h-16 w-auto object-contain group-hover:scale-105 transition-transform drop-shadow-[0_0_15px_rgba(120,157,42,0.3)]"
-              style={{ imageRendering: 'pixelated' }}
-            />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="h-16 sm:h-20 flex items-center justify-between gap-4">
+          {/* Left section: Logo + Anchored Nav tabs */}
+          <div className="flex items-center gap-8 lg:gap-10 xl:gap-12 min-w-0">
+            <div
+              onClick={goHome}
+              className="flex items-center cursor-pointer select-none group py-1 shrink-0"
+              title="bridgik · На главную"
+            >
+              <img
+                src="/mascots/dino_logo_transparent.png"
+                alt="bridgik"
+                className="h-10 sm:h-14 md:h-16 w-auto object-contain group-hover:scale-105 transition-transform drop-shadow-[0_0_15px_rgba(120,157,42,0.3)]"
+                style={{ imageRendering: 'pixelated' }}
+              />
+            </div>
+
+            <nav className="hidden md:flex items-center gap-5 lg:gap-7 text-sm lg:text-base font-bold whitespace-nowrap">
+              {navLinks}
+            </nav>
           </div>
 
-          <nav className="hidden md:flex items-center gap-6 text-lg font-bold">
-            {navLinks}
-          </nav>
-
-          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0 ml-auto pl-4">
             {onOpenSettings && !userProfile && (
               <button
                 type="button"
