@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import fs from 'fs';
 import os from 'os';
 import crypto from 'crypto';
+import { PassThrough } from 'stream';
 import { RoomManager } from './roomManager.js';
 import { PeerInfo } from './types.js';
 import {
@@ -1124,14 +1125,18 @@ app.post('/api/drop/upload', async (req, res) => {
     const s3Key = `${dropId}${safeExt}`;
     const s3Bucket = process.env.S3_BUCKET || 'bridgik-drops';
     const s3Uri = `s3://${s3Bucket}/${s3Key}`;
+    const pass = new PassThrough();
+    req.pipe(pass);
+
     let bytesWritten = 0;
     let exceeded = false;
 
-    req.on('data', (chunk) => {
+    pass.on('data', (chunk) => {
       bytesWritten += chunk.length;
       if (bytesWritten > MAX_DROP_SIZE && !exceeded) {
         exceeded = true;
         req.destroy();
+        pass.destroy();
         deleteFromS3(s3Key).catch(() => {});
         if (!res.headersSent) {
           res.status(413).json({
@@ -1143,7 +1148,7 @@ app.post('/api/drop/upload', async (req, res) => {
     });
 
     try {
-      await uploadStreamToS3(req, s3Key, mimeType);
+      await uploadStreamToS3(pass, s3Key, mimeType);
       if (exceeded) return;
 
       const expiresAt = Date.now() + ttlHours * 60 * 60 * 1000;
@@ -1425,14 +1430,18 @@ app.post(['/api/inbox/@:handle/drop', '/api/inbox/:handle/drop'], async (req, re
     const s3Key = `${dropId}${safeExt}`;
     const s3Bucket = process.env.S3_BUCKET || 'bridgik-drops';
     const s3Uri = `s3://${s3Bucket}/${s3Key}`;
+    const pass = new PassThrough();
+    req.pipe(pass);
+
     let bytesWritten = 0;
     let exceeded = false;
 
-    req.on('data', (chunk) => {
+    pass.on('data', (chunk) => {
       bytesWritten += chunk.length;
       if (bytesWritten > MAX_DROP_SIZE && !exceeded) {
         exceeded = true;
         req.destroy();
+        pass.destroy();
         deleteFromS3(s3Key).catch(() => {});
         if (!res.headersSent) {
           res.status(413).json({
@@ -1444,7 +1453,7 @@ app.post(['/api/inbox/@:handle/drop', '/api/inbox/:handle/drop'], async (req, re
     });
 
     try {
-      await uploadStreamToS3(req, s3Key, mimeType);
+      await uploadStreamToS3(pass, s3Key, mimeType);
       if (exceeded) return;
 
       const expiresAt = Date.now() + ttlHours * 60 * 60 * 1000;
