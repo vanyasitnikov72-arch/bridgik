@@ -238,6 +238,7 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
         <BurnMessageWrapper
           isBurner={isBurner}
           expiresAt={expiresAt}
+          borderRadius={16}
           className="rounded-2xl max-w-full"
         >
           <div
@@ -250,18 +251,18 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
                 ? 'p-3.5 bg-gradient-to-br from-[#22180b] to-[#161616] border border-amber-500/50 text-[#fef08a] shadow-[0_0_12px_rgba(245,158,11,0.18)]'
                 : isBurner
                 ? isMe
-                  ? 'p-3.5 bg-gradient-to-br from-[#2b1408] to-[#160d07] border border-orange-500/60 text-orange-100 shadow-[0_0_14px_rgba(249,115,22,0.25)]'
-                  : 'p-3.5 bg-gradient-to-br from-[#241208] to-[#140b06] border border-orange-500/60 text-orange-100 shadow-[0_0_14px_rgba(249,115,22,0.25)]'
+                  ? 'p-3.5 min-w-[140px] bg-gradient-to-br from-[#2b1408] to-[#160d07] border border-orange-500/60 text-orange-100 shadow-[0_0_14px_rgba(249,115,22,0.25)]'
+                  : 'p-3.5 min-w-[140px] bg-gradient-to-br from-[#241208] to-[#140b06] border border-orange-500/60 text-orange-100 shadow-[0_0_14px_rgba(249,115,22,0.25)]'
                 : isMe
                 ? 'p-3.5 bg-[#1b2413] border border-[#789d2a]/50 text-[#d4e8a8]'
                 : 'p-3.5 bg-[#252525] border border-[#383838] text-[#ededed]'
             }`}
           >
-            {/* Timer & flame icon in top right corner of message bubble (no rectangle) */}
+            {/* Timer & flame icon in top LEFT corner, time in top RIGHT corner */}
             {isBurner && expiresAt && (
-              <div className="flex items-center justify-end gap-1.5 select-none -mt-1 -mr-1 mb-1.5">
+              <div className="flex items-center justify-between gap-3 select-none -mt-1 mb-2">
                 <BurnCountdownBadge expiresAt={expiresAt} />
-                {time && <span className="text-[10px] text-orange-400/60 font-mono ml-0.5">{time}</span>}
+                {time && <span className="text-[10px] text-orange-400/60 font-mono ml-auto shrink-0">{time}</span>}
               </div>
             )}
             {!isPureLink && <div className="leading-snug">{renderedContent}</div>}

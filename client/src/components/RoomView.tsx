@@ -989,6 +989,7 @@ export const RoomView: React.FC<RoomViewProps> = ({
                     key={m.id}
                     isBurner={m.isBurner}
                     expiresAt={m.expiresAt}
+                    borderRadius={8}
                     className="rounded-lg"
                   >
                     <div

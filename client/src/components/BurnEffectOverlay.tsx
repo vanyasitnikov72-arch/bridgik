@@ -34,6 +34,7 @@ interface BurnMessageWrapperProps {
   children: React.ReactNode;
   className?: string;
   burnDurationMs?: number;
+  borderRadius?: number;
 }
 
 /**
@@ -48,6 +49,7 @@ export const BurnMessageWrapper: React.FC<BurnMessageWrapperProps> = ({
   children,
   className = '',
   burnDurationMs = 2800,
+  borderRadius = 16,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -140,7 +142,54 @@ export const BurnMessageWrapper: React.FC<BurnMessageWrapperProps> = ({
 
       const maxR = Math.hypot(w, h) * 0.72;
 
-      // 1. Draw Burn Holes with molten fire edges
+      // 1. Draw glowing fire line along the smooth rounded perimeter
+      ctx.save();
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(1, 1, Math.max(1, w - 2), Math.max(1, h - 2), Math.max(1, borderRadius - 1));
+      } else {
+        const r = Math.max(1, borderRadius - 1);
+        ctx.moveTo(r + 1, 1);
+        ctx.lineTo(w - 1 - r, 1);
+        ctx.arcTo(w - 1, 1, w - 1, 1 + r, r);
+        ctx.lineTo(w - 1, h - 1 - r);
+        ctx.arcTo(w - 1, h - 1, w - 1 - r, h - 1, r);
+        ctx.lineTo(r + 1, h - 1);
+        ctx.arcTo(1, h - 1, 1, h - 1 - r, r);
+        ctx.lineTo(1, 1 + r);
+        ctx.arcTo(1, 1, r + 1, 1, r);
+        ctx.closePath();
+      }
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = `rgba(255, 120, 0, ${Math.max(0, (1 - p * 1.15) * 0.85).toFixed(2)})`;
+      ctx.shadowColor = '#ff5500';
+      ctx.shadowBlur = 8;
+      ctx.stroke();
+      ctx.restore();
+
+      // 2. Clip canvas strictly to the card's smooth rounded boundary!
+      // This guarantees that any fire arcs expanding to the edge follow the rounded corners,
+      // completely preventing any straight 90-degree corner silhouette!
+      ctx.save();
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(0, 0, w, h, borderRadius);
+      } else {
+        const r = borderRadius;
+        ctx.moveTo(r, 0);
+        ctx.lineTo(w - r, 0);
+        ctx.arcTo(w, 0, w, r, r);
+        ctx.lineTo(w, h - r);
+        ctx.arcTo(w, h, w - r, h, r);
+        ctx.lineTo(r, h);
+        ctx.arcTo(0, h, 0, h - r, r);
+        ctx.lineTo(0, r);
+        ctx.arcTo(0, 0, r, 0, r);
+        ctx.closePath();
+      }
+      ctx.clip();
+
+      // 3. Draw Burn Holes with molten fire edges
       BURN_HOLES.forEach((hole) => {
         const holeP = Math.max(0, (p - hole.delay) / (1 - hole.delay));
         if (holeP <= 0) return;
@@ -210,7 +259,9 @@ export const BurnMessageWrapper: React.FC<BurnMessageWrapperProps> = ({
         }
       });
 
-      // 2. Render & update floating sparks
+      ctx.restore(); // restores clip so sparks can float freely beyond card
+
+      // 4. Render & update floating sparks
       for (let i = sparks.length - 1; i >= 0; i--) {
         const s = sparks[i];
         s.life++;
@@ -269,6 +320,7 @@ export const BurnMessageWrapper: React.FC<BurnMessageWrapperProps> = ({
       ref={containerRef}
       className={`relative ${className}`}
       style={{
+        borderRadius: `${borderRadius}px`,
         opacity: isBurning ? Math.max(0, 1 - Math.max(0, p - 0.72) / 0.26) : 1,
         transition: isBurning ? 'none' : 'opacity 0.2s ease',
       }}
@@ -276,6 +328,7 @@ export const BurnMessageWrapper: React.FC<BurnMessageWrapperProps> = ({
       {/* Real original message content — unchanged layout, fades out seamlessly as it burns */}
       <div
         style={{
+          borderRadius: `${borderRadius}px`,
           opacity: contentOpacity,
           filter: isBurning ? `contrast(${100 + p * 30}%) brightness(${100 - p * 40}%)` : undefined,
           pointerEvents: isBurning ? 'none' : 'auto',
@@ -290,8 +343,8 @@ export const BurnMessageWrapper: React.FC<BurnMessageWrapperProps> = ({
       {isBurning && (
         <canvas
           ref={canvasRef}
-          style={{ opacity: canvasOpacity }}
-          className="absolute inset-0 pointer-events-none z-20 w-full h-full rounded-inherit"
+          style={{ opacity: canvasOpacity, borderRadius: `${borderRadius}px` }}
+          className="absolute inset-0 pointer-events-none z-20 w-full h-full"
         />
       )}
     </div>
@@ -300,6 +353,7 @@ export const BurnMessageWrapper: React.FC<BurnMessageWrapperProps> = ({
 
 /**
  * Dedicated live ticking countdown badge with button-style Flame icon from lucide-react
+ * With tabular-nums and fixed min-width so the message window NEVER changes width as timer counts down.
  */
 export const BurnCountdownBadge: React.FC<{
   expiresAt: number;
@@ -318,11 +372,11 @@ export const BurnCountdownBadge: React.FC<{
 
   return (
     <span
-      className={`inline-flex items-center gap-1 text-[11px] font-mono font-bold text-orange-400 select-none ${className}`}
+      className={`inline-flex items-center gap-1.5 text-[11px] font-mono font-bold text-orange-400 select-none shrink-0 ${className}`}
       title="Сгорающее сообщение"
     >
       <Flame className="w-3.5 h-3.5 text-orange-400 shrink-0" />
-      <span>{seconds}с</span>
+      <span className="tabular-nums inline-block min-w-[22px] text-left">{seconds}с</span>
     </span>
   );
 };
