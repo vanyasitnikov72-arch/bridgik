@@ -1,231 +1,56 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { sound } from '../utils/sound.js';
+import { Flame } from 'lucide-react';
+
+interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  size: number;
+  life: number;
+  maxLife: number;
+  hue: number;
+}
+
+interface BurnHole {
+  rx: number;
+  ry: number;
+  delay: number;
+  speed: number;
+  seed: number;
+}
+
+const BURN_HOLES: BurnHole[] = [
+  { rx: 0.32, ry: 0.45, delay: 0.0, speed: 1.25, seed: 15 },
+  { rx: 0.75, ry: 0.38, delay: 0.08, speed: 1.15, seed: 42 },
+  { rx: 0.52, ry: 0.72, delay: 0.15, speed: 1.05, seed: 73 },
+  { rx: 0.88, ry: 0.68, delay: 0.22, speed: 1.3, seed: 91 },
+  { rx: 0.14, ry: 0.62, delay: 0.26, speed: 1.2, seed: 38 },
+];
 
 interface BurnMessageWrapperProps {
   isBurner?: boolean;
   expiresAt?: number;
-  text?: string;
-  senderName?: string;
-  isAdmin?: boolean;
-  isMe?: boolean;
-  time?: string;
   children: React.ReactNode;
   className?: string;
   burnDurationMs?: number;
 }
 
-const vsSource = `
-  attribute vec2 a_position;
-  varying vec2 vUv;
-  void main() {
-    vUv = a_position;
-    gl_Position = vec4(a_position, 0.0, 1.0);
-  }
-`;
-
-const fsSource = `
-  #ifdef GL_FRAGMENT_PRECISION_HIGH
-  precision highp float;
-  #else
-  precision mediump float;
-  #endif
-  varying vec2 vUv;
-  uniform vec2 u_resolution;
-  uniform float u_progress;
-  uniform float u_time;
-  uniform sampler2D u_texture;
-
-  float rand(vec2 n) {
-    return fract(cos(dot(n, vec2(12.9898, 4.1414))) * 43758.5453);
-  }
-
-  float noise(vec2 n) {
-    const vec2 d = vec2(0., 1.);
-    vec2 b = floor(n);
-    vec2 f = smoothstep(vec2(0.0), vec2(1.0), fract(n));
-    return mix(
-      mix(rand(b), rand(b + d.yx), f.x),
-      mix(rand(b + d.xy), rand(b + d.yy), f.x),
-      f.y
-    );
-  }
-
-  float fbm(vec2 n) {
-    float total = 0.0;
-    float amplitude = 0.45;
-    for (int i = 0; i < 4; i++) {
-      total += noise(n) * amplitude;
-      n += n;
-      amplitude *= 0.55;
-    }
-    return total;
-  }
-
-  void main() {
-    vec2 uv = vUv;
-    float aspect = u_resolution.x / u_resolution.y;
-    uv.x *= aspect;
-
-    vec2 screenUv = vUv * 0.5 + 0.5;
-    screenUv.y = 1.0 - screenUv.y;
-
-    vec4 color = texture2D(u_texture, screenUv);
-    if (color.a < 0.01) {
-      discard;
-    }
-
-    float p = clamp(u_progress, 0.0, 1.0);
-    // Fractal noise for organic burning holes across the card
-    float main_noise = 1.0 - fbm(2.2 * uv + 8.5 - vec2(0.2, 0.9 * p));
-
-    // Ash charring along the edges of the holes
-    float burn = smoothstep(main_noise - 0.15, main_noise, p);
-    color.rgb -= vec3(0.95, 0.92, 0.95) * burn;
-
-    // Glowing fire color & fiery edge
-    vec3 fire_color = fbm(7.0 * uv - vec2(0.0, 0.007 * u_time)) * vec3(8.0, 2.2, 0.2);
-    float show_fire = smoothstep(0.3, 0.9, fbm(12.0 * uv + 2.0 - vec2(0.0, 0.007 * u_time)));
-    float fire_border = 0.05 * show_fire;
-
-    float fire_edge = smoothstep(main_noise - fire_border, main_noise - 0.5 * fire_border, p);
-    fire_edge *= (1.0 - smoothstep(main_noise - 0.5 * fire_border, main_noise, p));
-
-    color.rgb += fire_color * fire_edge;
-    float opacity = 1.0 - smoothstep(main_noise - 0.001, main_noise, p);
-
-    gl_FragColor = vec4(color.rgb, color.a * opacity);
-  }
-`;
-
-function renderCardToCanvas(
-  w: number,
-  h: number,
-  dpr: number,
-  props: {
-    text?: string;
-    senderName?: string;
-    isAdmin?: boolean;
-    isMe?: boolean;
-    time?: string;
-  },
-  containerEl?: HTMLElement | null
-): HTMLCanvasElement {
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.max(10, Math.floor(w * dpr));
-  canvas.height = Math.max(10, Math.floor(h * dpr));
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return canvas;
-
-  ctx.scale(dpr, dpr);
-
-  // Background
-  const grad = ctx.createLinearGradient(0, 0, w, h);
-  grad.addColorStop(0, '#281307');
-  grad.addColorStop(1, '#150a04');
-  ctx.fillStyle = grad;
-  ctx.strokeStyle = '#f97316';
-  ctx.lineWidth = 1.5;
-
-  ctx.beginPath();
-  if (typeof ctx.roundRect === 'function') {
-    ctx.roundRect(1, 1, w - 2, h - 2, 14);
-  } else {
-    ctx.rect(1, 1, w - 2, h - 2);
-  }
-  ctx.fill();
-  ctx.stroke();
-
-  const senderName = props.senderName || 'Пользователь';
-  const text = props.text || containerEl?.innerText || '';
-  const time = props.time || '';
-
-  // Avatar circle
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(22, 22, 11, 0, Math.PI * 2);
-  ctx.fillStyle = '#ea580c';
-  ctx.fill();
-  ctx.strokeStyle = '#f97316';
-  ctx.lineWidth = 1;
-  ctx.stroke();
-  ctx.fillStyle = '#fff';
-  ctx.font = 'bold 11px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(senderName.charAt(0).toUpperCase(), 22, 22);
-  ctx.restore();
-
-  // Header: sender name
-  ctx.fillStyle = props.isAdmin ? '#f59e0b' : '#ededed';
-  ctx.font = 'bold 12px sans-serif';
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'alphabetic';
-  ctx.fillText(senderName, 40, 26);
-
-  let badgeOffset = 40 + ctx.measureText(senderName).width + 6;
-  if (props.isAdmin) {
-    ctx.fillStyle = 'rgba(245, 158, 11, 0.2)';
-    ctx.strokeStyle = 'rgba(245, 158, 11, 0.5)';
-    ctx.fillRect(badgeOffset, 14, 28, 15);
-    ctx.strokeRect(badgeOffset, 14, 28, 15);
-    ctx.fillStyle = '#fbbf24';
-    ctx.font = 'bold 9px monospace';
-    ctx.fillText('DEV', badgeOffset + 4, 25);
-  }
-
-  // Timer flame badge & time on right
-  if (time) {
-    ctx.fillStyle = '#888888';
-    ctx.font = '10px monospace';
-    ctx.textAlign = 'right';
-    ctx.fillText(time, w - 14, 25);
-  }
-
-  // Text body
-  ctx.fillStyle = '#ededed';
-  ctx.font = '15px sans-serif';
-  ctx.textAlign = 'left';
-
-  const maxWidth = w - 28;
-  const words = text.split(' ');
-  let line = '';
-  let y = 52;
-  const lineHeight = 20;
-
-  for (let i = 0; i < words.length; i++) {
-    const testLine = line + words[i] + ' ';
-    const metrics = ctx.measureText(testLine);
-    if (metrics.width > maxWidth && i > 0) {
-      ctx.fillText(line, 14, y);
-      line = words[i] + ' ';
-      y += lineHeight;
-      if (y > h - 10) break;
-    } else {
-      line = testLine;
-    }
-  }
-  if (line && y <= h) {
-    ctx.fillText(line, 14, y);
-  }
-
-  return canvas;
-}
-
+/**
+ * Organic fractal burn-holes burnout effect.
+ * When time expires, organic burning holes appear and expand across the message,
+ * with bright flickering molten flame perimeters and rising embers.
+ * Disappears 100% seamlessly with zero leftover borders or glow.
+ */
 export const BurnMessageWrapper: React.FC<BurnMessageWrapperProps> = ({
   isBurner,
   expiresAt,
-  text,
-  senderName,
-  isAdmin,
-  isMe,
-  time,
   children,
   className = '',
-  burnDurationMs = 3000,
+  burnDurationMs = 2800,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const playedSoundRef = useRef(false);
 
   const [timeLeftMs, setTimeLeftMs] = useState<number>(() => {
     if (!isBurner || !expiresAt) return 999999;
@@ -234,6 +59,7 @@ export const BurnMessageWrapper: React.FC<BurnMessageWrapperProps> = ({
 
   const isBurning = isBurner && expiresAt !== undefined && timeLeftMs <= burnDurationMs;
 
+  // Countdown loop
   useEffect(() => {
     if (!isBurner || !expiresAt) return;
 
@@ -243,11 +69,6 @@ export const BurnMessageWrapper: React.FC<BurnMessageWrapperProps> = ({
     const update = () => {
       const left = Math.max(0, expiresAt - Date.now());
       setTimeLeftMs(left);
-
-      if (left <= burnDurationMs && !playedSoundRef.current) {
-        playedSoundRef.current = true;
-        sound.playBurn();
-      }
 
       if (left <= burnDurationMs && left > 0) {
         animId = requestAnimationFrame(update);
@@ -274,7 +95,7 @@ export const BurnMessageWrapper: React.FC<BurnMessageWrapperProps> = ({
     };
   }, [isBurner, expiresAt, burnDurationMs]);
 
-  // WebGL Shader setup & rendering
+  // Canvas burn holes & molten fire border renderer
   useEffect(() => {
     if (!isBurning) return;
     const canvas = canvasRef.current;
@@ -282,129 +103,197 @@ export const BurnMessageWrapper: React.FC<BurnMessageWrapperProps> = ({
     const container = containerRef.current;
     if (!container) return;
 
-    const gl = canvas.getContext('webgl', { premultipliedAlpha: false });
-    if (!gl) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const rect = container.getBoundingClientRect();
-    const w = Math.ceil(rect.width);
-    const h = Math.ceil(rect.height);
-
-    canvas.width = w * dpr;
-    canvas.height = h * dpr;
-
-    // Compile shaders
-    function compile(type: number, src: string) {
-      const s = gl!.createShader(type)!;
-      gl!.shaderSource(s, src);
-      gl!.compileShader(s);
-      return s;
-    }
-
-    const vs = compile(gl.VERTEX_SHADER, vsSource);
-    const fs = compile(gl.FRAGMENT_SHADER, fsSource);
-    const prog = gl.createProgram()!;
-    gl.attachShader(prog, vs);
-    gl.attachShader(prog, fs);
-    gl.linkProgram(prog);
-    gl.useProgram(prog);
-
-    const posBuf = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
-      new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
-      gl.STATIC_DRAW
-    );
-
-    const posLoc = gl.getAttribLocation(prog, 'a_position');
-    gl.enableVertexAttribArray(posLoc);
-    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
-
-    const uRes = gl.getUniformLocation(prog, 'u_resolution');
-    const uProg = gl.getUniformLocation(prog, 'u_progress');
-    const uTime = gl.getUniformLocation(prog, 'u_time');
-
-    // Create & upload texture of the message card
-    const cardCanvas = renderCardToCanvas(
-      w,
-      h,
-      dpr,
-      { text, senderName, isAdmin, isMe, time },
-      container
-    );
-
-    const tex = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, tex);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cardCanvas);
-
+    const sparks: Particle[] = [];
     let animId: number;
 
+    const resize = () => {
+      if (!container || !canvas) return;
+      const rect = container.getBoundingClientRect();
+      const w = Math.ceil(rect.width);
+      const h = Math.ceil(rect.height);
+      if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
+      }
+    };
+
+    resize();
+    const ro = new ResizeObserver(resize);
+    ro.observe(container);
+
     const render = (now: number) => {
-      animId = requestAnimationFrame(render);
-
       const currentLeft = expiresAt ? Math.max(0, expiresAt - Date.now()) : 999999;
-      const progress = Math.min(1.0, Math.max(0, (burnDurationMs - currentLeft) / burnDurationMs));
+      const p = Math.min(1.0, Math.max(0, (burnDurationMs - currentLeft) / burnDurationMs));
 
-      gl.viewport(0, 0, canvas.width, canvas.height);
-      gl.clearColor(0, 0, 0, 0);
-      gl.clear(gl.COLOR_BUFFER_BIT);
+      const w = canvas.width / dpr;
+      const h = canvas.height / dpr;
 
-      gl.uniform2f(uRes, canvas.width, canvas.height);
-      gl.uniform1f(uProg, progress);
-      gl.uniform1f(uTime, now);
+      if (w <= 0 || h <= 0) return;
 
-      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      ctx.save();
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, w, h);
+
+      const maxR = Math.hypot(w, h) * 0.72;
+
+      // 1. Draw Burn Holes with molten fire edges
+      BURN_HOLES.forEach((hole) => {
+        const holeP = Math.max(0, (p - hole.delay) / (1 - hole.delay));
+        if (holeP <= 0) return;
+
+        const baseR = holeP * maxR * hole.speed;
+        const cx = hole.rx * w;
+        const cy = hole.ry * h;
+
+        // Wavy organic fractal perimeter
+        const numPoints = 28;
+        ctx.beginPath();
+        for (let i = 0; i <= numPoints; i++) {
+          const theta = (i / numPoints) * Math.PI * 2;
+          const noise =
+            Math.sin(theta * 3 + now * 0.008 + hole.seed) * 5 +
+            Math.cos(theta * 6 - now * 0.012 + hole.seed) * 3 +
+            Math.sin(theta * 9 + hole.seed * 2) * 1.8;
+          const r = Math.max(1, baseR + noise);
+          const px = cx + Math.cos(theta) * r;
+          const py = cy + Math.sin(theta) * r;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+
+        // Fill inner hole with dark carbon / transparent overlay
+        ctx.fillStyle = '#0c0e0b';
+        ctx.fill();
+
+        // Layer 1: Outer glowing flame halo
+        ctx.save();
+        ctx.lineWidth = 14;
+        ctx.strokeStyle = 'rgba(255, 60, 0, 0.45)';
+        ctx.shadowColor = '#ff3d00';
+        ctx.shadowBlur = 16;
+        ctx.stroke();
+        ctx.restore();
+
+        // Layer 2: Core golden flame
+        ctx.save();
+        ctx.lineWidth = 4.5;
+        ctx.strokeStyle = 'rgba(255, 170, 0, 0.85)';
+        ctx.shadowColor = '#ffa500';
+        ctx.shadowBlur = 8;
+        ctx.stroke();
+        ctx.restore();
+
+        // Layer 3: Hot incandescent white-yellow center
+        ctx.save();
+        ctx.lineWidth = 1.8;
+        ctx.strokeStyle = 'rgba(255, 255, 220, 0.98)';
+        ctx.shadowColor = '#ffffff';
+        ctx.shadowBlur = 4;
+        ctx.stroke();
+        ctx.restore();
+
+        // Spawn ember sparks along perimeter
+        if (Math.random() < 0.45 && p < 0.92) {
+          const angle = Math.random() * Math.PI * 2;
+          sparks.push({
+            x: cx + Math.cos(angle) * baseR,
+            y: cy + Math.sin(angle) * baseR,
+            vx: (Math.random() - 0.5) * 1.6,
+            vy: -(Math.random() * 2.2 + 1.0),
+            size: Math.random() * 2 + 1,
+            life: 0,
+            maxLife: Math.random() * 28 + 18,
+            hue: Math.random() * 30 + 18,
+          });
+        }
+      });
+
+      // 2. Render & update floating sparks
+      for (let i = sparks.length - 1; i >= 0; i--) {
+        const s = sparks[i];
+        s.life++;
+        if (s.life >= s.maxLife) {
+          sparks.splice(i, 1);
+          continue;
+        }
+        const prog = s.life / s.maxLife;
+        s.x += s.vx + Math.sin(s.life * 0.14) * 0.5;
+        s.y += s.vy;
+        s.vy -= 0.02;
+
+        const alpha = Math.sin(prog * Math.PI);
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, Math.max(0.5, s.size * (1 - prog * 0.5)), 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${s.hue}, 100%, 65%, ${alpha.toFixed(2)})`;
+        ctx.shadowColor = `hsla(${s.hue}, 100%, 50%, 0.8)`;
+        ctx.shadowBlur = 5;
+        ctx.fill();
+      }
+
+      ctx.restore();
+
+      if (p < 1.0) {
+        animId = requestAnimationFrame(render);
+      }
     };
 
     animId = requestAnimationFrame(render);
 
     return () => {
       cancelAnimationFrame(animId);
-      gl.deleteTexture(tex);
-      gl.deleteProgram(prog);
-      gl.deleteShader(vs);
-      gl.deleteShader(fs);
-      gl.deleteBuffer(posBuf);
+      ro.disconnect();
     };
-  }, [isBurning, expiresAt, burnDurationMs, text, senderName, isAdmin, isMe, time]);
+  }, [isBurning, expiresAt, burnDurationMs]);
 
   if (!isBurner) {
     return <>{children}</>;
   }
 
+  const currentLeft = expiresAt ? Math.max(0, expiresAt - Date.now()) : 999999;
+  const p = isBurning ? Math.min(1.0, Math.max(0, (burnDurationMs - currentLeft) / burnDurationMs)) : 0;
+
+  // Fully seamless disappearance:
+  // Card fades out as holes consume it, and by p >= 0.7 everything fades smoothly to 0
+  const contentOpacity = isBurning ? Math.max(0, 1 - p * 1.15) : 1;
+  const canvasOpacity = isBurning ? Math.max(0, 1 - Math.max(0, p - 0.75) / 0.23) : 1;
+  const isFullyGone = p >= 0.98 || currentLeft <= 0;
+
+  if (isFullyGone) {
+    return null;
+  }
+
   return (
     <div
       ref={containerRef}
-      className={`relative ${className} ${
-        isBurning
-          ? 'shadow-[0_0_20px_rgba(249,115,22,0.4)]'
-          : 'ring-1 ring-orange-500/40 shadow-[0_0_10px_rgba(249,115,22,0.18)]'
-      }`}
+      className={`relative ${className}`}
       style={{
-        transition: isBurning ? 'none' : 'box-shadow 0.3s ease, border-color 0.3s ease',
+        opacity: isBurning ? Math.max(0, 1 - Math.max(0, p - 0.72) / 0.26) : 1,
+        transition: isBurning ? 'none' : 'opacity 0.2s ease',
       }}
     >
-      {/* HTML content is visible during normal countdown, then cleanly hidden when burning */}
+      {/* Real original message content — unchanged layout, fades out seamlessly as it burns */}
       <div
         style={{
-          opacity: isBurning ? 0 : 1,
+          opacity: contentOpacity,
+          filter: isBurning ? `contrast(${100 + p * 30}%) brightness(${100 - p * 40}%)` : undefined,
           pointerEvents: isBurning ? 'none' : 'auto',
-          transition: 'opacity 0.15s ease',
+          transition: isBurning ? 'none' : 'opacity 0.2s ease',
         }}
         className="w-full"
       >
         {children}
       </div>
 
-      {/* WebGL Canvas running the exact Atuin burning shader */}
+      {/* Burning holes & fire edges canvas overlay */}
       {isBurning && (
         <canvas
           ref={canvasRef}
+          style={{ opacity: canvasOpacity }}
           className="absolute inset-0 pointer-events-none z-20 w-full h-full rounded-inherit"
         />
       )}
@@ -412,6 +301,9 @@ export const BurnMessageWrapper: React.FC<BurnMessageWrapperProps> = ({
   );
 };
 
+/**
+ * Dedicated live ticking countdown badge with button-style Flame icon from lucide-react
+ */
 export const BurnCountdownBadge: React.FC<{
   expiresAt: number;
   className?: string;
@@ -429,10 +321,10 @@ export const BurnCountdownBadge: React.FC<{
 
   return (
     <span
-      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-orange-500/20 text-orange-400 border border-orange-500/40 animate-pulse select-none ${className}`}
-      title="Сообщение сгорает"
+      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-orange-500/20 text-orange-400 border border-orange-500/40 select-none ${className}`}
+      title="Сгорающее сообщение"
     >
-      <span className="text-xs">🔥</span>
+      <Flame className="w-3 h-3 text-orange-400 shrink-0" />
       <span>{seconds}с</span>
     </span>
   );

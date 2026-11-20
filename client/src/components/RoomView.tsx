@@ -989,11 +989,6 @@ export const RoomView: React.FC<RoomViewProps> = ({
                     key={m.id}
                     isBurner={m.isBurner}
                     expiresAt={m.expiresAt}
-                    text={m.text}
-                    senderName={m.senderName}
-                    isAdmin={messageIsAdmin}
-                    isMe={isMe}
-                    time={timeStr}
                     className="rounded-lg"
                   >
                     <div
@@ -1045,12 +1040,7 @@ export const RoomView: React.FC<RoomViewProps> = ({
                           {m.isBurner && m.expiresAt && (
                             <BurnCountdownBadge expiresAt={m.expiresAt} />
                           )}
-                          <span className="text-xs text-[#888888]">
-                            {new Date(m.timestamp).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </span>
+                          <span className="text-xs text-[#888888]">{timeStr}</span>
                         </div>
                       </div>
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ExternalLink,
   Play,
@@ -72,6 +72,23 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
 
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
   const [faviconFailed, setFaviconFailed] = useState<Record<string, boolean>>({});
+
+  const [isExpired, setIsExpired] = useState(() => {
+    return Boolean(isBurner && expiresAt && Date.now() >= expiresAt);
+  });
+
+  useEffect(() => {
+    if (!isBurner || !expiresAt) return;
+    const remaining = expiresAt - Date.now();
+    if (remaining <= 0) {
+      setIsExpired(true);
+      return;
+    }
+    const timer = setTimeout(() => setIsExpired(true), remaining);
+    return () => clearTimeout(timer);
+  }, [isBurner, expiresAt]);
+
+  if (isExpired) return null;
 
   const handleCopyLink = (url: string) => {
     navigator.clipboard.writeText(url);
@@ -182,18 +199,11 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
         </div>
       )}
 
-      {/* Message Bubble + Header (for others: name + time; for me: only time) */}
+      {/* Message Bubble + Header (for others: name + DEV badge; for me: clean) */}
       <div
         className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[85%] sm:max-w-[80%]`}
       >
-        {isMe ? (
-          <div className="flex items-center gap-2 mb-1 px-1">
-            {isBurner && expiresAt && (
-              <BurnCountdownBadge expiresAt={expiresAt} />
-            )}
-            {time && <span className="text-[10px] text-[#666666] font-mono">{time}</span>}
-          </div>
-        ) : (
+        {!isMe && (
           <div className="flex items-center gap-2 mb-1 px-1">
             <div className="flex items-center gap-1.5">
               {isAdmin && (
@@ -216,21 +226,18 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
                 />
               )}
             </div>
-            {isBurner && expiresAt && (
-              <BurnCountdownBadge expiresAt={expiresAt} />
-            )}
-            {time && <span className="text-[10px] text-[#666666] font-mono">{time}</span>}
+            {!isBurner && time && <span className="text-[10px] text-[#666666] font-mono">{time}</span>}
+          </div>
+        )}
+        {isMe && !isBurner && time && (
+          <div className="flex items-center gap-2 mb-1 px-1 justify-end">
+            <span className="text-[10px] text-[#666666] font-mono">{time}</span>
           </div>
         )}
 
         <BurnMessageWrapper
           isBurner={isBurner}
           expiresAt={expiresAt}
-          text={text}
-          senderName={senderName}
-          isAdmin={isAdmin}
-          isMe={isMe}
-          time={time}
           className="rounded-2xl max-w-full"
         >
           <div
@@ -250,7 +257,14 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
                 : 'p-3.5 bg-[#252525] border border-[#383838] text-[#ededed]'
             }`}
           >
-          {!isPureLink && <div className="leading-snug">{renderedContent}</div>}
+            {/* Timer & flame icon INSIDE message window */}
+            {isBurner && expiresAt && (
+              <div className="flex items-center justify-end gap-1.5 mb-1.5 select-none">
+                <BurnCountdownBadge expiresAt={expiresAt} />
+                {time && <span className="text-[10px] text-orange-300/70 font-mono">{time}</span>}
+              </div>
+            )}
+            {!isPureLink && <div className="leading-snug">{renderedContent}</div>}
 
           {urls.length > 0 && !allTokensAreEmotes && (
             <div
