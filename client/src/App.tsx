@@ -24,6 +24,7 @@ import { MeetingRoomView } from './components/MeetingRoomView.js';
 import { AboutView } from './components/AboutView.js';
 import { LegalView, LegalDocType } from './components/LegalView.js';
 import { PricingView } from './components/PricingView.js';
+import { CatalogView } from './components/CatalogView.js';
 import { AdminView } from './components/AdminView.js';
 import { QRCodeModal } from './components/QRCodeModal.js';
 import { AuthModal } from './components/AuthModal.js';
@@ -559,7 +560,10 @@ export function App() {
   const [activeTab, setActiveTab] = useState<AppTab>(() => {
     try {
       const p = new URLSearchParams(window.location.search);
-      if (p.get('tab') === 'profile') return 'profile';
+      const t = p.get('tab');
+      if (t === 'profile') return 'profile';
+      if (t === 'catalog') return 'catalog';
+      if (t === 'pricing') return 'pricing';
     } catch {}
     return 'bridge';
   });
@@ -571,8 +575,13 @@ export function App() {
       localStorage.setItem('bridgik_admin_key', urlAdminKey);
     }
 
-    if (params.get('tab') === 'profile') {
+    const t = params.get('tab');
+    if (t === 'profile') {
       setActiveTab('profile');
+    } else if (t === 'catalog') {
+      setActiveTab('catalog');
+    } else if (t === 'pricing') {
+      setActiveTab('pricing');
     }
 
     const authParam = params.get('auth');
@@ -2162,6 +2171,8 @@ export function App() {
       section = 'Условия';
     } else if (activeTab === 'pricing') {
       section = 'Тарифы';
+    } else if (activeTab === 'catalog') {
+      section = 'Каталог';
     } else if (activeTab === 'about') {
       section = 'О сервисе';
     } else if (activeTab === 'profile') {
@@ -2249,6 +2260,44 @@ export function App() {
             onGoToBridge={() => setActiveTab('bridge')}
             userProfile={userProfile}
           />
+        ) : activeTab === 'catalog' && userProfile ? (
+          <CatalogView
+            onBack={() => setActiveTab('bridge')}
+            userProfile={userProfile}
+            onOpenPricing={() => setActiveTab('pricing')}
+            onOpenProfile={() => {
+              setProfileSectionTab('appearance');
+              setActiveTab('profile');
+            }}
+            onUpdateFrame={(frame) => {
+              handleUpdateAdminFrame(frame);
+              saveProfile({ ...userProfile, activeFrame: frame });
+              patchBackendProfile({ activeFrame: frame });
+            }}
+            onUpdateDefaultTheme={(themeId) => {
+              setRoomTheme(themeId);
+              localStorage.setItem('bridgik_pixel_room', themeId);
+              saveProfile({ ...userProfile, defaultRoomTheme: themeId });
+              patchBackendProfile({ defaultRoomTheme: themeId });
+            }}
+            onProfileUpdated={(updated) => {
+              saveProfile(updated);
+            }}
+          />
+        ) : activeTab === 'catalog' ? (
+          <PricingView
+            onBack={() => setActiveTab('bridge')}
+            onOpenAuth={(provider = 'yandex') => {
+              setAuthModalProvider(provider);
+              setIsAuthModalOpen(true);
+            }}
+            onOpenProfile={(tab = 'pro') => {
+              setProfileSectionTab(tab);
+              setActiveTab('profile');
+            }}
+            onGoToBridge={() => setActiveTab('bridge')}
+            userProfile={userProfile}
+          />
         ) : activeTab === 'about' ? (
           <AboutView onBack={() => setActiveTab('bridge')} />
         ) : activeTab === 'profile' && userProfile ? (
@@ -2307,6 +2356,7 @@ export function App() {
               setDropTargetDevice(device || null);
               setIsDropModalOpen(true);
             }}
+            onOpenCatalog={() => setActiveTab('catalog')}
           />
         ) : !roomId ? (
           <HomeView
@@ -2390,6 +2440,7 @@ export function App() {
             onOpenAppSettings={() => setIsSettingsOpen(true)}
             isPro={Boolean(userProfile?.tier === 'pro' || isAdmin)}
             onOpenPricing={() => setActiveTab('pricing')}
+            userProfile={userProfile}
           />
         ) : (
           <RoomView

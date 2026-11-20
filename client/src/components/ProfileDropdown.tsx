@@ -9,6 +9,7 @@ import {
   Check,
   Settings,
   Shield,
+  ShoppingBag,
 } from 'lucide-react';
 import { UserProfile } from '../types/index.js';
 import { getAvatarForName } from '../utils/device.js';
@@ -20,6 +21,7 @@ interface ProfileDropdownProps {
   profile: UserProfile;
   isAdmin?: boolean;
   onOpenProfile: (tab?: ProfileSectionTab) => void;
+  onOpenCatalog?: () => void;
   onOpenAdmin?: () => void;
   onOpenSettings?: () => void;
   onToggleDemoTier?: () => void;
@@ -32,6 +34,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
   profile,
   isAdmin,
   onOpenProfile,
+  onOpenCatalog,
   onOpenAdmin,
   onOpenSettings,
   onToggleDemoTier: _onToggleDemoTier,
@@ -78,7 +81,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
       ? 'border-2 border-purple-400 animate-admin-plasma'
       : 'border-2 border-amber-400 animate-admin-gold';
 
-  const maxDevices = isPro ? 4 : 2;
+  const maxDevices = (isPro ? 10 : 2) + (profile.extraDeviceSlots || profile.settings?.extraDeviceSlots || 0);
 
   return (
     <div
@@ -142,6 +145,21 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
           <User className="w-4 h-4 text-[#a8a8a8] shrink-0" />
           <span>Профиль</span>
         </button>
+
+        {onOpenCatalog && (
+          <button
+            type="button"
+            onClick={() => {
+              sound.playClick();
+              onOpenCatalog();
+              onClose();
+            }}
+            className="w-full px-3 py-2 rounded-xl flex items-center gap-3 text-[#dddddd] hover:text-[#9ac43e] hover:bg-white/[0.06] transition-colors cursor-pointer text-left"
+          >
+            <ShoppingBag className="w-4 h-4 text-[#9ac43e] shrink-0" />
+            <span>Каталог</span>
+          </button>
+        )}
 
         {Boolean(isAdmin || profile.isAdmin) && onOpenAdmin && (
           <button

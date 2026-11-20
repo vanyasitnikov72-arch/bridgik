@@ -3,7 +3,6 @@ import {
   ArrowLeft,
   Edit2,
   Check,
-  Lock,
   Laptop,
   Smartphone,
   Tablet,
@@ -21,6 +20,7 @@ import {
   AlertTriangle,
   Unlink,
   RefreshCw,
+  ShoppingBag,
 } from 'lucide-react';
 import {
   AuthProvider,
@@ -53,6 +53,7 @@ interface ProfileViewProps {
   onRemoveDevice?: (deviceId: string) => void;
   onCreateBridgeWithDevice?: (device: StickyDevice) => void;
   onOpenDropModal?: (device?: StickyDevice) => void;
+  onOpenCatalog?: () => void;
 }
 
 type InternalTab = 'appearance' | 'devices' | 'account';
@@ -159,6 +160,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   onRemoveDevice,
   onCreateBridgeWithDevice,
   onOpenDropModal,
+  onOpenCatalog,
 }) => {
   const [activeTab, setActiveTab] = useState<InternalTab>(() => normalizeTab(initialTab));
   const [appearanceSection, setAppearanceSection] = useState<'frames' | 'themes'>('frames');
@@ -204,7 +206,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
   const isPro = profile.tier === 'pro';
   const hasFullCosmetics = isPro || Boolean(isAdmin);
-  const maxDevices = isPro ? 4 : 2;
+  const maxDevices = (isPro ? 10 : 2) + (profile.extraDeviceSlots || profile.settings?.extraDeviceSlots || 0);
 
   const [selectedPlan, setSelectedPlan] = useState<'1m' | '3m' | '1y'>('3m');
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
@@ -268,10 +270,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   };
 
   const isFrameUnlocked = (id: AvatarFrameId) =>
-    id === 'none' || hasFullCosmetics || profile.unlockedFrames.includes(id);
+    id === 'none' ||
+    hasFullCosmetics ||
+    profile.unlockedFrames.includes(id) ||
+    Boolean(profile.settings?.purchasedCatalogItems?.includes(`frame:${id}`));
 
   const isThemeUnlocked = (id: string) =>
-    id === 'cyber-lounge' || hasFullCosmetics || profile.unlockedThemes.includes(id);
+    id === 'cyber-lounge' ||
+    hasFullCosmetics ||
+    profile.unlockedThemes.includes(id) ||
+    Boolean(profile.settings?.purchasedCatalogItems?.includes(`theme:${id}`));
 
   const tabs: { id: InternalTab; label: string }[] = [
     { id: 'appearance', label: 'Внешний вид' },
@@ -603,121 +611,161 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </div>
 
           {appearanceSection === 'frames' ? (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-              {FRAME_CATALOG.map((f) => {
-                const unlocked = isFrameUnlocked(f.id);
-                const selected = profile.activeFrame === f.id;
-                return (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+                {FRAME_CATALOG.filter((f) => isFrameUnlocked(f.id)).map((f) => {
+                  const selected = profile.activeFrame === f.id;
+                  return (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => {
+                        sound.playClick();
+                        onUpdateFrame(f.id);
+                      }}
+                      className={`group rounded-2xl overflow-hidden border text-left transition-all cursor-pointer outline-none flex flex-col bg-[#1b1b1b] ${
+                        selected
+                          ? 'border-[#789d2a] ring-1 ring-[#789d2a]/40'
+                          : 'border-white/[0.08] hover:border-white/25'
+                      }`}
+                    >
+                      <div className="relative h-28 w-full bg-[#141414] flex items-center justify-center overflow-hidden">
+                        <div
+                          className={`absolute inset-0 bg-radial ${f.auraClass} opacity-80 group-hover:opacity-100 transition-opacity`}
+                        />
+                        <img
+                          src={profile.avatarUrl || getAvatarForName(profile.displayName)}
+                          alt={f.name}
+                          className={`relative w-16 h-16 rounded-full object-cover bg-[#141414] transition-transform group-hover:scale-105 ${f.previewClass}`}
+                          style={{ imageRendering: 'pixelated' }}
+                        />
+                        {selected && (
+                          <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-[#283216]/90 border border-[#789d2a] text-[11px] font-bold text-[#bbf348]">
+                            Надето
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="p-3 bg-[#1c1c1c] border-t border-white/[0.06] w-full">
+                        <p className="font-extrabold text-base text-[#ededed] truncate">{f.name}</p>
+                        <p className="text-xs text-[#888888] truncate">{f.desc}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Banner to Catalog */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#202713] via-[#1a1c16] to-[#171717] border border-[#789d2a]/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-11 h-11 rounded-xl bg-[#283216] border border-[#789d2a]/40 flex items-center justify-center text-[#9ac43e] shrink-0">
+                    <ShoppingBag className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-[#ededed] text-base">
+                      Нужно больше рамок для аватара?
+                    </h4>
+                    <p className="text-xs text-[#a8a8a8] mt-0.5">
+                      В Каталоге доступны эксклюзивные анимированные рамки: Gold Aura, Cyber RGB и Neon Plasma.
+                    </p>
+                  </div>
+                </div>
+                {onOpenCatalog && (
                   <button
-                    key={f.id}
                     type="button"
                     onClick={() => {
                       sound.playClick();
-                      if (!unlocked) {
-                        setActiveTab('account');
-                        return;
-                      }
-                      onUpdateFrame(f.id);
+                      onOpenCatalog();
                     }}
-                    className={`group rounded-2xl overflow-hidden border text-left transition-all cursor-pointer outline-none flex flex-col bg-[#1b1b1b] ${
-                      selected
-                        ? 'border-[#789d2a] ring-1 ring-[#789d2a]/40'
-                        : unlocked
-                        ? 'border-white/[0.08] hover:border-white/25'
-                        : 'border-white/[0.06] opacity-80 hover:opacity-100'
-                    }`}
+                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-[#789d2a] hover:bg-[#8bb730] text-black font-extrabold text-sm transition-all cursor-pointer flex items-center justify-center gap-2 shrink-0 shadow-md shadow-[#789d2a]/20"
                   >
-                    <div className="relative h-28 w-full bg-[#141414] flex items-center justify-center overflow-hidden">
-                      <div
-                        className={`absolute inset-0 bg-radial ${f.auraClass} opacity-80 group-hover:opacity-100 transition-opacity`}
-                      />
-                      <img
-                        src={profile.avatarUrl || getAvatarForName(profile.displayName)}
-                        alt={f.name}
-                        className={`relative w-16 h-16 rounded-full object-cover bg-[#141414] transition-transform group-hover:scale-105 ${f.previewClass}`}
-                        style={{ imageRendering: 'pixelated' }}
-                      />
-                      {!unlocked ? (
-                        <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-black/75 border border-white/10 text-[11px] font-bold text-amber-300 flex items-center gap-1">
-                          <Lock className="w-3 h-3" />
-                          <span>{f.priceStars} ★</span>
-                        </span>
-                      ) : selected ? (
-                        <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-[#283216]/90 border border-[#789d2a] text-[11px] font-bold text-[#bbf348]">
-                          Надето
-                        </span>
-                      ) : null}
-                    </div>
-
-                    <div className="p-3 bg-[#1c1c1c] border-t border-white/[0.06] w-full">
-                      <p className="font-extrabold text-base text-[#ededed] truncate">{f.name}</p>
-                      <p className="text-xs text-[#888888] truncate">{f.desc}</p>
-                    </div>
+                    <ShoppingBag className="w-4 h-4" />
+                    <span>Перейти в Каталог</span>
                   </button>
-                );
-              })}
+                )}
+              </div>
             </div>
           ) : (
-            /* Real 4 rooms with real photos in eblo.id 16:9 card layout */
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {ROOM_THEMES.map((rt) => {
-                const unlocked = isThemeUnlocked(rt.id);
-                const selected = profile.defaultRoomTheme === rt.id;
-                return (
+            /* Real room locations in inventory */
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {ROOM_THEMES.filter((rt) => isThemeUnlocked(rt.id)).map((rt) => {
+                  const selected = profile.defaultRoomTheme === rt.id;
+                  return (
+                    <button
+                      key={rt.id}
+                      type="button"
+                      onClick={() => {
+                        sound.playClick();
+                        onUpdateDefaultTheme(rt.id);
+                      }}
+                      className={`group rounded-2xl overflow-hidden border text-left transition-all cursor-pointer outline-none bg-[#1c1c1c] ${
+                        selected
+                          ? 'border-[#789d2a] ring-1 ring-[#789d2a]/40'
+                          : 'border-white/[0.08] hover:border-white/25'
+                      }`}
+                    >
+                      <div className="relative aspect-video w-full bg-[#121216] overflow-hidden">
+                        <img
+                          src={rt.imageSrc}
+                          alt={rt.name}
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+
+                        {selected && (
+                          <span className="absolute bottom-2.5 right-2.5 px-2.5 py-1 rounded-lg bg-[#283216]/95 border border-[#789d2a] text-xs font-bold text-[#bbf348] backdrop-blur-sm">
+                            Выбрана по умолчанию
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="p-3.5 border-t border-white/[0.06]">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="w-2 h-2 rounded-full shrink-0"
+                            style={{ backgroundColor: rt.accentDot }}
+                          />
+                          <p className="font-extrabold text-base text-[#ededed] truncate">
+                            {rt.name}
+                          </p>
+                        </div>
+                        <p className="text-xs text-[#888888] mt-0.5 truncate">{rt.subtitle}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Banner to Catalog for Rooms */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#202713] via-[#1a1c16] to-[#171717] border border-[#789d2a]/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-11 h-11 rounded-xl bg-[#283216] border border-[#789d2a]/40 flex items-center justify-center text-[#9ac43e] shrink-0">
+                    <ShoppingBag className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-[#ededed] text-base">
+                      Хотите больше локаций для онлайн-комнат?
+                    </h4>
+                    <p className="text-xs text-[#a8a8a8] mt-0.5">
+                      В Каталоге доступны Уютный лофт, Скайлайн-пентхаус и Ретро 98-го.
+                    </p>
+                  </div>
+                </div>
+                {onOpenCatalog && (
                   <button
-                    key={rt.id}
                     type="button"
                     onClick={() => {
                       sound.playClick();
-                      if (!unlocked) {
-                        setActiveTab('account');
-                        return;
-                      }
-                      onUpdateDefaultTheme(rt.id);
+                      onOpenCatalog();
                     }}
-                    className={`group rounded-2xl overflow-hidden border text-left transition-all cursor-pointer outline-none bg-[#1c1c1c] ${
-                      selected
-                        ? 'border-[#789d2a] ring-1 ring-[#789d2a]/40'
-                        : 'border-white/[0.08] hover:border-white/25'
-                    }`}
+                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-[#789d2a] hover:bg-[#8bb730] text-black font-extrabold text-sm transition-all cursor-pointer flex items-center justify-center gap-2 shrink-0 shadow-md shadow-[#789d2a]/20"
                   >
-                    <div className="relative aspect-video w-full bg-[#121216] overflow-hidden">
-                      <img
-                        src={rt.imageSrc}
-                        alt={rt.name}
-                        className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 ${
-                          !unlocked ? 'opacity-70 grayscale-[25%]' : ''
-                        }`}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
-
-                      {!unlocked ? (
-                        <span className="absolute bottom-2.5 right-2.5 px-2.5 py-1 rounded-lg bg-black/80 border border-white/10 text-xs font-bold text-amber-300 flex items-center gap-1 backdrop-blur-sm">
-                          <Lock className="w-3 h-3" />
-                          <span>{rt.priceStars} ★</span>
-                        </span>
-                      ) : selected ? (
-                        <span className="absolute bottom-2.5 right-2.5 px-2.5 py-1 rounded-lg bg-[#283216]/95 border border-[#789d2a] text-xs font-bold text-[#bbf348] backdrop-blur-sm">
-                          Выбрана по умолчанию
-                        </span>
-                      ) : null}
-                    </div>
-
-                    <div className="p-3.5 border-t border-white/[0.06]">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="w-2 h-2 rounded-full shrink-0"
-                          style={{ backgroundColor: rt.accentDot }}
-                        />
-                        <p className="font-extrabold text-base text-[#ededed] truncate">
-                          {rt.name}
-                        </p>
-                      </div>
-                      <p className="text-xs text-[#888888] mt-0.5 truncate">{rt.subtitle}</p>
-                    </div>
+                    <ShoppingBag className="w-4 h-4" />
+                    <span>Перейти в Каталог</span>
                   </button>
-                );
-              })}
+                )}
+              </div>
             </div>
           )}
         </div>

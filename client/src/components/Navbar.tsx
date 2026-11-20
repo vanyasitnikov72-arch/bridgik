@@ -98,7 +98,8 @@ export const Navbar: React.FC<NavbarProps> = ({
     activeTab !== 'about' &&
     activeTab !== 'legal' &&
     activeTab !== 'profile' &&
-    activeTab !== 'pricing';
+    activeTab !== 'pricing' &&
+    activeTab !== 'catalog';
 
   const activeSessionLabel = `${roomMode === 'meeting' ? 'Комната' : 'Мост'}${
     roomPin ? ` #${roomPin}` : ''
@@ -201,6 +202,21 @@ export const Navbar: React.FC<NavbarProps> = ({
       >
         Тарифы
       </button>
+      {userProfile && (
+        <button
+          onClick={() => {
+            onSelectTab?.('catalog');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          className={`pb-1 whitespace-nowrap cursor-pointer transition-colors ${
+            activeTab === 'catalog'
+              ? 'text-[#ededed] border-b-2 border-[#789d2a]'
+              : 'text-[#aaaaaa] hover:text-[#ededed]'
+          }`}
+        >
+          Каталог
+        </button>
+      )}
     </>
   );
 
@@ -314,6 +330,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     profile={userProfile}
                     isAdmin={isAdmin}
                     onOpenProfile={(tab) => onOpenProfile?.(tab)}
+                    onOpenCatalog={() => onSelectTab?.('catalog')}
                     onOpenAdmin={() => onSelectTab?.('admin')}
                     onOpenSettings={onOpenSettings}
                     onToggleDemoTier={onToggleDemoTier}

@@ -15,6 +15,7 @@ import {
   getUserByLicenseKey,
   getUserById,
   updateUserProfile,
+  purchaseCatalogItem,
   registerOrUpdateDevice,
   deleteDevice,
   toUserProfileDto,
@@ -508,6 +509,36 @@ app.patch('/api/user/profile', (req, res) => {
   const currentDeviceId = typeof req.query.deviceId === 'string' ? req.query.deviceId : undefined;
   const onlineSet = stickyManager.getOnlineDeviceIds(user.id);
   const profile = toUserProfileDto(updated, currentDeviceId, onlineSet);
+
+  // Broadcast real-time profile update to all devices of this user
+  io.to(`user:${user.id}`).emit('sticky-profile-updated', profile);
+
+  return res.json({ success: true, user: profile });
+});
+
+// 4.1 Purchase item from Catalog (frames, room themes, extra devices, drop quota)
+app.post('/api/catalog/purchase', (req, res) => {
+  const key = extractLicenseKey(req) || req.body?.key;
+  if (!key) {
+    return res.status(401).json({ error: 'Не авторизован: отсутствует ключ' });
+  }
+  const user = getUserByLicenseKey(key);
+  if (!user) {
+    return res.status(401).json({ error: 'Неверный ключ' });
+  }
+  const { itemType, itemId } = req.body || {};
+  if (!itemType || !itemId) {
+    return res.status(400).json({ error: 'Неверные параметры покупки' });
+  }
+
+  const updatedUser = purchaseCatalogItem(user.id, itemType, itemId);
+  if (!updatedUser) {
+    return res.status(500).json({ error: 'Ошибка при покупке' });
+  }
+
+  const currentDeviceId = typeof req.query.deviceId === 'string' ? req.query.deviceId : undefined;
+  const onlineSet = stickyManager.getOnlineDeviceIds(user.id);
+  const profile = toUserProfileDto(updatedUser, currentDeviceId, onlineSet);
 
   // Broadcast real-time profile update to all devices of this user
   io.to(`user:${user.id}`).emit('sticky-profile-updated', profile);
@@ -2122,7 +2153,18 @@ io.on('connection', (socket) => {
     if (!sender?.isHost && room.peers.size > 1) return;
 
     const isPro = Boolean(socket.data.isPro || socket.data.isAdmin);
-    if (!isPro && data.theme !== 'cyber-lounge') {
+    let isThemeUnlocked = isPro || data.theme === 'cyber-lounge';
+    if (!isThemeUnlocked && socket.data.userId) {
+      const u = getUserById(socket.data.userId);
+      if (u) {
+        let uSettings: any = {};
+        try { uSettings = JSON.parse(u.settings || '{}'); } catch {}
+        if (uSettings?.purchasedCatalogItems?.includes(`theme:${data.theme}`)) {
+          isThemeUnlocked = true;
+        }
+      }
+    }
+    if (!isThemeUnlocked) {
       return;
     }
 

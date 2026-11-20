@@ -42,7 +42,7 @@ import {
   Sliders,
   ChevronRight,
 } from 'lucide-react';
-import { FileTransfer, Peer, TextMessage } from '../types/index.js';
+import { FileTransfer, Peer, TextMessage, UserProfile } from '../types/index.js';
 import { sound } from '../utils/sound.js';
 import { createZipFromBlobUrls } from '../utils/zip.js';
 import { useScreenWakeLock } from '../utils/wakeLock.js';
@@ -641,6 +641,7 @@ interface MeetingRoomViewProps {
   onOpenAppSettings?: () => void;
   isPro?: boolean;
   onOpenPricing?: () => void;
+  userProfile?: UserProfile | null;
 }
 export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   socket,
@@ -699,6 +700,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   onOpenAppSettings,
   isPro = false,
   onOpenPricing,
+  userProfile,
 }) => {
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedNotes, setCopiedNotes] = useState(false);
@@ -1211,9 +1213,17 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
     }
   };
 
+  const isThemeAccessible = (roomId: RoomId) => {
+    if (roomId === 'cyber-lounge') return true;
+    if (isPro) return true;
+    if (userProfile?.unlockedThemes?.includes(roomId)) return true;
+    if (userProfile?.settings?.purchasedCatalogItems?.includes(`theme:${roomId}`)) return true;
+    return false;
+  };
+
   const handleSelectRoom = (roomId: RoomId) => {
     if (!isHost) return;
-    if (!isPro && roomId !== 'cyber-lounge') {
+    if (!isThemeAccessible(roomId)) {
       sound.playClick();
       setIsRoomPickerOpen(false);
       if (onOpenPricing) onOpenPricing();
@@ -1622,7 +1632,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 <div className="space-y-1.5 max-h-60 overflow-y-auto">
                   {Object.values(ROOM_PRESETS).map((r) => {
                     const isSelected = currentRoomId === r.id;
-                    const isLocked = !isPro && r.id !== 'cyber-lounge';
+                    const isLocked = !isThemeAccessible(r.id);
                     return (
                       <button
                         key={r.id}

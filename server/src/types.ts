@@ -63,6 +63,10 @@ export interface UserSettings {
   tgNotifyDownload: boolean;
   tgNotifyDevice: boolean;
   chatSoundNotify: boolean;
+
+  // Каталог и расширения
+  extraDeviceSlots?: number;
+  purchasedCatalogItems?: string[];
 }
 
 export const DEFAULT_USER_SETTINGS: UserSettings = {
@@ -87,6 +91,9 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   tgNotifyDownload: true,
   tgNotifyDevice: false,
   chatSoundNotify: true,
+
+  extraDeviceSlots: 0,
+  purchasedCatalogItems: [],
 };
 
 export interface DbUser {
@@ -169,6 +176,7 @@ export interface UserProfileDto {
   s3QuotaUsedMb: number;
   s3QuotaLimitMb: number;
   devices: StickyDeviceDto[];
+  extraDeviceSlots?: number;
   isAdmin?: boolean;
 }
 

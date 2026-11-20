@@ -1,5 +1,5 @@
 export type ThemeMode = 'swiss' | 'cyberpunk' | 'lofi';
-export type AppTab = 'bridge' | 'meeting' | 'about' | 'legal' | 'profile' | 'pricing' | 'admin';
+export type AppTab = 'bridge' | 'meeting' | 'about' | 'legal' | 'profile' | 'pricing' | 'admin' | 'catalog';
 export type RoomMode = 'bridge' | 'meeting';
 
 export type AuthProvider = 'yandex' | 'telegram' | 'key';
@@ -32,6 +32,10 @@ export interface UserSettings {
   tgNotifyDownload: boolean;
   tgNotifyDevice: boolean;
   chatSoundNotify: boolean;
+
+  // Каталог и расширения
+  extraDeviceSlots?: number;
+  purchasedCatalogItems?: string[];
 }
 
 export const DEFAULT_USER_SETTINGS: UserSettings = {
@@ -56,6 +60,9 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   tgNotifyDownload: true,
   tgNotifyDevice: false,
   chatSoundNotify: true,
+
+  extraDeviceSlots: 0,
+  purchasedCatalogItems: [],
 };
 
 export interface StickyDevice {
@@ -89,6 +96,7 @@ export interface UserProfile {
   s3QuotaUsedMb: number;
   s3QuotaLimitMb: number;
   devices: StickyDevice[];
+  extraDeviceSlots?: number;
   isAdmin?: boolean;
 }
 

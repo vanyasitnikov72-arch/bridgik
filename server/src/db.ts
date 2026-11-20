@@ -429,6 +429,75 @@ export function updateUserProfile(
 }
 
 /**
+ * Unlocks or adds an item purchased in the Catalog
+ */
+export function purchaseCatalogItem(
+  userId: string,
+  itemType: 'frame' | 'theme' | 'devices' | 'drop_quota',
+  itemId: string
+): DbUser | null {
+  const user = getUserById(userId);
+  if (!user) return null;
+
+  const now = Date.now();
+  let userSettings: UserSettings = { ...DEFAULT_USER_SETTINGS };
+  if (user.settings) {
+    try {
+      userSettings = { ...DEFAULT_USER_SETTINGS, ...JSON.parse(user.settings) };
+    } catch {}
+  }
+
+  const purchased = new Set<string>(userSettings.purchasedCatalogItems || []);
+  let newUnlockedFrames = user.unlocked_frames;
+  let newUnlockedThemes = user.unlocked_themes;
+  let newQuotaLimit = user.s3_quota_limit_mb || 0;
+
+  if (itemType === 'frame') {
+    purchased.add(`frame:${itemId}`);
+    let frames: AvatarFrameId[] = ['none'];
+    try {
+      frames = JSON.parse(user.unlocked_frames);
+    } catch {}
+    if (!frames.includes(itemId as AvatarFrameId)) {
+      frames.push(itemId as AvatarFrameId);
+    }
+    newUnlockedFrames = JSON.stringify(frames);
+  } else if (itemType === 'theme') {
+    purchased.add(`theme:${itemId}`);
+    let themes: string[] = ['cyber-lounge'];
+    try {
+      themes = JSON.parse(user.unlocked_themes);
+    } catch {}
+    if (!themes.includes(itemId)) {
+      themes.push(itemId);
+    }
+    newUnlockedThemes = JSON.stringify(themes);
+  } else if (itemType === 'devices') {
+    const slotsToAdd = itemId === 'devices_2' ? 2 : 1;
+    purchased.add(`devices:${itemId}`);
+    userSettings.extraDeviceSlots = (userSettings.extraDeviceSlots || 0) + slotsToAdd;
+  } else if (itemType === 'drop_quota') {
+    purchased.add('drop_quota:500');
+    newQuotaLimit = Math.max(newQuotaLimit, 500);
+  }
+
+  userSettings.purchasedCatalogItems = Array.from(purchased);
+  const newSettingsStr = JSON.stringify(userSettings);
+
+  db.prepare(`
+    UPDATE users SET
+      unlocked_frames = ?,
+      unlocked_themes = ?,
+      s3_quota_limit_mb = ?,
+      settings = ?,
+      updated_at = ?
+    WHERE id = ?
+  `).run(newUnlockedFrames, newUnlockedThemes, newQuotaLimit, newSettingsStr, now, userId);
+
+  return getUserById(userId);
+}
+
+/**
  * Registers or updates a device for a user
  */
 export function registerOrUpdateDevice(
@@ -518,15 +587,7 @@ export function toUserProfileDto(
     lastSeenAt: d.last_seen_at,
   }));
 
-  let unlockedFrames: AvatarFrameId[] = ['none'];
-  try {
-    unlockedFrames = JSON.parse(user.unlocked_frames);
-  } catch {}
-
-  let unlockedThemes: string[] = ['cyber-lounge'];
-  try {
-    unlockedThemes = JSON.parse(user.unlocked_themes);
-  } catch {}
+  const isProUser = Boolean(user.tier === 'pro' || user.is_admin === 1 || user.yandex_login === 'vanessosit');
 
   let userSettings: UserSettings = { ...DEFAULT_USER_SETTINGS };
   if (user.settings) {
@@ -534,6 +595,29 @@ export function toUserProfileDto(
       const parsed = JSON.parse(user.settings);
       userSettings = { ...DEFAULT_USER_SETTINGS, ...parsed };
     } catch {}
+  }
+
+  let unlockedFrames: AvatarFrameId[] = ['none'];
+  if (isProUser) {
+    unlockedFrames = ['none', 'gold', 'rgb', 'plasma'];
+  } else {
+    try {
+      unlockedFrames = JSON.parse(user.unlocked_frames);
+    } catch {}
+  }
+
+  let unlockedThemes: string[] = ['cyber-lounge'];
+  if (isProUser) {
+    unlockedThemes = ['cyber-lounge', 'cozy-loft', 'skyline-penthouse', 'retro-lounge'];
+  } else {
+    try {
+      unlockedThemes = JSON.parse(user.unlocked_themes);
+    } catch {}
+    // Filter out extra themes if user did not purchase them
+    const hasPurchasedThemes = userSettings.purchasedCatalogItems?.some((it) => it.startsWith('theme:'));
+    if (!hasPurchasedThemes) {
+      unlockedThemes = ['cyber-lounge'];
+    }
   }
 
   return {
@@ -557,9 +641,10 @@ export function toUserProfileDto(
     defaultRoomTheme: user.default_room_theme,
     settings: userSettings,
     s3QuotaUsedMb: user.s3_quota_used_mb,
-    s3QuotaLimitMb: user.s3_quota_limit_mb,
+    s3QuotaLimitMb: user.s3_quota_limit_mb || (isProUser ? 200 : 50),
     devices,
-    isAdmin: Boolean(user.is_admin === 1 || user.yandex_login === 'vanessosit'),
+    extraDeviceSlots: userSettings.extraDeviceSlots || 0,
+    isAdmin: isProUser && (user.is_admin === 1 || user.yandex_login === 'vanessosit'),
   };
 }
 
