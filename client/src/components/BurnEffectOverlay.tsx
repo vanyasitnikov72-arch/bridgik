@@ -166,10 +166,7 @@ export const BurnMessageWrapper: React.FC<BurnMessageWrapperProps> = ({
         }
         ctx.closePath();
 
-        // Fill inner hole with dark carbon / transparent overlay
-        ctx.fillStyle = '#0c0e0b';
-        ctx.fill();
-
+        // Organic flame perimeters with multiple glow layers (no opaque black fill)
         // Layer 1: Outer glowing flame halo
         ctx.save();
         ctx.lineWidth = 14;
@@ -321,10 +318,10 @@ export const BurnCountdownBadge: React.FC<{
 
   return (
     <span
-      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-orange-500/20 text-orange-400 border border-orange-500/40 select-none ${className}`}
+      className={`inline-flex items-center gap-1 text-[11px] font-mono font-bold text-orange-400 select-none ${className}`}
       title="Сгорающее сообщение"
     >
-      <Flame className="w-3 h-3 text-orange-400 shrink-0" />
+      <Flame className="w-3.5 h-3.5 text-orange-400 shrink-0" />
       <span>{seconds}с</span>
     </span>
   );

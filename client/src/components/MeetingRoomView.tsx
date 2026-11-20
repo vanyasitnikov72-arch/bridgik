@@ -12,9 +12,6 @@ import {
   Send,
   Paperclip,
   Upload,
-  Monitor,
-  MonitorOff,
-  Maximize2,
   File,
   Settings,
   X,
@@ -629,11 +626,11 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   onLeaveRoom,
   onOpenQR,
   onToggleMic,
-  onToggleScreen,
-  remoteVideoRef,
+  onToggleScreen: _onToggleScreen,
+  remoteVideoRef: _remoteVideoRef,
   isMicActive,
-  isScreenActive = false,
-  hasRemoteVideo = false,
+  isScreenActive: _isScreenActive = false,
+  hasRemoteVideo: _hasRemoteVideo = false,
   onAcceptFile,
 }) => {
   const [copiedLink, setCopiedLink] = useState(false);
@@ -642,8 +639,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   const [activeSideTab, setActiveSideTab] = useState<'notes' | 'chat'>('notes');
   const [meetingSeconds, setMeetingSeconds] = useState(0);
 
-  // Screen Sharing Presentation View
-  const [viewMode, setViewMode] = useState<'scene' | 'screen'>('scene');
   const [isBurnerChat, setIsBurnerChat] = useState(false);
   const [isCanvasPreview, setIsCanvasPreview] = useState(false);
   const [isCanvasDownloadOpen, setIsCanvasDownloadOpen] = useState(false);
@@ -665,11 +660,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
     return () => document.removeEventListener('mousedown', handleOutside);
   }, [isCanvasDownloadOpen]);
 
-  useEffect(() => {
-    if (hasRemoteVideo || isScreenActive) {
-      setViewMode('screen');
-    }
-  }, [hasRemoteVideo, isScreenActive]);
 
   const handleCanvasPaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = e.clipboardData?.items;
@@ -1301,81 +1291,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
               </div>
             </div>
 
-            {/* View Mode Switcher if Screen Sharing is Active */}
-            {(hasRemoteVideo || isScreenActive) && (
-              <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-2 bg-[#121218] border-b border-white/10 select-none">
-                <div className="flex items-center gap-1.5 p-1 bg-[#1a1a24] rounded-xl border border-white/10">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      sound.playClick();
-                      setViewMode('scene');
-                    }}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                      viewMode === 'scene'
-                        ? 'bg-[#789d2a] text-white shadow-sm'
-                        : 'text-[#aaaaaa] hover:text-[#ededed]'
-                    }`}
-                  >
-                    <Armchair className="w-3.5 h-3.5" />
-                    <span>Сцена 🛋️</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      sound.playClick();
-                      setViewMode('screen');
-                    }}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                      viewMode === 'screen'
-                        ? 'bg-[#789d2a] text-white shadow-sm'
-                        : 'text-[#aaaaaa] hover:text-[#ededed]'
-                    }`}
-                  >
-                    <Monitor className="w-3.5 h-3.5" />
-                    <span>Экран 🖥️</span>
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
-                  </button>
-                </div>
-                <div className="text-[11px] text-[#888899] font-mono flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                  <span>{isScreenActive ? 'Вы транслируете экран' : 'Трансляция активна'}</span>
-                </div>
-              </div>
-            )}
-
-            {viewMode === 'screen' ? (
-              <div className="relative w-full aspect-video max-h-[520px] bg-black flex items-center justify-center overflow-hidden group/screen">
-                <video
-                  ref={remoteVideoRef}
-                  autoPlay
-                  playsInline
-                  className="w-full h-full object-contain"
-                />
-                <div className="absolute top-3 left-3 px-3 py-1.5 rounded-xl bg-black/80 border border-white/15 text-xs font-bold text-white flex items-center gap-2 backdrop-blur-md">
-                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                  <span>{isScreenActive ? 'Демонстрация вашего экрана' : 'Экран собеседника'}</span>
-                </div>
-                <div className="absolute top-3 right-3 flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (remoteVideoRef?.current) {
-                        if (document.fullscreenElement) {
-                          document.exitFullscreen().catch(() => {});
-                        } else {
-                          remoteVideoRef.current.requestFullscreen().catch(() => {});
-                        }
-                      }
-                    }}
-                    className="p-2 rounded-xl bg-black/80 hover:bg-black text-white border border-white/15 cursor-pointer backdrop-blur-md transition-colors"
-                    title="Во весь экран"
-                  >
-                    <Maximize2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ) : (
             <div className="relative w-full aspect-video max-h-[520px] overflow-hidden flex items-center justify-center">
               <img
                 src={currentRoom.imageSrc}
@@ -1475,7 +1390,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 );
               })}
             </div>
-          )}
 
             {/* Control Dock */}
             <div className="relative sm:absolute sm:bottom-3 sm:left-1/2 sm:-translate-x-1/2 z-30 flex flex-wrap sm:flex-nowrap items-center justify-center gap-1.5 px-2.5 py-2 w-full sm:w-auto bg-[#121218]/95 border-t sm:border border-white/15 sm:rounded-2xl shadow-2xl backdrop-blur-md">
@@ -1498,31 +1412,6 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                   <MicOff className="w-4 h-4" />
                 )}
               </button>
-
-              {/* Screen Sharing Toggle */}
-              {onToggleScreen && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    sound.playClick();
-                    onToggleScreen();
-                  }}
-                  className={`p-2 sm:p-2.5 rounded-xl flex items-center justify-center transition-all cursor-pointer focus:outline-none ${
-                    isScreenActive
-                      ? 'bg-[#789d2a] hover:bg-[#8cb632] text-white shadow-[0_0_15px_rgba(120,157,42,0.6)]'
-                      : 'bg-[#25252c] hover:bg-[#303038] text-[#ededed] border border-white/10'
-                  }`}
-                  title={isScreenActive ? 'Остановить показ экрана' : 'Поделиться экраном'}
-                >
-                  {isScreenActive ? (
-                    <MonitorOff className="w-4 h-4" />
-                  ) : (
-                    <Monitor className="w-4 h-4 text-[#9ac43e]" />
-                  )}
-                </button>
-              )}
-
-
 
               {onSendReaction && (
                 <button

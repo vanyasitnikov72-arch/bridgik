@@ -257,11 +257,11 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
                 : 'p-3.5 bg-[#252525] border border-[#383838] text-[#ededed]'
             }`}
           >
-            {/* Timer & flame icon INSIDE message window */}
+            {/* Timer & flame icon in top right corner of message bubble (no rectangle) */}
             {isBurner && expiresAt && (
-              <div className="flex items-center justify-end gap-1.5 mb-1.5 select-none">
+              <div className="flex items-center justify-end gap-1.5 select-none -mt-1 -mr-1 mb-1.5">
                 <BurnCountdownBadge expiresAt={expiresAt} />
-                {time && <span className="text-[10px] text-orange-300/70 font-mono">{time}</span>}
+                {time && <span className="text-[10px] text-orange-400/60 font-mono ml-0.5">{time}</span>}
               </div>
             )}
             {!isPureLink && <div className="leading-snug">{renderedContent}</div>}
