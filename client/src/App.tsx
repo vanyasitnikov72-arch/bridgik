@@ -314,7 +314,7 @@ export function App() {
     const deviceName = deviceType === 'mobile' ? 'Мой смартфон' : 'Этот ПК';
     const browserLabel = getBrowserLabel();
 
-    if (payload?.key) {
+    if (payload?.key && provider !== 'key') {
       localStorage.setItem('bridgik_license_key', payload.key);
       if (payload.user) {
         saveProfile(payload.user);
