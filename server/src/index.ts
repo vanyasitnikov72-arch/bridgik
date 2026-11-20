@@ -1421,12 +1421,12 @@ app.post(['/api/inbox/@:handle/drop', '/api/inbox/:handle/drop'], async (req, re
   }
   const fileSize = Number(req.headers['x-file-size']) || 0;
   const isTargetBridgePro = Boolean(hasBridgePro(targetUser.tier as any) || targetUser.is_admin === 1 || targetUser.yandex_login === 'vanessosit');
-  const allowedDropSize = isTargetBridgePro ? 2 * 1024 * 1024 * 1024 : 150 * 1024 * 1024; // 2 GB for Data Link / Overdrive, 150 MB for Free
+  const allowedDropSize = isTargetBridgePro ? 1024 * 1024 * 1024 : 150 * 1024 * 1024; // 1 GB for Data Link / Overdrive, 150 MB for Free
 
   if (fileSize > allowedDropSize) {
     return res.status(413).json({
       success: false,
-      error: `Размер файла превышает лимит буфера (${isTargetBridgePro ? 'максимум 2 ГБ' : 'максимум 150 МБ на бесплатном тарифе'})`,
+      error: `Размер файла превышает лимит буфера (${isTargetBridgePro ? 'максимум 1 ГБ' : 'максимум 150 МБ на бесплатном тарифе'})`,
     });
   }
 
@@ -1437,7 +1437,7 @@ app.post(['/api/inbox/@:handle/drop', '/api/inbox/:handle/drop'], async (req, re
   } catch {
     senderName = (req.headers['x-sender-name'] as string) || 'Гость';
   }
-  const maxTtl = isTargetBridgePro ? 48 : 24;
+  const maxTtl = 24; // 24 hours max retention
   const ttlHours = Math.max(1, Math.min(Number(req.headers['x-ttl-hours']) || maxTtl, maxTtl));
 
   const dropId = crypto.randomBytes(6).toString('hex');

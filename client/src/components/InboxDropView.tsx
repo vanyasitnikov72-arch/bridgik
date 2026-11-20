@@ -101,11 +101,14 @@ export function InboxDropView({ handle, onGoHome }: InboxDropViewProps) {
     }
   };
 
+  const isTargetBridgePro = user ? hasBridgePro(user.tier) : false;
+  const maxDropBytes = (isTargetBridgePro ? 1024 : 150) * 1024 * 1024;
+  const maxDropLabel = isTargetBridgePro ? '1 ГБ' : '150 МБ';
+
   const validateAndSetFile = (file: File) => {
     setUploadError(null);
-    const maxDropBytes = 200 * 1024 * 1024; // 200 MB
     if (file.size > maxDropBytes) {
-      setUploadError('Размер файла превышает 200 МБ');
+      setUploadError(`Размер файла превышает лимит (до ${maxDropLabel})`);
       return;
     }
     sound.playClick();
@@ -418,7 +421,7 @@ export function InboxDropView({ handle, onGoHome }: InboxDropViewProps) {
                           Перетащите файл сюда
                         </p>
                         <p className="text-xs text-[#888888]">
-                          или нажмите, чтобы выбрать с устройства (до 200 МБ)
+                          или нажмите, чтобы выбрать с устройства (до {maxDropLabel})
                         </p>
                       </div>
                     </div>

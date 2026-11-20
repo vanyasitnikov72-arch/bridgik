@@ -33,7 +33,7 @@ interface FaqItem {
 const FAQ_ITEMS: FaqItem[] = [
   {
     q: 'Чем отличаются тарифы Data Link, Live Hub и Overdrive?',
-    a: 'Data Link создан для тех, кто активно пересылает файлы: он включает Turbo TURN-релей, отправку папок, докачку при обрыве и Drop Link до 2 ГБ. Live Hub — для голосовых созвонов в лаундже: расширенные комнаты на 8 мест, все темы и приватный замок на комнату. Overdrive объединяет оба тарифа со скидкой и открывает 10 слотов Sticky Bridge и VIP-рамки профиля.',
+    a: 'Data Link создан для тех, кто активно пересылает файлы: он включает Turbo TURN-релей, отправку папок, докачку при обрыве и Drop Link до 1 ГБ. Live Hub — для голосовых созвонов в лаундже: расширенные комнаты на 8 мест, все темы и приватный замок на комнату. Overdrive объединяет оба тарифа со скидкой и открывает 10 слотов Sticky Bridge и VIP-рамки профиля.',
   },
   {
     q: 'Почему базовая передача файлов бесплатна и без лимитов?',
@@ -45,7 +45,7 @@ const FAQ_ITEMS: FaqItem[] = [
   },
   {
     q: 'Что даёт персональный Drop Link (bridgik.ru/@ник)?',
-    a: 'Это ваш личный инбокс: любой человек (даже без аккаунта в Bridgik) может открыть вашу ссылку и отправить вам файл. На тарифе Data Link и Overdrive объём входящего файла расширен до 2 ГБ с хранением в S3 до 48 часов, а уведомление о файле появится в вашем колокольчике.',
+    a: 'Это ваш личный инбокс: любой человек (даже без аккаунта в Bridgik) может открыть вашу ссылку и отправить вам файл. На тарифе Data Link и Overdrive объём входящего файла расширен до 1 ГБ с хранением в S3 до 24 часов, а уведомление о файле появится в вашем колокольчике.',
   },
   {
     q: 'Обязательно ли регистрироваться для использования сервиса?',
@@ -191,7 +191,7 @@ export const PricingView: React.FC<PricingViewProps> = ({
               <li className="flex items-start gap-2.5">
                 <Check className="w-4 h-4 text-[#9ac43e] shrink-0 mt-0.5" />
                 <span>
-                  <strong>Drop Link (bridgik.ru/@ник):</strong> до 2 ГБ на входящий файл, хранение до 48 часов
+                  <strong>Drop Link (bridgik.ru/@ник):</strong> до 1 ГБ на входящий файл, хранение до 24 часов
                 </span>
               </li>
               <li className="flex items-start gap-2.5">
@@ -357,7 +357,7 @@ export const PricingView: React.FC<PricingViewProps> = ({
               <li className="flex items-start gap-2.5">
                 <Check className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <span>
-                  <strong>100% возможностей Data Link:</strong> Turbo TURN, папки, докачка, Drop Link 2 ГБ
+                  <strong>100% возможностей Data Link:</strong> Turbo TURN, папки, докачка, Drop Link 1 ГБ
                 </span>
               </li>
               <li className="flex items-start gap-2.5">
@@ -486,9 +486,9 @@ export const PricingView: React.FC<PricingViewProps> = ({
                   Drop Link (bridgik.ru/@ник)
                 </td>
                 <td className="py-3.5 px-3 text-center text-[#aaaaaa]">До 150 МБ (24 ч)</td>
-                <td className="py-3.5 px-3 text-center font-bold text-[#9ac43e]">До 2 ГБ (48 ч)</td>
+                <td className="py-3.5 px-3 text-center font-bold text-[#9ac43e]">До 1 ГБ (24 ч)</td>
                 <td className="py-3.5 px-3 text-center text-[#aaaaaa]">До 150 МБ (24 ч)</td>
-                <td className="py-3.5 px-3 text-center font-bold text-amber-400">До 2 ГБ (48 ч)</td>
+                <td className="py-3.5 px-3 text-center font-bold text-amber-400">До 1 ГБ (24 ч)</td>
               </tr>
               <tr>
                 <td className="py-3.5 px-5 font-semibold text-[#ededed]">
