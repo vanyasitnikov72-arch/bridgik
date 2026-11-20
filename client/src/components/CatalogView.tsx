@@ -869,7 +869,7 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
               Хотите всё и сразу в едином тарифе?
             </h4>
             <p className="text-xs text-[#a8a8a8] mt-0.5">
-              В подписку <strong>Bridgik Pro</strong> входят все рамки, все локации комнат, до 8 участников в звонке и до 10 устройств.
+              В комбо-тариф <strong>Overdrive</strong> входят все рамки, все локации комнат, до 8 мест в звонке и до 10 устройств.
             </p>
           </div>
         </div>

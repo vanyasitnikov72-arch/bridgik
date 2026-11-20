@@ -132,9 +132,14 @@ try {
   db.exec(`ALTER TABLE users ADD COLUMN settings TEXT`);
 } catch {}
 
-// Automatically promote owner account to Admin & Pro
+// Migrate any legacy 'pro' tier to 'overdrive'
 try {
-  db.prepare(`UPDATE users SET is_admin = 1, tier = 'pro' WHERE yandex_login = 'vanessosit'`).run();
+  db.prepare(`UPDATE users SET tier = 'overdrive' WHERE tier = 'pro'`).run();
+} catch {}
+
+// Automatically promote owner account to Admin & Overdrive
+try {
+  db.prepare(`UPDATE users SET is_admin = 1, tier = 'overdrive' WHERE yandex_login = 'vanessosit'`).run();
 } catch {}
 
 /**

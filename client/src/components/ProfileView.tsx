@@ -231,6 +231,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const hasFullCosmetics = isPro || Boolean(isAdmin);
   const maxDevices = (isPro ? 10 : hasBridge ? 6 : 2) + (profile.extraDeviceSlots || profile.settings?.extraDeviceSlots || 0);
 
+  const tierDisplayName =
+    profile.tier === 'overdrive' || profile.tier === 'pro'
+      ? 'Overdrive'
+      : profile.tier === 'data-link'
+      ? 'Data Link'
+      : profile.tier === 'live-hub'
+      ? 'Live Hub'
+      : 'Free';
+
   const [selectedPlan, setSelectedPlan] = useState<'data-link' | 'live-hub' | 'overdrive'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('bridgik_selected_plan') as any;
@@ -380,10 +389,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   <Wrench className="w-3.5 h-3.5" />
                 </span>
               )}
-              {isPro && (
+              {profile.tier !== 'free' && (
                 <span
                   className="w-6 h-6 rounded-md bg-[#789d2a] flex items-center justify-center text-white shrink-0 shadow-sm shadow-[#789d2a]/40"
-                  title="Bridgik Pro"
+                  title={`Тариф ${tierDisplayName}`}
                 >
                   <Check className="w-3.5 h-3.5 stroke-[3]" />
                 </span>
@@ -408,8 +417,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[#9a9a9a]">
               <span>
                 Тариф:{' '}
-                <strong className={isPro ? 'text-[#bbf348]' : 'text-[#ededed]'}>
-                  {isPro ? 'Bridgik Pro' : 'Free'}
+                <strong className={profile.tier !== 'free' ? 'text-[#bbf348]' : 'text-[#ededed]'}>
+                  {tierDisplayName}
                 </strong>
               </span>
               <span>·</span>
