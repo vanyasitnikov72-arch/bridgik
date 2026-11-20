@@ -146,6 +146,18 @@ export interface PublicInboxUser {
   s3QuotaLimitMb: number;
 }
 
+export type NotificationCategory = 'all' | 'files' | 'bridge' | 'system';
+
+export interface BridgikNotificationItem {
+  id: string;
+  category: 'files' | 'bridge' | 'system';
+  title: string;
+  message?: string;
+  timestamp: number;
+  read?: boolean;
+  drop?: DropDto;
+}
+
 export interface AdminStats {
   server: {
     uptime: number;

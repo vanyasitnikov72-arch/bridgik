@@ -49,6 +49,7 @@ import {
   UserProfile,
   StickyDevice,
   DropDto,
+  BridgikNotificationItem,
   UserSettings,
   DEFAULT_USER_SETTINGS,
 } from './types/index.js';
@@ -139,6 +140,65 @@ export function App() {
   const [isDropModalOpen, setIsDropModalOpen] = useState(false);
   const [dropTargetDevice, setDropTargetDevice] = useState<StickyDevice | null>(null);
   const [pendingDrops, setPendingDrops] = useState<DropDto[]>([]);
+  const [isDropBannerDismissed, setIsDropBannerDismissed] = useState(false);
+  const [notifications, setNotifications] = useState<BridgikNotificationItem[]>(() => {
+    try {
+      const stored = localStorage.getItem('bridgik_notifications');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const addNotification = (item: Omit<BridgikNotificationItem, 'id' | 'timestamp'>) => {
+    const newItem: BridgikNotificationItem = {
+      ...item,
+      id: `notif_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      timestamp: Date.now(),
+      read: false,
+    };
+    setNotifications((prev) => {
+      const updated = [newItem, ...prev.slice(0, 49)];
+      try {
+        localStorage.setItem('bridgik_notifications', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
+  const handleDownloadAllPendingDrops = () => {
+    sound.playConnect();
+    pendingDrops.forEach((drop, idx) => {
+      setTimeout(() => {
+        const link = document.createElement('a');
+        link.href = `/api/drop/${drop.id}/download`;
+        link.download = drop.fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }, idx * 300);
+    });
+    setPendingDrops([]);
+  };
+
+  const handleClearAllPendingDrops = async () => {
+    sound.playClick();
+    const ids = pendingDrops.map((d) => d.id);
+    setPendingDrops([]);
+    for (const id of ids) {
+      try {
+        await fetch(`/api/drop/${id}`, { method: 'DELETE' });
+      } catch {}
+    }
+  };
+
+  const handleClearAllNotifications = () => {
+    sound.playClick();
+    setNotifications([]);
+    try {
+      localStorage.removeItem('bridgik_notifications');
+    } catch {}
+  };
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Unified persistent settings (saved to localStorage & synced to user account on server)
@@ -950,6 +1010,14 @@ export function App() {
       (data: { deviceId: string; isOnline: boolean; lastSeenAt?: number }) => {
         setUserProfile((prev) => {
           if (!prev) return prev;
+          const targetDev = prev.devices.find((d) => d.id === data.deviceId);
+          if (targetDev && data.isOnline && !targetDev.isOnline) {
+            addNotification({
+              category: 'bridge',
+              title: `Устройство в сети: ${targetDev.name}`,
+              message: `${targetDev.browserLabel || 'Браузер'} подключился к Sticky Bridge`,
+            });
+          }
           const updatedDevices = prev.devices.map((d) =>
             d.id === data.deviceId
               ? {
@@ -992,10 +1060,21 @@ export function App() {
     socketInstance.on('sticky-new-drop', (newDrop: DropDto) => {
       sound.playMessage();
       setPendingDrops((prev) => [newDrop, ...prev.filter((d) => d.id !== newDrop.id)]);
+      addNotification({
+        category: 'files',
+        title: `Входящий файл: ${newDrop.fileName}`,
+        message: `${formatBytes(newDrop.fileSize)} от ${newDrop.senderName || 'Гость'}`,
+        drop: newDrop,
+      });
     });
 
     // Real-time Pro activation notification
     socketInstance.on('user-pro-activated', (_data: { userId: string; proUntil?: string; tier: string }) => {
+      addNotification({
+        category: 'system',
+        title: 'Подписка Bridgik Pro активирована',
+        message: 'Все привилегии Pro включены (Turbo TURN, буфер 200 МБ, темы).',
+      });
       const key = localStorage.getItem('bridgik_license_key');
       const deviceId = getBrowserDeviceId();
       if (key) {
@@ -2264,6 +2343,13 @@ export function App() {
         roomPin={pin}
         roomMode={roomMode}
         onReturnToRoom={() => setActiveTab(roomMode)}
+        pendingDrops={pendingDrops}
+        notifications={notifications}
+        onDownloadDrop={handleDownloadPendingDrop}
+        onDeleteDrop={handleDeletePendingDrop}
+        onDownloadAllDrops={handleDownloadAllPendingDrops}
+        onClearAllDrops={handleClearAllPendingDrops}
+        onClearAllNotifications={handleClearAllNotifications}
       />
       <main className="flex-1">
         {activeTab === 'admin' ? (
@@ -2557,7 +2643,7 @@ export function App() {
       )}
 
       {/* Pending Drop & Go Files notification */}
-      {pendingDrops.length > 0 && (
+      {!isDropBannerDismissed && pendingDrops.length > 0 && (
         <aside
           aria-label="Входящие файлы в буфере Drop & Go"
           className="fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 z-[145] w-[95%] max-w-xl animate-in slide-in-from-top-6 duration-300"
@@ -2595,6 +2681,17 @@ export function App() {
                 title="Удалить из буфера"
               >
                 <Trash2 className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  setIsDropBannerDismissed(true);
+                }}
+                className="p-2 rounded-xl bg-[#282828] hover:bg-[#333333] text-[#a0a0a0] hover:text-white transition-colors cursor-pointer"
+                title="Скрыть (файлы останутся в колокольчике)"
+              >
+                <X className="w-4 h-4" />
               </button>
             </div>
           </div>

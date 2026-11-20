@@ -1,8 +1,17 @@
 import React, { useState } from 'react';
-import { LogIn, ChevronDown, Check, Settings } from 'lucide-react';
-import { AuthProvider, ThemeMode, AppTab, RoomMode, UserProfile } from '../types/index.js';
+import { LogIn, ChevronDown, Check, Settings, Bell } from 'lucide-react';
+import {
+  AuthProvider,
+  ThemeMode,
+  AppTab,
+  RoomMode,
+  UserProfile,
+  DropDto,
+  BridgikNotificationItem,
+} from '../types/index.js';
 import { sound } from '../utils/sound.js';
 import { ProfileDropdown, ProfileSectionTab } from './ProfileDropdown.js';
+import { NotificationDropdown } from './NotificationDropdown.js';
 import { getAvatarForName } from '../utils/device.js';
 
 interface NavbarProps {
@@ -35,6 +44,13 @@ interface NavbarProps {
   onToggleSound?: () => void;
   onToggleDemoTier?: () => void;
   onLogout?: () => void;
+  pendingDrops?: DropDto[];
+  notifications?: BridgikNotificationItem[];
+  onDownloadDrop?: (drop: DropDto) => void;
+  onDeleteDrop?: (dropId: string) => void;
+  onDownloadAllDrops?: () => void;
+  onClearAllDrops?: () => void;
+  onClearAllNotifications?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -64,8 +80,19 @@ export const Navbar: React.FC<NavbarProps> = ({
   onToggleSound: _externalOnToggleSound,
   onToggleDemoTier,
   onLogout,
+  pendingDrops = [],
+  notifications = [],
+  onDownloadDrop,
+  onDeleteDrop,
+  onDownloadAllDrops,
+  onClearAllDrops,
+  onClearAllNotifications,
 }) => {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+
+  const totalNotificationsCount =
+    pendingDrops.length + notifications.filter((n) => !n.read && !n.drop).length;
 
   const effectiveFrame = userProfile ? userProfile.activeFrame : adminFrame;
   const hasFrameAccess = Boolean(
@@ -256,12 +283,52 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             )}
 
+            {/* Notifications Bell */}
+            <div className="relative flex items-center">
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  setIsNotificationsOpen((v) => !v);
+                  setIsProfileMenuOpen(false);
+                }}
+                className={`relative p-2 sm:p-2.5 rounded-xl border transition-colors cursor-pointer flex items-center justify-center shrink-0 outline-none ${
+                  isNotificationsOpen
+                    ? 'bg-[#283216] border-[#789d2a] text-[#ededed]'
+                    : totalNotificationsCount > 0
+                    ? 'bg-[#202715] hover:bg-[#283216] border-[#789d2a]/60 text-[#bbf348]'
+                    : 'bg-[#222226] hover:bg-[#2c2c33] border-white/10 hover:border-white/20 text-[#aaaaaa] hover:text-[#ededed]'
+                }`}
+                title="Уведомления"
+              >
+                <Bell className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+                {totalNotificationsCount > 0 && (
+                  <span className="absolute -top-1 -right-1 px-1 min-w-[17px] h-[17px] rounded-full bg-[#789d2a] text-black text-[10px] font-black flex items-center justify-center border-2 border-[#171717] animate-pulse shadow-sm shadow-[#789d2a]/50">
+                    {totalNotificationsCount > 9 ? '9+' : totalNotificationsCount}
+                  </span>
+                )}
+              </button>
+
+              <NotificationDropdown
+                isOpen={isNotificationsOpen}
+                onClose={() => setIsNotificationsOpen(false)}
+                pendingDrops={pendingDrops}
+                notifications={notifications}
+                onDownloadDrop={(drop) => onDownloadDrop?.(drop)}
+                onDeleteDrop={(id) => onDeleteDrop?.(id)}
+                onDownloadAllDrops={() => onDownloadAllDrops?.()}
+                onClearAllDrops={() => onClearAllDrops?.()}
+                onClearAllNotifications={() => onClearAllNotifications?.()}
+              />
+            </div>
+
             {userProfile ? (
               <div className="relative flex items-center min-w-0">
                 <button
                   type="button"
                   onClick={() => {
                     sound.playClick();
+                    setIsNotificationsOpen(false);
                     setIsProfileMenuOpen((v) => !v);
                   }}
                   className={`flex items-center gap-2 px-1.5 sm:px-2.5 py-1 rounded-xl hover:bg-white/[0.05] transition-colors cursor-pointer min-w-0 outline-none ${
