@@ -795,9 +795,17 @@ export const RoomView: React.FC<RoomViewProps> = ({
                           )}
 
                           <div className="min-w-0">
-                            <p className="text-sm sm:text-lg font-bold text-[#ededed] truncate max-w-[160px] sm:max-w-md">
-                              {t.name}
-                            </p>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              {t.name.includes('/') && (
+                                <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-[#1e2712] border border-[#789d2a]/40 text-[#9ac43e] font-mono shrink-0">
+                                  <Folder className="w-2.5 h-2.5" />
+                                  <span>{t.name.split('/')[0]}</span>
+                                </span>
+                              )}
+                              <p className="text-sm sm:text-lg font-bold text-[#ededed] truncate max-w-[160px] sm:max-w-md" title={t.name}>
+                                {t.name.includes('/') ? t.name.split('/').slice(1).join('/') : t.name}
+                              </p>
+                            </div>
                             <p className="text-xs sm:text-sm text-[#aaaaaa] flex items-center flex-wrap gap-1.5 sm:gap-2 mt-0.5">
                               <span>{formatBytes(t.size)}</span>
                               <span>•</span>

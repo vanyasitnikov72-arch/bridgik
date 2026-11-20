@@ -2011,7 +2011,16 @@ export function App() {
 
   const handleSendFiles = (files: FileList | File[]) => {
     if (!webrtcRef.current) return;
-    const fileArray = Array.from(files);
+    const fileArray = Array.from(files).map((f) => {
+      // Preserve full folder hierarchy if webkitRelativePath is available from folder picker
+      if (f.webkitRelativePath && f.webkitRelativePath.includes('/') && f.name !== f.webkitRelativePath) {
+        return new File([f], f.webkitRelativePath, {
+          type: f.type,
+          lastModified: f.lastModified,
+        });
+      }
+      return f;
+    });
     fileArray.forEach((file) => {
       webrtcRef.current?.sendFile(file);
     });

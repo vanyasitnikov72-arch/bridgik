@@ -41,10 +41,12 @@ import {
   Package,
   Sliders,
   ChevronRight,
+  Folder,
 } from 'lucide-react';
 import { FileTransfer, Peer, TextMessage, UserProfile } from '../types/index.js';
 import { sound } from '../utils/sound.js';
 import { createZipFromBlobUrls } from '../utils/zip.js';
+import { extractFilesFromDataTransfer } from '../utils/files.js';
 import { useScreenWakeLock } from '../utils/wakeLock.js';
 import { EmotePicker } from './EmotePicker.js';
 import { ChatMessageBubble } from './ChatMessageBubble.js';
@@ -887,6 +889,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   const activeMyName = myUserName || myPeer?.name || 'Quantum Lynx';
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
   const meetingFilesSectionRef = useRef<HTMLDivElement>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
@@ -1047,10 +1050,24 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
       }
     };
 
-    const handleDrop = (e: DragEvent) => {
+    const handleDrop = async (e: DragEvent) => {
       e.preventDefault();
       dragCounter.current = 0;
       setIsGlobalDragging(false);
+      if (e.dataTransfer?.items && e.dataTransfer.items.length > 0) {
+        try {
+          const extracted = await extractFilesFromDataTransfer(e.dataTransfer.items);
+          if (extracted.length > 0) {
+            sound.playConnect();
+            onSendFiles(extracted);
+            setFileToast(`Загрузка папки: ${extracted.length} файлов`);
+            setTimeout(() => setFileToast(null), 3500);
+            return;
+          }
+        } catch (err) {
+          console.warn('Folder drop error, falling back to files', err);
+        }
+      }
       if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
         sound.playConnect();
         onSendFiles(e.dataTransfer.files);
@@ -1723,11 +1740,21 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                   </button>
                 )}
                 <button
+                  type="button"
                   onClick={() => fileInputRef.current?.click()}
                   className="px-3 py-1.5 rounded-lg bg-[#272727] hover:bg-[#333333] text-[#ededed] text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer border border-[#3a3a3a]"
                 >
                   <Upload className="w-3.5 h-3.5" />
-                  <span>Прикрепить файл</span>
+                  <span>Файл</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => folderInputRef.current?.click()}
+                  className="px-3 py-1.5 rounded-lg bg-[#272727] hover:bg-[#333333] text-[#ededed] text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer border border-[#3a3a3a]"
+                  title="Отправить папку с вложенными файлами"
+                >
+                  <Folder className="w-3.5 h-3.5 text-[#9ac43e]" />
+                  <span>Папка</span>
                 </button>
               </div>
               <input
@@ -1739,6 +1766,23 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                   if (e.target.files && e.target.files.length > 0) {
                     onSendFiles(e.target.files);
                     setFileToast(`Добавлено файлов: ${e.target.files.length}`);
+                    setTimeout(() => setFileToast(null), 3500);
+                    e.target.value = '';
+                  }
+                }}
+              />
+              <input
+                ref={folderInputRef}
+                type="file"
+                // @ts-ignore
+                webkitdirectory=""
+                directory=""
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files.length > 0) {
+                    onSendFiles(e.target.files);
+                    setFileToast(`Загрузка папки: ${e.target.files.length} файлов`);
                     setTimeout(() => setFileToast(null), 3500);
                     e.target.value = '';
                   }
@@ -1816,9 +1860,17 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                           )}
 
                           <div className="min-w-0">
-                            <p className="font-bold text-[#ededed] truncate max-w-[170px] sm:max-w-xs">
-                              {t.name}
-                            </p>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              {t.name.includes('/') && (
+                                <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-[#1e2712] border border-[#789d2a]/40 text-[#9ac43e] font-mono shrink-0">
+                                  <Folder className="w-2.5 h-2.5" />
+                                  <span>{t.name.split('/')[0]}</span>
+                                </span>
+                              )}
+                              <p className="font-bold text-[#ededed] truncate max-w-[170px] sm:max-w-xs" title={t.name}>
+                                {t.name.includes('/') ? t.name.split('/').slice(1).join('/') : t.name}
+                              </p>
+                            </div>
                             <p className="text-xs text-[#888888] flex items-center gap-2 mt-0.5 font-mono">
                               <span>{(t.size / 1024 / 1024).toFixed(1)} МБ</span>
                               <span>•</span>
