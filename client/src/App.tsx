@@ -1954,6 +1954,16 @@ export function App() {
     webrtcRef.current.cancelTransfer(id);
   };
 
+  const handleDismissTransfer = (id: string) => {
+    setTransfers((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  const handleClearCompletedTransfers = () => {
+    setTransfers((prev) =>
+      prev.filter((t) => t.status === 'transferring' || t.status === 'pending_approval')
+    );
+  };
+
   const handleAcceptFile = async (fileId: string) => {
     if (webrtcRef.current) {
       await webrtcRef.current.acceptIncomingFile(fileId);
@@ -2286,6 +2296,9 @@ export function App() {
             isScreenActive={isScreenActive}
             hasRemoteVideo={hasRemoteVideo}
             onAcceptFile={handleAcceptFile}
+            onCancelTransfer={handleCancelTransfer}
+            onDismissTransfer={handleDismissTransfer}
+            onClearCompletedTransfers={handleClearCompletedTransfers}
           />
         ) : (
           <RoomView
@@ -2304,6 +2317,8 @@ export function App() {
             onSendFiles={handleSendFiles}
             onSendText={handleSendText}
             onCancelTransfer={handleCancelTransfer}
+            onDismissTransfer={handleDismissTransfer}
+            onClearCompletedTransfers={handleClearCompletedTransfers}
             onAcceptFile={handleAcceptFile}
             onRejectFile={handleRejectFile}
             onLeaveRoom={() => requestLeaveRoom('button')}

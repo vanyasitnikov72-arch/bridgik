@@ -51,6 +51,8 @@ interface RoomViewProps {
   onSendFiles: (files: FileList | File[]) => void;
   onSendText: (text: string, isClipboard?: boolean, isBurner?: boolean) => void;
   onCancelTransfer: (transferId: string) => void;
+  onDismissTransfer?: (transferId: string) => void;
+  onClearCompletedTransfers?: () => void;
   onAcceptFile: (fileId: string) => void;
   onRejectFile: (fileId: string) => void;
   onLeaveRoom: () => void;
@@ -88,6 +90,8 @@ export const RoomView: React.FC<RoomViewProps> = ({
   onSendFiles,
   onSendText,
   onCancelTransfer,
+  onDismissTransfer,
+  onClearCompletedTransfers,
   onAcceptFile,
   onRejectFile,
   onLeaveRoom,
@@ -156,6 +160,10 @@ export const RoomView: React.FC<RoomViewProps> = ({
   const downloadableTransfers = transfers.filter(
     (t) => t.status === 'completed' && !t.savedToDisk && Boolean(t.blobUrl)
   );
+
+  const completedTransfersCount = transfers.filter(
+    (t) => t.status === 'completed' || t.status === 'error' || t.status === 'cancelled'
+  ).length;
 
   // Screen Wake Lock with auto-recovery on tab resume
   useScreenWakeLock(hasActiveTransfer);
@@ -678,9 +686,24 @@ export const RoomView: React.FC<RoomViewProps> = ({
           {transfers.length > 0 && (
             <div className="bg-[#222222] border border-[#3a3a3a] rounded-xl p-4 sm:p-6 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-2 mb-3.5 sm:mb-4">
-                <h4 className="text-base sm:text-xl font-bold text-[#ededed]">
-                  Передачи файлов ({transfers.length})
-                </h4>
+                <div className="flex items-center gap-2.5">
+                  <h4 className="text-base sm:text-xl font-bold text-[#ededed]">
+                    Передачи файлов ({transfers.length})
+                  </h4>
+                  {completedTransfersCount > 0 && onClearCompletedTransfers && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sound.playClick();
+                        onClearCompletedTransfers();
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-[#272727] hover:bg-[#333333] text-[#888888] hover:text-[#ededed] text-xs font-semibold border border-[#3a3a3a] transition-colors cursor-pointer"
+                      title="Убрать завершённые передачи из списка"
+                    >
+                      Очистить список
+                    </button>
+                  )}
+                </div>
 
                 {downloadableTransfers.length >= 2 && (
                   <button
@@ -863,6 +886,20 @@ export const RoomView: React.FC<RoomViewProps> = ({
                               <Download className="w-4 h-4" />
                               <span className="hidden sm:inline">Скачать</span>
                             </a>
+                          )}
+
+                          {(t.status === 'completed' || t.status === 'error' || t.status === 'cancelled') && onDismissTransfer && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                sound.playClick();
+                                onDismissTransfer(t.id);
+                              }}
+                              className="p-2 rounded-lg bg-[#222222] hover:bg-[#382020] text-[#777777] hover:text-[#ef9282] border border-[#3a3a3a] transition-colors cursor-pointer"
+                              title="Убрать файл из списка"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
                           )}
 
                           {t.status === 'transferring' && (

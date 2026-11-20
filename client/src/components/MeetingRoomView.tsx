@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Mic,
   MicOff,
@@ -13,6 +13,7 @@ import {
   Paperclip,
   Upload,
   File,
+  Image as ImageIcon,
   Settings,
   X,
   Volume2,
@@ -529,6 +530,58 @@ const EmptyPixelSeat: React.FC<EmptyPixelSeatProps> = ({
   );
 };
 
+export interface CanvasImageItem {
+  alt: string;
+  dataUrl: string;
+}
+
+export const CANVAS_IMAGES_SEPARATOR = '\n\n<!-- bridgik-images -->\n';
+export const CANVAS_IMG_REGEX = /!\[(.*?)\]\(\s*(data:image\/[a-zA-Z0-9+.-]+;base64,[A-Za-z0-9+/=\s]+|https?:\/\/[^\s)]+)\s*\)/g;
+
+export function parseCanvasContent(raw: string): {
+  cleanText: string;
+  canvasImages: CanvasImageItem[];
+} {
+  if (!raw) return { cleanText: '', canvasImages: [] };
+
+  if (raw.includes('<!-- bridgik-images -->')) {
+    const parts = raw.split('<!-- bridgik-images -->');
+    let textPart = parts[0];
+    if (textPart.endsWith('\n\n')) {
+      textPart = textPart.slice(0, -2);
+    }
+    const imgPart = parts[1] || '';
+    const images: CanvasImageItem[] = [];
+    let match: RegExpExecArray | null;
+    const regex = new RegExp(CANVAS_IMG_REGEX.source, 'g');
+    while ((match = regex.exec(imgPart)) !== null) {
+      const cleanUrl = match[2].replace(/\s+/g, '');
+      images.push({ alt: match[1] || 'Скриншот', dataUrl: cleanUrl });
+    }
+    return { cleanText: textPart, canvasImages: images };
+  }
+
+  // Fallback for legacy text without separator
+  const images: CanvasImageItem[] = [];
+  let match: RegExpExecArray | null;
+  const regex = new RegExp(CANVAS_IMG_REGEX.source, 'g');
+  while ((match = regex.exec(raw)) !== null) {
+    const cleanUrl = match[2].replace(/\s+/g, '');
+    images.push({ alt: match[1] || 'Скриншот', dataUrl: cleanUrl });
+  }
+
+  const cleanText = raw.replace(CANVAS_IMG_REGEX, '').replace(/\n{3,}/g, '\n\n').trim();
+  return { cleanText, canvasImages: images };
+}
+
+export function serializeCanvasContent(text: string, images: CanvasImageItem[]): string {
+  if (images.length === 0) return text;
+  const imgMarkdown = images
+    .map((img, i) => `![${img.alt || `Изображение ${i + 1}`}](${img.dataUrl})`)
+    .join('\n\n');
+  return `${text}${CANVAS_IMAGES_SEPARATOR}${imgMarkdown}`;
+}
+
 interface MeetingRoomViewProps {
   socket?: any;
   roomId: string;
@@ -580,6 +633,9 @@ interface MeetingRoomViewProps {
   isScreenActive?: boolean;
   hasRemoteVideo?: boolean;
   onAcceptFile: (fileId: string) => void;
+  onCancelTransfer?: (transferId: string) => void;
+  onDismissTransfer?: (transferId: string) => void;
+  onClearCompletedTransfers?: () => void;
 }
 export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   socket,
@@ -632,6 +688,9 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   isScreenActive: _isScreenActive = false,
   hasRemoteVideo: _hasRemoteVideo = false,
   onAcceptFile,
+  onCancelTransfer,
+  onDismissTransfer,
+  onClearCompletedTransfers,
 }) => {
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedNotes, setCopiedNotes] = useState(false);
@@ -643,8 +702,14 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   const [isCanvasPreview, setIsCanvasPreview] = useState(false);
   const [isCanvasDownloadOpen, setIsCanvasDownloadOpen] = useState(false);
   const canvasDownloadMenuRef = useRef<HTMLDivElement>(null);
+  const canvasImageInputRef = useRef<HTMLInputElement | null>(null);
+  const [canvasToast, setCanvasToast] = useState<string | null>(null);
   const [previewCode, setPreviewCode] = useState<{ name: string; content: string } | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
+
+  const { cleanText, canvasImages } = useMemo(() => {
+    return parseCanvasContent(scratchpadText);
+  }, [scratchpadText]);
 
   useEffect(() => {
     if (!isCanvasDownloadOpen) return;
@@ -660,6 +725,48 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
     return () => document.removeEventListener('mousedown', handleOutside);
   }, [isCanvasDownloadOpen]);
 
+  const processAndAddCanvasImage = async (file: File) => {
+    try {
+      const objUrl = URL.createObjectURL(file);
+      const img = new Image();
+      img.src = objUrl;
+      await new Promise((res, rej) => {
+        img.onload = () => res(null);
+        img.onerror = rej;
+      });
+      URL.revokeObjectURL(objUrl);
+
+      const maxDim = 1200;
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        if (width > height) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0, width, height);
+        const webpData = canvas.toDataURL('image/webp', 0.8);
+        const altName = file.name ? file.name.replace(/\.[^/.]+$/, '') : 'Скриншот';
+        const updatedImages = [...canvasImages, { alt: altName, dataUrl: webpData }];
+        const full = serializeCanvasContent(cleanText, updatedImages);
+        onUpdateScratchpad(full);
+        sound.playMessage();
+        setCanvasToast('Изображение добавлено в Канвас');
+        setTimeout(() => setCanvasToast(null), 3000);
+      }
+    } catch (err) {
+      console.warn('Canvas image processing failed', err);
+    }
+  };
 
   const handleCanvasPaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = e.clipboardData?.items;
@@ -668,47 +775,26 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
       if (items[i].type.startsWith('image/')) {
         e.preventDefault();
         const file = items[i].getAsFile();
-        if (!file) continue;
-
-        try {
-          const img = new Image();
-          const objUrl = URL.createObjectURL(file);
-          img.src = objUrl;
-          await new Promise((res, rej) => {
-            img.onload = () => res(null);
-            img.onerror = rej;
-          });
-          URL.revokeObjectURL(objUrl);
-
-          const maxDim = 800;
-          let { width, height } = img;
-          if (width > maxDim || height > maxDim) {
-            if (width > height) {
-              height = Math.round((height * maxDim) / width);
-              width = maxDim;
-            } else {
-              width = Math.round((width * maxDim) / height);
-              height = maxDim;
-            }
-          }
-
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(img, 0, 0, width, height);
-            const webpData = canvas.toDataURL('image/webp', 0.65);
-            const md = `\n![изображение](${webpData})\n`;
-            onUpdateScratchpad(scratchpadText + md);
-            sound.playMessage();
-          }
-        } catch (err) {
-          console.warn('Canvas paste image failed', err);
+        if (file) {
+          processAndAddCanvasImage(file);
         }
         return;
       }
     }
+  };
+
+  const handleCanvasImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      processAndAddCanvasImage(e.target.files[0]);
+      e.target.value = '';
+    }
+  };
+
+  const handleRemoveCanvasImage = (removeIdx: number) => {
+    const updatedImages = canvasImages.filter((_, idx) => idx !== removeIdx);
+    const full = serializeCanvasContent(cleanText, updatedImages);
+    onUpdateScratchpad(full);
+    sound.playClick();
   };
 
   const isCodeOrTextFile = (name: string) => {
@@ -802,7 +888,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
     url: string;
     name: string;
     type: 'image' | 'video' | 'audio' | 'doc';
-    size: number;
+    size?: number;
   } | null>(null);
 
   const hasActiveTransfer = transfers.some((t) => t.status === 'transferring');
@@ -812,6 +898,9 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   const downloadableTransfers = transfers.filter(
     (t) => t.status === 'completed' && Boolean(t.blobUrl)
   );
+  const completedTransfersCount = transfers.filter(
+    (t) => t.status === 'completed' || t.status === 'error' || t.status === 'cancelled'
+  ).length;
 
   const handleDownloadAllZip = async () => {
     if (downloadableTransfers.length === 0 || isZipping) return;
@@ -876,7 +965,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
       const { start, end } = scratchpadSelectionRef.current;
       scratchpadTextareaRef.current.setSelectionRange(start, end);
     }
-  }, [scratchpadText]);
+  }, [cleanText]);
 
   useEffect(() => {
     if (messages.length > prevMessagesLength.current) {
@@ -961,6 +1050,15 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
     };
 
     const handlePaste = (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'TEXTAREA' ||
+          target.tagName === 'INPUT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
       if (e.clipboardData?.files && e.clipboardData.files.length > 0) {
         e.preventDefault();
         sound.playConnect();
@@ -1052,7 +1150,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   };
 
   const handleCopyNotes = () => {
-    navigator.clipboard.writeText(scratchpadText);
+    navigator.clipboard.writeText(cleanText || scratchpadText);
     setCopiedNotes(true);
     sound.playClick();
     setTimeout(() => setCopiedNotes(false), 2000);
@@ -1066,21 +1164,21 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
     if (format === 'txt') {
       mime = 'text/plain;charset=utf-8';
       ext = 'txt';
-      content = scratchpadText.replace(/!\[(.*?)\]\(data:image\/.*?\)/g, '[$1: скриншот]');
+      content = cleanText;
     } else if (format === 'html') {
       mime = 'text/html;charset=utf-8';
       ext = 'html';
-      const bodyHtml = scratchpadText
+      const bodyHtml = cleanText
         .split('\n')
-        .map((line) => {
-          const imgMatch = line.match(/^!\[(.*?)\]\((.*?)\)$/);
-          if (imgMatch) {
-            return `<div style="margin:16px 0;"><img src="${imgMatch[2]}" alt="${imgMatch[1]}" style="max-width:100%;border-radius:8px;border:1px solid #444;" /></div>`;
-          }
-          return `<p style="margin:8px 0;white-space:pre-wrap;">${line || '&nbsp;'}</p>`;
-        })
+        .map((line) => `<p style="margin:8px 0;white-space:pre-wrap;">${line || '&nbsp;'}</p>`)
         .join('');
-      content = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Bridgik Notes - ${pin}</title><style>body{font-family:system-ui,-apple-system,sans-serif;background:#181818;color:#eaeaea;padding:32px;max-width:800px;margin:0 auto;line-height:1.6;}h1{color:#9ac43e;border-bottom:1px solid #333;padding-bottom:8px;}</style></head><body><h1>Заметки Bridgik (Комната ${pin})</h1>${bodyHtml}</body></html>`;
+      const imagesHtml = canvasImages
+        .map(
+          (img) =>
+            `<div style="margin:16px 0;"><img src="${img.dataUrl}" alt="${img.alt}" style="max-width:100%;border-radius:8px;border:1px solid #444;" /></div>`
+        )
+        .join('');
+      content = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Bridgik Notes - ${pin}</title><style>body{font-family:system-ui,-apple-system,sans-serif;background:#181818;color:#eaeaea;padding:32px;max-width:800px;margin:0 auto;line-height:1.6;}h1{color:#9ac43e;border-bottom:1px solid #333;padding-bottom:8px;}</style></head><body><h1>Заметки Bridgik (Комната ${pin})</h1>${bodyHtml}${imagesHtml}</body></html>`;
     }
 
     const blob = new Blob([content], { type: mime });
@@ -1570,6 +1668,19 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                     </span>
                   </button>
                 )}
+                {completedTransfersCount > 0 && onClearCompletedTransfers && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sound.playClick();
+                      onClearCompletedTransfers();
+                    }}
+                    className="px-2.5 py-1.5 rounded-lg bg-[#272727] hover:bg-[#333333] text-[#888888] hover:text-[#ededed] text-xs font-bold transition-colors cursor-pointer border border-[#3a3a3a]"
+                    title="Убрать завершённые файлы из списка"
+                  >
+                    Очистить
+                  </button>
+                )}
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   className="px-3 py-1.5 rounded-lg bg-[#272727] hover:bg-[#333333] text-[#ededed] text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer border border-[#3a3a3a]"
@@ -1742,6 +1853,34 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                               Принять
                             </button>
                           )}
+
+                          {t.status === 'transferring' && onCancelTransfer && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                sound.playClick();
+                                onCancelTransfer(t.id);
+                              }}
+                              className="p-2 rounded-xl bg-[#25252e] hover:bg-[#382020] text-[#888888] hover:text-[#ef9282] border border-white/10 transition-colors cursor-pointer shadow-sm"
+                              title="Отменить передачу"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
+
+                          {(t.status === 'completed' || t.status === 'error' || t.status === 'cancelled') && onDismissTransfer && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                sound.playClick();
+                                onDismissTransfer(t.id);
+                              }}
+                              className="p-2 rounded-xl bg-[#25252e] hover:bg-[#382020] text-[#777777] hover:text-[#ef9282] border border-white/10 transition-colors cursor-pointer shadow-sm"
+                              title="Убрать файл из списка"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </div>
 
@@ -1867,6 +2006,22 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                     <span className="hidden sm:inline">Файл</span>
                   </button>
                   <button
+                    type="button"
+                    onClick={() => canvasImageInputRef.current?.click()}
+                    className="p-1 sm:px-2 sm:py-1 hover:text-white rounded bg-[#272727] hover:bg-[#333333] transition-colors cursor-pointer text-xs flex items-center gap-1 border border-[#383838] shrink-0"
+                    title="Вставить картинку в Канвас"
+                  >
+                    <ImageIcon className="w-3.5 h-3.5 text-[#9ac43e]" />
+                    <span className="hidden sm:inline">Картинка</span>
+                  </button>
+                  <input
+                    ref={canvasImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleCanvasImageUpload}
+                  />
+                  <button
                     onClick={handleCopyNotes}
                     className="p-1 sm:px-2 sm:py-1 hover:text-white rounded bg-[#272727] hover:bg-[#333333] transition-colors cursor-pointer text-xs flex items-center gap-1 border border-[#383838] shrink-0"
                     title="Скопировать содержимое Канваса"
@@ -1945,52 +2100,165 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                 </div>
               )}
 
+              {canvasToast && (
+                <div className="flex items-center gap-1.5 text-xs text-[#9ac43e] font-mono mb-1.5 px-1 animate-in fade-in">
+                  <span>✓</span>
+                  <span>{canvasToast}</span>
+                </div>
+              )}
+
               {isCanvasPreview ? (
-                <div className="flex-1 w-full bg-[#141414] border border-[#333333] rounded-xl p-3.5 text-sm sm:text-base text-[#ededed] overflow-y-auto space-y-2 font-mono leading-relaxed select-text">
-                  {scratchpadText ? (
-                    scratchpadText.split('\n').map((line, idx) => {
-                      const imgMatch = line.match(/^!\[(.*?)\]\((.*?)\)$/);
-                      if (imgMatch) {
-                        return (
-                          <div key={idx} className="my-2 max-w-sm rounded-xl overflow-hidden border border-white/10 shadow-lg">
-                            <img src={imgMatch[2]} alt={imgMatch[1] || 'Скриншот'} className="w-full h-auto object-contain max-h-60 bg-black/40" />
+                <div className="flex-1 w-full bg-[#141414] border border-[#333333] rounded-xl p-3.5 text-sm sm:text-base text-[#ededed] overflow-y-auto space-y-3 font-mono leading-relaxed select-text scrollbar-thin">
+                  {cleanText ? (
+                    cleanText.split('\n').map((line, idx) => (
+                      <p key={idx} className="min-h-[1.2em]">
+                        {line}
+                      </p>
+                    ))
+                  ) : canvasImages.length === 0 ? (
+                    <div className="text-[#666666] italic">
+                      Канвас пуст. Вставьте скриншот (Ctrl + V) или напишите текст.
+                    </div>
+                  ) : null}
+
+                  {canvasImages.length > 0 && (
+                    <div className="pt-3 border-t border-white/10 space-y-3">
+                      <div className="text-xs font-bold text-[#aaaaaa] flex items-center gap-1.5 font-sans">
+                        <ImageIcon className="w-3.5 h-3.5 text-[#9ac43e]" />
+                        <span>Прикреплённые изображения ({canvasImages.length})</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {canvasImages.map((img, idx) => (
+                          <div
+                            key={idx}
+                            className="rounded-xl overflow-hidden border border-white/10 bg-black/40 group relative shadow-md"
+                          >
+                            <img
+                              src={img.dataUrl}
+                              alt={img.alt}
+                              onClick={() =>
+                                setPreviewMedia({
+                                  url: img.dataUrl,
+                                  name: img.alt,
+                                  type: 'image',
+                                  size: Math.round(img.dataUrl.length * 0.75),
+                                })
+                              }
+                              className="w-full h-auto object-contain max-h-72 cursor-pointer hover:opacity-95 transition-opacity"
+                            />
+                            <div className="p-2 flex items-center justify-between bg-[#181820]/80 text-xs">
+                              <span className="truncate text-[#cccccc] font-sans">
+                                {img.alt}
+                              </span>
+                              <a
+                                href={img.dataUrl}
+                                download={`${img.alt || 'canvas-image'}.webp`}
+                                className="p-1 rounded hover:bg-white/10 text-[#9ac43e]"
+                                title="Скачать изображение"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                              </a>
+                            </div>
                           </div>
-                        );
-                      }
-                      return <p key={idx} className="min-h-[1.2em]">{line}</p>;
-                    })
-                  ) : (
-                    <div className="text-[#666666] italic">Канвас пуст. Вставьте скриншот (Ctrl + V) или напишите текст.</div>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
               ) : (
-                <textarea
-                  ref={scratchpadTextareaRef}
-                  value={scratchpadText}
-                  onPaste={handleCanvasPaste}
-                  onChange={(e) => {
-                    const target = e.target;
-                    scratchpadSelectionRef.current = {
-                      start: target.selectionStart,
-                      end: target.selectionEnd,
-                    };
-                    onUpdateScratchpad(target.value);
-                  }}
-                  onSelect={(e) => {
-                    const target = e.target as HTMLTextAreaElement;
-                    scratchpadSelectionRef.current = {
-                      start: target.selectionStart,
-                      end: target.selectionEnd,
-                    };
-                  }}
-                  placeholder="Канвас комнаты... Нажмите Ctrl + V, чтобы вставить скриншот или картинку прямо в заметки."
-                  className="flex-1 w-full bg-[#141414] border border-[#333333] rounded-xl p-3.5 text-base sm:text-lg text-[#ededed] placeholder-[#666666] outline-none focus:border-[#789d2a] resize-none font-mono leading-relaxed transition-colors"
-                />
+                <div className="flex-1 flex flex-col min-h-0">
+                  <textarea
+                    ref={scratchpadTextareaRef}
+                    value={cleanText}
+                    onPaste={handleCanvasPaste}
+                    onChange={(e) => {
+                      const target = e.target;
+                      scratchpadSelectionRef.current = {
+                        start: target.selectionStart,
+                        end: target.selectionEnd,
+                      };
+                      const updated = serializeCanvasContent(target.value, canvasImages);
+                      onUpdateScratchpad(updated);
+                    }}
+                    onSelect={(e) => {
+                      const target = e.target as HTMLTextAreaElement;
+                      scratchpadSelectionRef.current = {
+                        start: target.selectionStart,
+                        end: target.selectionEnd,
+                      };
+                    }}
+                    placeholder="Канвас комнаты... Нажмите Ctrl + V, чтобы вставить скриншот или картинку прямо в заметки."
+                    className="flex-1 w-full bg-[#141414] border border-[#333333] rounded-xl p-3.5 text-base sm:text-lg text-[#ededed] placeholder-[#666666] outline-none focus:border-[#789d2a] resize-none font-mono leading-relaxed transition-colors min-h-[140px]"
+                  />
+
+                  {canvasImages.length > 0 && (
+                    <div className="mt-2.5 p-2.5 sm:p-3 rounded-xl bg-[#17171d] border border-[#2a2a34] shrink-0">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold text-[#aaaaaa] flex items-center gap-1.5 font-sans">
+                          <ImageIcon className="w-3.5 h-3.5 text-[#9ac43e]" />
+                          <span>Прикреплённые изображения ({canvasImages.length})</span>
+                        </span>
+                        <span className="text-[11px] text-[#666666] hidden sm:inline font-sans">
+                          Клик — просмотр · ✕ — удалить
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-thin">
+                        {canvasImages.map((img, idx) => (
+                          <div
+                            key={idx}
+                            className="relative group shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden border border-[#3a3a46] hover:border-[#789d2a] bg-black/40 transition-all shadow-sm"
+                          >
+                            <img
+                              src={img.dataUrl}
+                              alt={img.alt}
+                              onClick={() => {
+                                setPreviewMedia({
+                                  url: img.dataUrl,
+                                  name: img.alt || `Изображение ${idx + 1}`,
+                                  type: 'image',
+                                  size: Math.round(img.dataUrl.length * 0.75),
+                                });
+                              }}
+                              className="w-full h-full object-cover cursor-pointer group-hover:scale-105 transition-transform"
+                            />
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveCanvasImage(idx);
+                              }}
+                              className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/80 hover:bg-rose-600 text-white flex items-center justify-center transition-colors cursor-pointer shadow z-10"
+                              title="Удалить картинку из Канваса"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                            <div
+                              onClick={() => {
+                                setPreviewMedia({
+                                  url: img.dataUrl,
+                                  name: img.alt || `Изображение ${idx + 1}`,
+                                  type: 'image',
+                                  size: Math.round(img.dataUrl.length * 0.75),
+                                });
+                              }}
+                              className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer pointer-events-none"
+                            >
+                              <Eye className="w-4 h-4 text-white drop-shadow" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
 
               <div className="mt-2 text-xs text-[#888888] flex items-center justify-between">
                 <span>Канвас не сохраняется на сервере (P2P)</span>
-                <span>Символов: {scratchpadText.length}</span>
+                <span>
+                  Символов: {cleanText.length}
+                  {canvasImages.length > 0 ? ` · Картинок: ${canvasImages.length}` : ''}
+                </span>
               </div>
             </div>
           ) : (
@@ -2549,7 +2817,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
             <div className="min-w-0 pr-4">
               <p className="text-base sm:text-lg font-extrabold truncate">{previewMedia.name}</p>
               <p className="text-xs text-[#888888] font-mono">
-                {(previewMedia.size / 1024 / 1024).toFixed(2)} МБ · P2P Предпросмотр
+                {previewMedia.size ? `${(previewMedia.size / 1024 / 1024).toFixed(2)} МБ · ` : ''}P2P Предпросмотр
               </p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
