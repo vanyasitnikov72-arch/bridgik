@@ -1,5 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
+import React, { useEffect, useState } from 'react';
 import {
   X,
   KeyRound,
@@ -60,56 +59,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 }) => {
   const [tab, setTab] = useState<AuthProvider>(initialProvider);
 
-  // Telegram bot session state
-  const [botSessionToken, setBotSessionToken] = useState('');
-  const [botUsername, setBotUsername] = useState('bridgik_login_bot');
-  const [botTgUrl, setBotTgUrl] = useState('');
-  const [botWebUrl, setBotWebUrl] = useState('');
-
   const [keyMode, setKeyMode] = useState<'create' | 'enter'>('create');
   const [generatedKey, setGeneratedKey] = useState(() => generateLicenseKey());
   const [inputKey, setInputKey] = useState('');
   const [copiedKey, setCopiedKey] = useState(false);
   const [keyError, setKeyError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Fetch telegram bot session on open
-  useEffect(() => {
-    if (!isOpen || tab !== 'telegram') return;
-    let active = true;
-    fetch('/api/auth/telegram/session')
-      .then((r) => r.json())
-      .then((data) => {
-        if (active && data?.token) {
-          setBotSessionToken(data.token);
-          setBotUsername(data.botUsername || 'bridgik_login_bot');
-          setBotTgUrl(data.tgUrl || `tg://resolve?domain=${data.botUsername || 'bridgik_login_bot'}&start=auth_${data.token}`);
-          setBotWebUrl(data.webUrl || `https://t.me/${data.botUsername || 'bridgik_login_bot'}?start=auth_${data.token}`);
-        }
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, [isOpen, tab]);
-
-  // Poll telegram session status
-  useEffect(() => {
-    if (!isOpen || tab !== 'telegram' || !botSessionToken) return;
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/auth/telegram/session-status?token=${encodeURIComponent(botSessionToken)}`);
-        const data = await res.json();
-        if (data?.completed && data?.key) {
-          clearInterval(interval);
-          sound.playConnect();
-          onAuthSuccess('telegram', { key: data.key, user: data.user });
-          onClose();
-        }
-      } catch {}
-    }, 2000);
-    return () => clearInterval(interval);
-  }, [isOpen, tab, botSessionToken, onAuthSuccess, onClose]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -134,11 +89,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isOpen, onClose]);
-
-  const effectiveBotUrl = useMemo(
-    () => botWebUrl || botTgUrl || `https://t.me/${botUsername}?start=auth_${botSessionToken}`,
-    [botWebUrl, botTgUrl, botUsername, botSessionToken]
-  );
 
   if (!isOpen) return null;
 
@@ -240,6 +190,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             >
               <TelegramIcon className="w-4 h-4 shrink-0" />
               <span>Telegram</span>
+              <span
+                className={`text-[10px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                  tab === 'telegram'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-[#229ED9]/15 text-[#229ED9] border border-[#229ED9]/30'
+                }`}
+              >
+                Скоро
+              </span>
             </button>
 
             <button
@@ -296,49 +255,55 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
           {tab === 'telegram' && (
             <div className="flex-1 flex flex-col justify-between">
-              <div className="p-3 rounded-xl bg-[#222222] border border-white/[0.06] space-y-1">
-                <div className="flex items-center gap-2">
-                  <TelegramIcon className="w-4 h-4 text-[#229ED9] shrink-0" />
-                  <p className="text-sm sm:text-base font-bold text-[#ededed]">
-                    Вход через Telegram (@{botUsername})
-                  </p>
+              <div className="p-3.5 rounded-xl bg-[#222222] border border-white/[0.06] space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <TelegramIcon className="w-5 h-5 text-[#229ED9] shrink-0" />
+                    <p className="text-base font-bold text-[#ededed]">
+                      Вход через Telegram
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#229ED9]/20 text-[#229ED9] border border-[#229ED9]/40">
+                    Скоро будет
+                  </span>
                 </div>
-                <p className="text-xs text-[#a8a8a8]">
-                  Нажмите кнопку ниже или отсканируйте QR-код камерой телефона.
+                <p className="text-xs sm:text-sm text-[#a8a8a8] leading-relaxed">
+                  Авторизация через Telegram временно недоступна и находится в разработке. Функция скоро появится в обновлении.
                 </p>
               </div>
 
-              <div className="p-3 rounded-xl bg-[#161616] border border-white/[0.06] flex items-center gap-3.5 text-left my-auto">
-                <div className="p-2 bg-white rounded-xl shadow-md shrink-0">
-                  <QRCodeSVG
-                    value={effectiveBotUrl || 'https://t.me/bridgik_login_bot'}
-                    size={84}
-                    level="M"
-                    includeMargin={false}
-                  />
+              <div className="p-5 rounded-xl bg-[#161616] border border-white/[0.06] text-center my-auto space-y-2">
+                <div className="w-12 h-12 mx-auto rounded-full bg-[#229ED9]/15 border border-[#229ED9]/30 flex items-center justify-center text-[#229ED9]">
+                  <TelegramIcon className="w-6 h-6" />
                 </div>
-                <div className="space-y-1 min-w-0">
-                  <p className="text-sm font-bold text-[#ededed]">
-                    Или отсканируйте QR-код
-                  </p>
-                  <p className="text-xs text-[#888888] leading-relaxed">
-                    Откройте камеру телефона, перейдите в бота и нажмите <strong>«Запустить» (Start)</strong>.
-                  </p>
-                </div>
+                <p className="text-sm font-bold text-[#ededed]">
+                  Способ входа временно недоступен
+                </p>
+                <p className="text-xs text-[#888888] max-w-xs mx-auto leading-relaxed">
+                  Пожалуйста, используйте моментальный вход через <strong>Яндекс ID</strong> или анонимный <strong>Ключ доступа</strong>.
+                </p>
               </div>
 
-              <div className="space-y-1.5 mt-auto pt-2">
-                <a
-                  href={effectiveBotUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => sound.playClick()}
-                  className="w-full py-2.5 sm:py-3 px-4 rounded-xl bg-[#229ED9] hover:bg-[#1b8ec4] text-white font-extrabold text-base sm:text-lg transition-all cursor-pointer flex items-center justify-center gap-2.5 shadow-lg shadow-[#229ED9]/25 active:scale-[0.99]"
+              <div className="space-y-2 mt-auto pt-2">
+                <button
+                  type="button"
+                  disabled
+                  className="w-full py-2.5 sm:py-3 px-4 rounded-xl bg-[#242424] border border-white/10 text-[#666666] font-extrabold text-base cursor-not-allowed flex items-center justify-center gap-2 select-none"
                 >
-                  <TelegramIcon className="w-5 h-5" />
-                  <span>Войти через Telegram</span>
-                  <ExternalLink className="w-4 h-4 opacity-80" />
-                </a>
+                  <TelegramIcon className="w-5 h-5 opacity-40" />
+                  <span>Скоро будет</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    sound.playClick();
+                    setTab('yandex');
+                  }}
+                  className="w-full py-2 px-3 rounded-lg bg-transparent hover:bg-white/[0.04] text-xs font-bold text-[#229ED9] hover:underline transition-colors cursor-pointer text-center"
+                >
+                  Войти через Яндекс ID вместо Telegram →
+                </button>
               </div>
             </div>
           )}

@@ -1164,11 +1164,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <div className="flex items-center gap-3 min-w-0">
                 <TelegramIcon className="w-5 h-5 text-[#229ED9] shrink-0" />
                 <div className="min-w-0">
-                  <p className="font-bold text-base text-[#ededed]">Telegram (@bridgik_bot)</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-bold text-base text-[#ededed]">Telegram (@bridgik_bot)</p>
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#229ED9]/15 text-[#229ED9] border border-[#229ED9]/30">
+                      Скоро
+                    </span>
+                  </div>
                   <p className="text-xs text-[#888888] truncate">
                     {profile.providers.telegram
                       ? `Подключён @${profile.providers.telegram.username || 'telegram'}`
-                      : 'Для оплаты Telegram Stars и уведомлений о скачивании'}
+                      : 'Скоро будет: оплата Telegram Stars и уведомления о скачивании'}
                   </p>
                 </div>
               </div>
@@ -1184,10 +1189,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               ) : (
                 <button
                   type="button"
-                  onClick={() => onOpenAuthModal('telegram')}
-                  className="px-3.5 py-1.5 rounded-lg bg-[#242424] hover:bg-[#2f2f2f] text-xs font-bold text-[#ededed] cursor-pointer shrink-0"
+                  disabled
+                  className="px-3.5 py-1.5 rounded-lg bg-[#222222] border border-white/5 text-xs font-bold text-[#666666] cursor-not-allowed shrink-0 select-none"
+                  title="Привязка Telegram скоро будет доступна"
                 >
-                  Привязать
+                  Скоро будет
                 </button>
               )}
             </div>
