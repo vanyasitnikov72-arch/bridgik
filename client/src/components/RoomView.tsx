@@ -399,16 +399,18 @@ export const RoomView: React.FC<RoomViewProps> = ({
               (destinationDirName ? (
                 <div className="flex items-center gap-1.5 bg-[#1c2214] border border-[#789d2a] rounded-lg px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-[#9ac43e]">
                   <FolderDown className="w-4 h-4 text-[#9ac43e] shrink-0" />
-                  <span
-                    className="font-bold max-w-[110px] sm:max-w-[130px] truncate"
-                    title={`Папка на диске: ${destinationDirName}`}
+                  <button
+                    type="button"
+                    onClick={onPickDestinationDir}
+                    className="font-bold max-w-[110px] sm:max-w-[140px] truncate hover:underline text-left cursor-pointer"
+                    title={`Папка на диске: ${destinationDirName} (нажмите, чтобы изменить)`}
                   >
                     Папка: {destinationDirName}
-                  </span>
+                  </button>
                   <button
                     onClick={onClearDestinationDir}
                     className="p-0.5 hover:text-white transition-colors cursor-pointer"
-                    title="Сбросить выбранную папку"
+                    title="Сбросить выбранную папку и сохранять в Загрузки браузера"
                   >
                     <X className="w-3.5 h-3.5 text-[#aaaaaa] hover:text-[#ef9282]" />
                   </button>
@@ -417,10 +419,11 @@ export const RoomView: React.FC<RoomViewProps> = ({
                 <button
                   onClick={onPickDestinationDir}
                   className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg bg-[#2d2d2d] hover:bg-[#3a3a3a] text-[#ededed] text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer border border-[#3a3a3a]"
-                  title="Выберите папку на диске для автоматического сохранения"
+                  title="По умолчанию файлы сохраняются в «Загрузки» браузера. Нажмите, чтобы выбрать свою папку на диске"
                 >
                   <FolderDown className="w-4 h-4 text-[#9ac43e]" />
-                  <span className="hidden sm:inline">Папка на диске</span>
+                  <span className="hidden sm:inline">Папка: Загрузки</span>
+                  <span className="sm:hidden">Папка</span>
                 </button>
               ))}
 
@@ -433,6 +436,81 @@ export const RoomView: React.FC<RoomViewProps> = ({
               <span>Выйти</span>
             </button>
           </div>
+        </div>
+
+        {/* Download destination path indicator */}
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 rounded-lg bg-[#181818] border border-white/[0.06] text-xs sm:text-sm">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <span className="text-[#888888] shrink-0 font-medium">Куда сохраняются файлы:</span>
+            {destinationDirName ? (
+              <button
+                type="button"
+                onClick={onPickDestinationDir}
+                className="font-mono text-[#bbf348] font-bold truncate flex items-center gap-1.5 hover:underline cursor-pointer text-left"
+                title={`Папка на диске: ${destinationDirName} (нажмите, чтобы изменить)`}
+              >
+                <FolderDown className="w-3.5 h-3.5 text-[#9ac43e] shrink-0" />
+                <span className="truncate">{destinationDirName}</span>
+                <span className="text-[10px] uppercase font-sans font-normal px-1.5 py-0.2 rounded bg-[#789d2a]/20 text-[#9ac43e] border border-[#789d2a]/40 shrink-0">
+                  папка на диске
+                </span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={typeof window !== 'undefined' && 'showDirectoryPicker' in window ? onPickDestinationDir : undefined}
+                className={`font-mono text-[#ededed] truncate flex items-center gap-1.5 text-left ${
+                  typeof window !== 'undefined' && 'showDirectoryPicker' in window
+                    ? 'hover:text-white hover:underline cursor-pointer'
+                    : 'cursor-default'
+                }`}
+                title={
+                  typeof window !== 'undefined' && 'showDirectoryPicker' in window
+                    ? 'Файлы сохраняются в системную папку «Загрузки» браузера (Downloads). Нажмите, чтобы выбрать другую папку на диске.'
+                    : 'Файлы сохраняются в папку «Загрузки» браузера (Downloads).'
+                }
+              >
+                <FolderDown className="w-3.5 h-3.5 text-[#9ac43e] shrink-0" />
+                <span className="truncate">Папка «Загрузки» браузера (Downloads)</span>
+                <span className="text-[10px] uppercase font-sans font-normal px-1.5 py-0.2 rounded bg-white/5 text-[#888888] border border-white/10 shrink-0">
+                  по умолчанию
+                </span>
+              </button>
+            )}
+          </div>
+
+          {typeof window !== 'undefined' && 'showDirectoryPicker' in window && (
+            <div className="flex items-center gap-2 shrink-0">
+              {destinationDirName ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={onPickDestinationDir}
+                    className="text-xs text-[#9ac43e] hover:text-[#bbf348] underline underline-offset-2 hover:no-underline font-semibold cursor-pointer transition-colors"
+                  >
+                    Изменить папку
+                  </button>
+                  <span className="text-[#444444]">·</span>
+                  <button
+                    type="button"
+                    onClick={onClearDestinationDir}
+                    className="text-xs text-[#888888] hover:text-[#ef9282] transition-colors cursor-pointer"
+                    title="Сбросить на папку «Загрузки» браузера"
+                  >
+                    Сбросить
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onPickDestinationDir}
+                  className="text-xs text-[#9ac43e] hover:text-[#bbf348] underline underline-offset-2 hover:no-underline font-semibold cursor-pointer transition-colors"
+                >
+                  Выбрать другую папку
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {peers.length > 0 && (

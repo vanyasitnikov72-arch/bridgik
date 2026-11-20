@@ -269,7 +269,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-            {onOpenSettings && (
+            {onOpenSettings && !userProfile && (
               <button
                 type="button"
                 onClick={() => {

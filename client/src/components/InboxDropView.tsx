@@ -201,19 +201,18 @@ export function InboxDropView({ handle, onGoHome }: InboxDropViewProps) {
               onGoHome();
             }
           }}
-          className="flex items-center gap-2.5 group cursor-pointer"
+          className="flex items-center gap-2.5 sm:gap-3 group cursor-pointer select-none"
+          title="bridgik · На главную"
         >
-          <div className="w-8 h-8 rounded-lg bg-[#283216] border border-[#789d2a]/50 flex items-center justify-center text-[#bbf348] font-mono font-black text-base shadow-sm group-hover:scale-105 transition-transform">
-            B
-          </div>
-          <div className="flex flex-col">
-            <span className="font-extrabold text-base tracking-tight text-white group-hover:text-[#bbf348] transition-colors leading-none">
-              Bridgik
-            </span>
-            <span className="text-[10px] font-mono text-[#888888] tracking-wider uppercase mt-0.5">
-              Drop Link
-            </span>
-          </div>
+          <img
+            src="/mascots/dino_logo_transparent.png"
+            alt="bridgik"
+            className="h-9 sm:h-12 w-auto object-contain group-hover:scale-105 transition-transform drop-shadow-[0_0_15px_rgba(120,157,42,0.3)]"
+            style={{ imageRendering: 'pixelated' }}
+          />
+          <span className="px-2 py-0.5 rounded-md bg-[#283216] border border-[#789d2a]/50 text-[10px] sm:text-[11px] font-mono text-[#bbf348] font-bold tracking-wider uppercase shrink-0">
+            Drop Link
+          </span>
         </a>
 
         <a
