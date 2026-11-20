@@ -262,6 +262,8 @@ export interface FileTransfer {
     | 'pending_approval'
     | 'waiting_receiver'
     | 'transferring'
+    | 'interrupted'
+    | 'paused'
     | 'completed'
     | 'cancelled'
     | 'error';
@@ -320,6 +322,11 @@ export type WebRTCMessage =
   | {
       type: 'FILE_CANCEL';
       fileId: string;
+    }
+  | {
+      type: 'FILE_RESUME_REQUEST';
+      fileId: string;
+      fromChunk: number;
     }
   | {
       type: 'SCRATCHPAD_SYNC';

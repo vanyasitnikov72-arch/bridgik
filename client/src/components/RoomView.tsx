@@ -24,6 +24,7 @@ import {
   Package,
   Flame,
   Code,
+  Play,
 } from 'lucide-react';
 import { FileTransfer, Peer, TextMessage } from '../types/index.js';
 import { formatBytes, formatSpeed, getAvatarForName } from '../utils/device.js';
@@ -51,6 +52,7 @@ interface RoomViewProps {
   onSendFiles: (files: FileList | File[]) => void;
   onSendText: (text: string, isClipboard?: boolean, isBurner?: boolean) => void;
   onCancelTransfer: (transferId: string) => void;
+  onResumeTransfer?: (transferId: string) => void;
   onDismissTransfer?: (transferId: string) => void;
   onClearCompletedTransfers?: () => void;
   onAcceptFile: (fileId: string) => void;
@@ -90,6 +92,7 @@ export const RoomView: React.FC<RoomViewProps> = ({
   onSendFiles,
   onSendText,
   onCancelTransfer,
+  onResumeTransfer,
   onDismissTransfer,
   onClearCompletedTransfers,
   onAcceptFile,
@@ -907,6 +910,21 @@ export const RoomView: React.FC<RoomViewProps> = ({
                               title="Убрать файл из списка"
                             >
                               <X className="w-4 h-4" />
+                            </button>
+                          )}
+
+                          {t.status === 'interrupted' && onResumeTransfer && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                sound.playClick();
+                                onResumeTransfer(t.id);
+                              }}
+                              className="px-3 py-1.5 rounded-lg bg-[#283216] hover:bg-[#34421d] border border-[#789d2a] text-[#bbf348] text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                              title="Возобновить передачу с места обрыва"
+                            >
+                              <Play className="w-3.5 h-3.5 fill-current" />
+                              <span>Возобновить</span>
                             </button>
                           )}
 

@@ -2060,6 +2060,11 @@ export function App() {
     webrtcRef.current.cancelTransfer(id);
   };
 
+  const handleResumeTransfer = (id: string) => {
+    if (!webrtcRef.current) return;
+    webrtcRef.current.resumeTransfer(id);
+  };
+
   const handleDismissTransfer = (id: string) => {
     setTransfers((prev) => prev.filter((t) => t.id !== id));
   };
@@ -2449,6 +2454,7 @@ export function App() {
             hasRemoteVideo={hasRemoteVideo}
             onAcceptFile={handleAcceptFile}
             onCancelTransfer={handleCancelTransfer}
+            onResumeTransfer={handleResumeTransfer}
             onDismissTransfer={handleDismissTransfer}
             onClearCompletedTransfers={handleClearCompletedTransfers}
             onOpenAppSettings={() => setIsSettingsOpen(true)}
@@ -2473,6 +2479,7 @@ export function App() {
             onSendFiles={handleSendFiles}
             onSendText={handleSendText}
             onCancelTransfer={handleCancelTransfer}
+            onResumeTransfer={handleResumeTransfer}
             onDismissTransfer={handleDismissTransfer}
             onClearCompletedTransfers={handleClearCompletedTransfers}
             onAcceptFile={handleAcceptFile}

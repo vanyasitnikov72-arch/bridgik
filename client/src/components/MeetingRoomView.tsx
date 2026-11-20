@@ -42,6 +42,7 @@ import {
   Sliders,
   ChevronRight,
   Folder,
+  Play,
 } from 'lucide-react';
 import { FileTransfer, Peer, TextMessage, UserProfile } from '../types/index.js';
 import { sound } from '../utils/sound.js';
@@ -638,6 +639,7 @@ interface MeetingRoomViewProps {
   hasRemoteVideo?: boolean;
   onAcceptFile: (fileId: string) => void;
   onCancelTransfer?: (transferId: string) => void;
+  onResumeTransfer?: (transferId: string) => void;
   onDismissTransfer?: (transferId: string) => void;
   onClearCompletedTransfers?: () => void;
   onOpenAppSettings?: () => void;
@@ -697,6 +699,7 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
   hasRemoteVideo: _hasRemoteVideo = false,
   onAcceptFile,
   onCancelTransfer,
+  onResumeTransfer,
   onDismissTransfer,
   onClearCompletedTransfers,
   onOpenAppSettings,
@@ -1944,6 +1947,21 @@ export const MeetingRoomView: React.FC<MeetingRoomViewProps> = ({
                               className="px-3.5 py-1.5 rounded-xl bg-[#789d2a] hover:bg-[#8cb632] text-white font-bold text-xs cursor-pointer shadow-md shadow-[#789d2a]/20"
                             >
                               Принять
+                            </button>
+                          )}
+
+                          {t.status === 'interrupted' && onResumeTransfer && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                sound.playClick();
+                                onResumeTransfer(t.id);
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-[#283216] hover:bg-[#34421d] border border-[#789d2a] text-[#bbf348] text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-md shadow-[#789d2a]/20"
+                              title="Возобновить передачу с места обрыва"
+                            >
+                              <Play className="w-3.5 h-3.5 fill-current" />
+                              <span>Возобновить</span>
                             </button>
                           )}
 

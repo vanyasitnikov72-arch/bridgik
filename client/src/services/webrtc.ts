@@ -215,6 +215,17 @@ export class WebRTCManager {
   > = new Map();
 
   private pendingOutgoingFiles: Map<string, { file: File; targetPeerId?: string }> = new Map();
+  private activeOutgoingStreams: Map<
+    string,
+    {
+      file: File;
+      targetPeerId?: string;
+      senderBlobUrl?: string;
+      lastChunk: number;
+      totalChunks: number;
+      isInterrupted: boolean;
+    }
+  > = new Map();
   private cancelledTransfers: Set<string> = new Set();
   private fallbackTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
 
@@ -684,6 +695,20 @@ export class WebRTCManager {
           id: msg.fileId,
           status: 'cancelled',
         });
+      } else if (msg.type === 'FILE_RESUME_REQUEST') {
+        const streamInfo = this.activeOutgoingStreams.get(msg.fileId);
+        if (streamInfo) {
+          streamInfo.isInterrupted = false;
+          this.enqueueFileStream(() =>
+            this.startStreamingFile(
+              streamInfo.file,
+              msg.fileId,
+              peerId || streamInfo.targetPeerId,
+              streamInfo.senderBlobUrl,
+              msg.fromChunk
+            )
+          );
+        }
       }
     } catch (err) {
       console.error('Error handling control message', err);
@@ -946,10 +971,12 @@ export class WebRTCManager {
     file: File,
     fileId: string,
     targetPeerId?: string,
-    existingBlobUrl?: string
+    existingBlobUrl?: string,
+    fromChunk = 0
   ) {
     if (this.cancelledTransfers.has(fileId)) {
       this.cancelledTransfers.delete(fileId);
+      this.activeOutgoingStreams.delete(fileId);
       this.callbacks.onTransferProgress({ id: fileId, status: 'cancelled' });
       return;
     }
@@ -968,8 +995,8 @@ export class WebRTCManager {
     if (activeTargets.length === 0) {
       this.callbacks.onTransferProgress({
         id: fileId,
-        status: 'cancelled',
-        error: 'Соединение с получателем потеряно',
+        status: 'interrupted',
+        error: 'Соединение с получателем потеряно. Нажмите «Возобновить»',
       });
       return;
     }
@@ -985,9 +1012,25 @@ export class WebRTCManager {
       senderName: this.myName,
     };
 
-    this.broadcastControlMessage(metaMsg, targetPeerId);
+    if (fromChunk === 0) {
+      this.broadcastControlMessage(metaMsg, targetPeerId);
+    }
 
     const senderBlobUrl = existingBlobUrl || createMediaBlobUrl(file);
+
+    this.activeOutgoingStreams.set(fileId, {
+      file,
+      targetPeerId,
+      senderBlobUrl,
+      lastChunk: fromChunk,
+      totalChunks,
+      isInterrupted: false,
+    });
+
+    const initialProgress =
+      file.size === 0
+        ? 100
+        : Math.min(100, Math.round(((fromChunk * CHUNK_SIZE) / file.size) * 100));
 
     this.callbacks.onTransferProgress({
       id: fileId,
@@ -997,13 +1040,14 @@ export class WebRTCManager {
       type: 'upload',
       peerId: targetPeerId || 'all',
       peerName: 'Получатели',
-      progress: file.size === 0 ? 100 : 0,
+      progress: initialProgress,
       speed: 0,
       status: file.size === 0 ? 'completed' : 'transferring',
       blobUrl: senderBlobUrl,
     });
 
     if (file.size === 0) {
+      this.activeOutgoingStreams.delete(fileId);
       return;
     }
 
@@ -1012,11 +1056,11 @@ export class WebRTCManager {
       fileIdBytes[i] = fileId.charCodeAt(i);
     }
 
-    let fileOffset = 0;
-    let chunkIndex = 0;
-    let bytesSent = 0;
+    let chunkIndex = fromChunk;
+    let fileOffset = chunkIndex * CHUNK_SIZE;
+    let bytesSent = fileOffset;
     let lastProgressUpdate = Date.now();
-    let lastBytesSent = 0;
+    let lastBytesSent = fileOffset;
 
     while (fileOffset < file.size) {
       if (this.cancelledTransfers.has(fileId)) {
@@ -1075,10 +1119,16 @@ export class WebRTCManager {
             this.socket.connected
         ).length;
         if (availableCount === 0) {
+          const streamInfo = this.activeOutgoingStreams.get(fileId);
+          if (streamInfo) {
+            streamInfo.isInterrupted = true;
+            streamInfo.lastChunk = chunkIndex;
+          }
           this.callbacks.onTransferProgress({
             id: fileId,
-            status: 'cancelled',
-            error: 'Соединение прервано во время передачи',
+            status: 'interrupted',
+            progress: Math.min(99, Math.round((bytesSent / file.size) * 100)),
+            error: 'Связь прервана. Нажмите «Возобновить» для продолжения',
           });
           return;
         }
@@ -1115,6 +1165,11 @@ export class WebRTCManager {
         chunkIndex++;
         bytesSent += currentChunkSize;
 
+        const currentStream = this.activeOutgoingStreams.get(fileId);
+        if (currentStream) {
+          currentStream.lastChunk = chunkIndex;
+        }
+
         const now = Date.now();
         const elapsed = (now - lastProgressUpdate) / 1000;
         if (elapsed >= 0.25 || bytesSent === file.size) {
@@ -1136,6 +1191,7 @@ export class WebRTCManager {
       fileOffset = blockEnd;
     }
 
+    this.activeOutgoingStreams.delete(fileId);
     this.callbacks.onTransferProgress({
       id: fileId,
       progress: 100,
@@ -1285,9 +1341,42 @@ export class WebRTCManager {
 
   public cancelTransfer(fileId: string) {
     this.cancelledTransfers.add(fileId);
+    this.activeOutgoingStreams.delete(fileId);
     if (this.pendingOutgoingFiles.has(fileId)) {
       this.pendingOutgoingFiles.delete(fileId);
       this.callbacks.onTransferProgress({ id: fileId, status: 'cancelled' });
+    }
+  }
+
+  public resumeTransfer(fileId: string) {
+    const outgoing = this.activeOutgoingStreams.get(fileId);
+    if (outgoing) {
+      outgoing.isInterrupted = false;
+      this.enqueueFileStream(() =>
+        this.startStreamingFile(
+          outgoing.file,
+          fileId,
+          outgoing.targetPeerId,
+          outgoing.senderBlobUrl,
+          outgoing.lastChunk
+        )
+      );
+      return;
+    }
+
+    const incoming = this.incomingFiles.get(fileId);
+    if (incoming) {
+      const fromChunk = incoming.receivedCount;
+      this.sendControlMessageToPeer(incoming.peerId, {
+        type: 'FILE_RESUME_REQUEST',
+        fileId,
+        fromChunk,
+      });
+      this.callbacks.onTransferProgress({
+        id: fileId,
+        status: 'transferring',
+        error: undefined,
+      });
     }
   }
 
