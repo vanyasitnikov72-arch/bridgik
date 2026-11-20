@@ -77,6 +77,7 @@ export interface StickyDevice {
 
 export interface UserProfile {
   id: string;
+  handle?: string;
   displayName: string;
   avatarUrl?: string;
   tier: UserTier;
@@ -132,6 +133,17 @@ export interface AdminDrop {
   createdAt: number;
   isExpired: boolean;
   isS3: boolean;
+}
+
+export interface PublicInboxUser {
+  id: string;
+  handle: string;
+  displayName: string;
+  avatarUrl?: string;
+  activeFrame: AvatarFrameId;
+  tier: UserTier;
+  isOnline: boolean;
+  s3QuotaLimitMb: number;
 }
 
 export interface AdminStats {

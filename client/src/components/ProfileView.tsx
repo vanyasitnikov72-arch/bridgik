@@ -21,6 +21,7 @@ import {
   Unlink,
   RefreshCw,
   ShoppingBag,
+  Link2,
 } from 'lucide-react';
 import {
   AuthProvider,
@@ -170,9 +171,26 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [isAvatarOpen, setIsAvatarOpen] = useState(false);
   const [isEmoteOpen, setIsEmoteOpen] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
+  const [copiedDropLink, setCopiedDropLink] = useState(false);
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
   const [isUnlinking, setIsUnlinking] = useState<string | null>(null);
   const [confirmUnlinkProvider, setConfirmUnlinkProvider] = useState<'yandex' | 'telegram' | null>(null);
+
+  const effectiveHandle =
+    profile.handle ||
+    profile.providers.yandex?.handle ||
+    profile.providers.telegram?.username?.replace(/^@/, '') ||
+    profile.displayName.toLowerCase().replace(/[^a-z0-9_-]/gi, '') ||
+    profile.id;
+
+  const handleCopyDropLink = () => {
+    const link = `https://bridgik.ru/@${effectiveHandle}`;
+    navigator.clipboard.writeText(link).then(() => {
+      sound.playClick();
+      setCopiedDropLink(true);
+      setTimeout(() => setCopiedDropLink(false), 2000);
+    });
+  };
 
   const handleUnlinkClick = (provider: 'yandex' | 'telegram') => {
     sound.playClick();
@@ -395,6 +413,19 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   <span>{profile.licenseKeyPreview}</span>
                 </span>
               )}
+              <span
+                onClick={handleCopyDropLink}
+                title="Нажмите, чтобы скопировать персональную ссылку Drop Link"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#242424] hover:bg-[#2c2c2c] text-xs font-bold text-[#bbf348] border border-[#789d2a]/40 transition-colors cursor-pointer select-none"
+              >
+                <Link2 className="w-3.5 h-3.5 text-[#9ac43e]" />
+                <span>@{effectiveHandle}</span>
+                {copiedDropLink ? (
+                  <span className="text-[10px] text-white font-mono">Скопировано!</span>
+                ) : (
+                  <span className="text-[10px] text-[#888888] font-mono">drop link</span>
+                )}
+              </span>
             </div>
           </div>
         </div>
@@ -791,6 +822,34 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </button>
           </div>
 
+          {/* Bridgik Drop Link (Personal Inbox) */}
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-[#1b2214] to-[#161616] border border-[#789d2a]/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md shadow-[#789d2a]/5">
+            <div className="min-w-0 space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#789d2a]/20 text-[#bbf348] text-[11px] font-black uppercase tracking-wider">
+                  <Link2 className="w-3 h-3" />
+                  <span>Личный Drop Link</span>
+                </span>
+                <span className="text-xs text-[#888888]">Ваш постоянный инбокс</span>
+              </div>
+              <p className="font-mono text-sm sm:text-base font-bold text-white truncate">
+                https://bridgik.ru/@{effectiveHandle}
+              </p>
+              <p className="text-xs text-[#888888]">
+                Любой человек может отправить вам файл по этой ссылке прямо в ваш буфер Bridgik.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleCopyDropLink}
+              className="px-3.5 py-2 rounded-xl bg-[#283216] hover:bg-[#33411c] border border-[#789d2a] text-[#ededed] font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer shrink-0"
+            >
+              {copiedDropLink ? <Check className="w-4 h-4 text-[#9ac43e]" /> : <Copy className="w-4 h-4 text-[#9ac43e]" />}
+              <span>{copiedDropLink ? 'Скопировано!' : 'Копировать'}</span>
+            </button>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {profile.devices.map((dev) => (
               <div
@@ -1096,6 +1155,26 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               >
                 {copiedKey ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                 <span>{copiedKey ? 'Скопирован' : 'Копировать'}</span>
+              </button>
+            </div>
+
+            <div className="py-3.5 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <Link2 className="w-5 h-5 text-[#9ac43e] shrink-0" />
+                <div className="min-w-0">
+                  <p className="font-bold text-base text-[#ededed]">Личный инбокс (Drop Link)</p>
+                  <p className="text-xs text-[#888888] font-mono truncate">
+                    https://bridgik.ru/@{effectiveHandle}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleCopyDropLink}
+                className="px-3.5 py-1.5 rounded-lg bg-[#242424] hover:bg-[#2f2f2f] text-xs font-bold text-[#9ac43e] flex items-center gap-1.5 cursor-pointer shrink-0"
+              >
+                {copiedDropLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedDropLink ? 'Скопирована' : 'Копировать'}</span>
               </button>
             </div>
           </div>

@@ -249,6 +249,31 @@ export function getUserByTelegramId(telegramId: string | number): DbUser | null 
 }
 
 /**
+ * Resolves a user by handle (Yandex login, Telegram username, display name, or ID)
+ */
+export function getUserByHandle(rawHandle: string): DbUser | null {
+  if (!rawHandle || typeof rawHandle !== 'string') return null;
+  const clean = rawHandle.trim().replace(/^@+/, '').toLowerCase();
+  if (!clean) return null;
+
+  // 1. Exact match by yandex_login
+  let user = db.prepare('SELECT * FROM users WHERE LOWER(yandex_login) = ?').get(clean) as DbUser | undefined;
+  if (user) return user;
+
+  // 2. Exact match by telegram_username (stripping any @ stored in db)
+  user = db.prepare("SELECT * FROM users WHERE LOWER(REPLACE(telegram_username, '@', '')) = ?").get(clean) as DbUser | undefined;
+  if (user) return user;
+
+  // 3. Exact match by display_name
+  user = db.prepare('SELECT * FROM users WHERE LOWER(display_name) = ?').get(clean) as DbUser | undefined;
+  if (user) return user;
+
+  // 4. Exact match by ID
+  user = db.prepare('SELECT * FROM users WHERE id = ?').get(clean) as DbUser | undefined;
+  return user || null;
+}
+
+/**
  * Upserts user logging in with Yandex ID
  */
 export function upsertYandexUser(profile: {
@@ -638,8 +663,15 @@ export function toUserProfileDto(
     }
   }
 
+  const handle =
+    user.yandex_login ||
+    user.telegram_username?.replace(/^@/, '') ||
+    user.display_name.toLowerCase().replace(/[^a-z0-9_-]/gi, '') ||
+    user.id;
+
   return {
     id: user.id,
+    handle,
     displayName: user.display_name,
     avatarUrl: user.avatar_url || undefined,
     tier: user.tier,
@@ -742,7 +774,7 @@ export function getPendingDropsForDevice(userId: string, deviceId: string): DbDr
   const now = Date.now();
   const rows = db.prepare(`
     SELECT * FROM drops 
-    WHERE user_id = ? AND target_device_id = ? AND expires_at > ?
+    WHERE user_id = ? AND (target_device_id = ? OR target_device_id IS NULL) AND expires_at > ?
     ORDER BY created_at DESC
   `).all(userId, deviceId, now);
   return (rows as unknown as DbDrop[]) || [];

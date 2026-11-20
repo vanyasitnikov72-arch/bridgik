@@ -14,6 +14,7 @@ import {
   createUser,
   getUserByLicenseKey,
   getUserById,
+  getUserByHandle,
   updateUserProfile,
   purchaseCatalogItem,
   registerOrUpdateDevice,
@@ -1167,6 +1168,8 @@ app.post('/api/drop/upload', async (req, res) => {
         if (targetSocketId) {
           io.to(targetSocketId).emit('sticky-new-drop', dto);
         }
+      } else if (userId) {
+        io.to(`user:${userId}`).emit('sticky-new-drop', dto);
       }
 
       console.log(`[Drop S3] Successfully uploaded '${fileName}' (${finalSize} bytes) to S3 bucket '${s3Bucket}'`);
@@ -1242,6 +1245,8 @@ app.post('/api/drop/upload', async (req, res) => {
       if (targetSocketId) {
         io.to(targetSocketId).emit('sticky-new-drop', dto);
       }
+    } else if (userId) {
+      io.to(`user:${userId}`).emit('sticky-new-drop', dto);
     }
 
     return res.json({ success: true, drop: dto });
@@ -1347,6 +1352,198 @@ app.get('/api/drop/:id/download', async (req, res) => {
 app.delete('/api/drop/:id', (req, res) => {
   const deleted = deleteDropRecord(req.params.id);
   return res.json({ success: deleted });
+});
+
+// --- Personal Inbox Drop Link Endpoints (/api/inbox/@:handle) ---
+app.get(['/api/inbox/@:handle', '/api/inbox/:handle'], (req, res) => {
+  const rawHandle = req.params.handle;
+  const user = getUserByHandle(rawHandle);
+  if (!user) {
+    return res.status(404).json({ success: false, error: 'Пользователь не найден' });
+  }
+
+  const onlineSet = stickyManager.getOnlineDeviceIds(user.id);
+  const isOnline = onlineSet.size > 0;
+  const isProUser = Boolean(user.tier === 'pro' || user.is_admin === 1 || user.yandex_login === 'vanessosit');
+  const handle =
+    user.yandex_login ||
+    user.telegram_username?.replace(/^@/, '') ||
+    user.display_name.toLowerCase().replace(/[^a-z0-9_-]/gi, '') ||
+    user.id;
+
+  return res.json({
+    success: true,
+    user: {
+      id: user.id,
+      handle,
+      displayName: user.display_name,
+      avatarUrl: user.avatar_url || undefined,
+      activeFrame: user.active_frame || 'none',
+      tier: user.tier,
+      isOnline,
+      s3QuotaLimitMb: user.s3_quota_limit_mb || (isProUser ? 200 : 50),
+    },
+  });
+});
+
+app.post(['/api/inbox/@:handle/drop', '/api/inbox/:handle/drop'], async (req, res) => {
+  const rawHandle = req.params.handle;
+  const targetUser = getUserByHandle(rawHandle);
+  if (!targetUser) {
+    return res.status(404).json({ success: false, error: 'Пользователь не найден' });
+  }
+
+  const rawName = (req.headers['x-file-name'] as string) || 'file.bin';
+  let fileName = 'file.bin';
+  try {
+    fileName = decodeURIComponent(rawName);
+  } catch {
+    fileName = rawName;
+  }
+  const fileSize = Number(req.headers['x-file-size']) || 0;
+  if (fileSize > MAX_DROP_SIZE) {
+    return res.status(413).json({
+      success: false,
+      error: 'Размер файла превышает лимит буфера Drop & Go (максимум 200 МБ)',
+    });
+  }
+
+  const mimeType = (req.headers['x-mime-type'] as string) || 'application/octet-stream';
+  let senderName = 'Гость';
+  try {
+    senderName = decodeURIComponent((req.headers['x-sender-name'] as string) || 'Гость');
+  } catch {
+    senderName = (req.headers['x-sender-name'] as string) || 'Гость';
+  }
+  const ttlHours = Math.max(1, Math.min(Number(req.headers['x-ttl-hours']) || 24, 24)); // max 24 hours
+
+  const dropId = crypto.randomBytes(6).toString('hex');
+  const safeExt = path.extname(fileName) || '.bin';
+
+  // If Cloud.ru S3 Object Storage is configured, stream directly to S3
+  if (isS3Enabled) {
+    const s3Key = `${dropId}${safeExt}`;
+    const s3Bucket = process.env.S3_BUCKET || 'bridgik-drops';
+    const s3Uri = `s3://${s3Bucket}/${s3Key}`;
+    let bytesWritten = 0;
+    let exceeded = false;
+
+    req.on('data', (chunk) => {
+      bytesWritten += chunk.length;
+      if (bytesWritten > MAX_DROP_SIZE && !exceeded) {
+        exceeded = true;
+        req.destroy();
+        deleteFromS3(s3Key).catch(() => {});
+        if (!res.headersSent) {
+          res.status(413).json({
+            success: false,
+            error: 'Размер файла превышает лимит буфера Drop & Go (максимум 200 МБ)',
+          });
+        }
+      }
+    });
+
+    try {
+      await uploadStreamToS3(req, s3Key, mimeType);
+      if (exceeded) return;
+
+      const expiresAt = Date.now() + ttlHours * 60 * 60 * 1000;
+      const finalSize = fileSize > 0 ? fileSize : bytesWritten;
+
+      const dropRecord = createDropRecord({
+        id: dropId,
+        user_id: targetUser.id,
+        target_device_id: undefined,
+        file_name: fileName,
+        file_size: finalSize,
+        mime_type: mimeType,
+        file_path: s3Uri,
+        sender_name: senderName,
+        expires_at: expiresAt,
+      });
+
+      const dto = toDropDto(dropRecord);
+
+      // Broadcast real-time drop notification to all online devices of the target user
+      io.to(`user:${targetUser.id}`).emit('sticky-new-drop', dto);
+
+      console.log(`[Inbox Drop S3] Delivered '${fileName}' (${finalSize} bytes) to user @${rawHandle} (${targetUser.id})`);
+      return res.json({ success: true, drop: dto });
+    } catch (err: any) {
+      console.error('[Inbox Drop S3 Upload Error]', err);
+      if (!res.headersSent) {
+        return res.status(500).json({ success: false, error: 'Ошибка сохранения файла в облачном хранилище' });
+      }
+      return;
+    }
+  }
+
+  // Fallback to local server SSD storage with safety pool limit
+  const currentPool = getTotalDropsPoolSize();
+  if (currentPool + Math.max(fileSize, 1024 * 1024) > MAX_TOTAL_DROPS_POOL) {
+    return res.status(507).json({
+      success: false,
+      error: 'Офлайн-буфер сервера временно заполнен. Пожалуйста, подождите или попробуйте позже.',
+    });
+  }
+
+  const filePath = path.join(DROPS_DIR, `${dropId}${safeExt}`);
+  const writeStream = fs.createWriteStream(filePath);
+  let bytesWritten = 0;
+  let exceeded = false;
+
+  req.on('data', (chunk) => {
+    bytesWritten += chunk.length;
+    if ((bytesWritten > MAX_DROP_SIZE || currentPool + bytesWritten > MAX_TOTAL_DROPS_POOL) && !exceeded) {
+      exceeded = true;
+      req.unpipe(writeStream);
+      writeStream.destroy();
+      try {
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      } catch (e) {
+        console.warn('[Inbox Drop] Failed to delete oversized file:', e);
+      }
+      if (!res.headersSent) {
+        res.status(507).json({
+          success: false,
+          error: 'Превышен доступный лимит буфера Drop & Go.',
+        });
+      }
+    }
+  });
+
+  req.pipe(writeStream);
+
+  writeStream.on('finish', () => {
+    if (exceeded) return;
+    const expiresAt = Date.now() + ttlHours * 60 * 60 * 1000;
+    const finalSize = fileSize > 0 ? fileSize : bytesWritten;
+
+    const dropRecord = createDropRecord({
+      id: dropId,
+      user_id: targetUser.id,
+      target_device_id: undefined,
+      file_name: fileName,
+      file_size: finalSize,
+      mime_type: mimeType,
+      file_path: filePath,
+      sender_name: senderName,
+      expires_at: expiresAt,
+    });
+
+    const dto = toDropDto(dropRecord);
+
+    // Broadcast real-time drop notification to all online devices of the target user
+    io.to(`user:${targetUser.id}`).emit('sticky-new-drop', dto);
+
+    console.log(`[Inbox Drop SSD] Delivered '${fileName}' (${finalSize} bytes) to user @${rawHandle} (${targetUser.id})`);
+    return res.json({ success: true, drop: dto });
+  });
+
+  writeStream.on('error', (err) => {
+    console.error('[Inbox Drop Upload Error]', err);
+    return res.status(500).json({ success: false, error: 'Ошибка сохранения файла на сервере' });
+  });
 });
 
 // ==========================================

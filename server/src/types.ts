@@ -157,6 +157,7 @@ export interface DbPayment {
 
 export interface UserProfileDto {
   id: string;
+  handle?: string;
   displayName: string;
   avatarUrl?: string;
   tier: UserTier;

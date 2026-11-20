@@ -30,6 +30,7 @@ import { QRCodeModal } from './components/QRCodeModal.js';
 import { AuthModal } from './components/AuthModal.js';
 import { DropModal } from './components/DropModal.js';
 import { DropPageView } from './components/DropPageView.js';
+import { InboxDropView } from './components/InboxDropView.js';
 import { SettingsModal } from './components/SettingsModal.js';
 import { LeaveConfirmModal } from './components/LeaveConfirmModal.js';
 import { ProfileView } from './components/ProfileView.js';
@@ -80,6 +81,19 @@ export function App() {
   const dropMatch = currentPath.match(/^\/drop\/([a-zA-Z0-9_-]+)/);
   if (dropMatch) {
     return <DropPageView dropId={dropMatch[1]} />;
+  }
+
+  const inboxMatch = currentPath.match(/^\/@([a-zA-Z0-9_\-\.]+)/) || currentPath.match(/^\/drop\/@([a-zA-Z0-9_\-\.]+)/);
+  if (inboxMatch) {
+    return (
+      <InboxDropView
+        handle={inboxMatch[1]}
+        onGoHome={() => {
+          window.history.pushState({}, '', '/');
+          window.location.href = '/';
+        }}
+      />
+    );
   }
 
   const [userName, setUserName] = useState<string>(() => {
