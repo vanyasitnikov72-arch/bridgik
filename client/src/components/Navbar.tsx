@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LogIn, ChevronDown, Check } from 'lucide-react';
+import { LogIn, ChevronDown, Check, Settings } from 'lucide-react';
 import { AuthProvider, ThemeMode, AppTab, RoomMode, UserProfile } from '../types/index.js';
 import { sound } from '../utils/sound.js';
 import { ProfileDropdown, ProfileSectionTab } from './ProfileDropdown.js';
@@ -226,6 +226,20 @@ export const Navbar: React.FC<NavbarProps> = ({
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+            {onOpenSettings && (
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  onOpenSettings();
+                }}
+                className="p-2 sm:p-2.5 rounded-xl bg-[#222226] hover:bg-[#2c2c33] border border-white/10 hover:border-white/20 text-[#aaaaaa] hover:text-[#ededed] transition-colors cursor-pointer flex items-center justify-center shrink-0"
+                title="Настройки"
+              >
+                <Settings className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+              </button>
+            )}
+
             {userProfile ? (
               <div className="relative flex items-center min-w-0">
                 <button
