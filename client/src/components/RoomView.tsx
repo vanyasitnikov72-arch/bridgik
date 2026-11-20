@@ -980,11 +980,20 @@ export const RoomView: React.FC<RoomViewProps> = ({
                   ? userAvatar || getAvatarForName(m.senderName)
                   : peer?.avatar || m.senderAvatar || getAvatarForName(m.senderName);
                 const messageIsAdmin = isMe ? isAdmin : Boolean(peer?.isAdmin || m.isAdmin);
+                const timeStr = new Date(m.timestamp).toLocaleTimeString([], {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                });
                 return (
                   <BurnMessageWrapper
                     key={m.id}
                     isBurner={m.isBurner}
                     expiresAt={m.expiresAt}
+                    text={m.text}
+                    senderName={m.senderName}
+                    isAdmin={messageIsAdmin}
+                    isMe={isMe}
+                    time={timeStr}
                     className="rounded-lg"
                   >
                     <div

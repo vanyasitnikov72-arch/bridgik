@@ -1,56 +1,239 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { sound } from '../utils/sound.js';
 
-interface Particle {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  size: number;
-  life: number;
-  maxLife: number;
-  hue: number;
-  seed: number;
-  isAsh?: boolean;
-}
-
 interface BurnMessageWrapperProps {
   isBurner?: boolean;
   expiresAt?: number;
+  text?: string;
+  senderName?: string;
+  isAdmin?: boolean;
+  isMe?: boolean;
+  time?: string;
   children: React.ReactNode;
   className?: string;
   burnDurationMs?: number;
 }
 
-/**
- * High-performance, cross-browser burning message burnout effect
- * inspired by WebGL dissolve/fire shaders (like atuin.ru).
- * Combines organic wavy molten fire front, rising ember sparks & ash flakes,
- * charred carbon discoloration, and dynamic dissolve mask.
- */
+const vsSource = `
+  attribute vec2 a_position;
+  varying vec2 vUv;
+  void main() {
+    vUv = a_position;
+    gl_Position = vec4(a_position, 0.0, 1.0);
+  }
+`;
+
+const fsSource = `
+  #ifdef GL_FRAGMENT_PRECISION_HIGH
+  precision highp float;
+  #else
+  precision mediump float;
+  #endif
+  varying vec2 vUv;
+  uniform vec2 u_resolution;
+  uniform float u_progress;
+  uniform float u_time;
+  uniform sampler2D u_texture;
+
+  float rand(vec2 n) {
+    return fract(cos(dot(n, vec2(12.9898, 4.1414))) * 43758.5453);
+  }
+
+  float noise(vec2 n) {
+    const vec2 d = vec2(0., 1.);
+    vec2 b = floor(n);
+    vec2 f = smoothstep(vec2(0.0), vec2(1.0), fract(n));
+    return mix(
+      mix(rand(b), rand(b + d.yx), f.x),
+      mix(rand(b + d.xy), rand(b + d.yy), f.x),
+      f.y
+    );
+  }
+
+  float fbm(vec2 n) {
+    float total = 0.0;
+    float amplitude = 0.45;
+    for (int i = 0; i < 4; i++) {
+      total += noise(n) * amplitude;
+      n += n;
+      amplitude *= 0.55;
+    }
+    return total;
+  }
+
+  void main() {
+    vec2 uv = vUv;
+    float aspect = u_resolution.x / u_resolution.y;
+    uv.x *= aspect;
+
+    vec2 screenUv = vUv * 0.5 + 0.5;
+    screenUv.y = 1.0 - screenUv.y;
+
+    vec4 color = texture2D(u_texture, screenUv);
+    if (color.a < 0.01) {
+      discard;
+    }
+
+    float p = clamp(u_progress, 0.0, 1.0);
+    // Fractal noise for organic burning holes across the card
+    float main_noise = 1.0 - fbm(2.2 * uv + 8.5 - vec2(0.2, 0.9 * p));
+
+    // Ash charring along the edges of the holes
+    float burn = smoothstep(main_noise - 0.15, main_noise, p);
+    color.rgb -= vec3(0.95, 0.92, 0.95) * burn;
+
+    // Glowing fire color & fiery edge
+    vec3 fire_color = fbm(7.0 * uv - vec2(0.0, 0.007 * u_time)) * vec3(8.0, 2.2, 0.2);
+    float show_fire = smoothstep(0.3, 0.9, fbm(12.0 * uv + 2.0 - vec2(0.0, 0.007 * u_time)));
+    float fire_border = 0.05 * show_fire;
+
+    float fire_edge = smoothstep(main_noise - fire_border, main_noise - 0.5 * fire_border, p);
+    fire_edge *= (1.0 - smoothstep(main_noise - 0.5 * fire_border, main_noise, p));
+
+    color.rgb += fire_color * fire_edge;
+    float opacity = 1.0 - smoothstep(main_noise - 0.001, main_noise, p);
+
+    gl_FragColor = vec4(color.rgb, color.a * opacity);
+  }
+`;
+
+function renderCardToCanvas(
+  w: number,
+  h: number,
+  dpr: number,
+  props: {
+    text?: string;
+    senderName?: string;
+    isAdmin?: boolean;
+    isMe?: boolean;
+    time?: string;
+  },
+  containerEl?: HTMLElement | null
+): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(10, Math.floor(w * dpr));
+  canvas.height = Math.max(10, Math.floor(h * dpr));
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return canvas;
+
+  ctx.scale(dpr, dpr);
+
+  // Background
+  const grad = ctx.createLinearGradient(0, 0, w, h);
+  grad.addColorStop(0, '#281307');
+  grad.addColorStop(1, '#150a04');
+  ctx.fillStyle = grad;
+  ctx.strokeStyle = '#f97316';
+  ctx.lineWidth = 1.5;
+
+  ctx.beginPath();
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(1, 1, w - 2, h - 2, 14);
+  } else {
+    ctx.rect(1, 1, w - 2, h - 2);
+  }
+  ctx.fill();
+  ctx.stroke();
+
+  const senderName = props.senderName || 'Пользователь';
+  const text = props.text || containerEl?.innerText || '';
+  const time = props.time || '';
+
+  // Avatar circle
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(22, 22, 11, 0, Math.PI * 2);
+  ctx.fillStyle = '#ea580c';
+  ctx.fill();
+  ctx.strokeStyle = '#f97316';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 11px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(senderName.charAt(0).toUpperCase(), 22, 22);
+  ctx.restore();
+
+  // Header: sender name
+  ctx.fillStyle = props.isAdmin ? '#f59e0b' : '#ededed';
+  ctx.font = 'bold 12px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText(senderName, 40, 26);
+
+  let badgeOffset = 40 + ctx.measureText(senderName).width + 6;
+  if (props.isAdmin) {
+    ctx.fillStyle = 'rgba(245, 158, 11, 0.2)';
+    ctx.strokeStyle = 'rgba(245, 158, 11, 0.5)';
+    ctx.fillRect(badgeOffset, 14, 28, 15);
+    ctx.strokeRect(badgeOffset, 14, 28, 15);
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = 'bold 9px monospace';
+    ctx.fillText('DEV', badgeOffset + 4, 25);
+  }
+
+  // Timer flame badge & time on right
+  if (time) {
+    ctx.fillStyle = '#888888';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(time, w - 14, 25);
+  }
+
+  // Text body
+  ctx.fillStyle = '#ededed';
+  ctx.font = '15px sans-serif';
+  ctx.textAlign = 'left';
+
+  const maxWidth = w - 28;
+  const words = text.split(' ');
+  let line = '';
+  let y = 52;
+  const lineHeight = 20;
+
+  for (let i = 0; i < words.length; i++) {
+    const testLine = line + words[i] + ' ';
+    const metrics = ctx.measureText(testLine);
+    if (metrics.width > maxWidth && i > 0) {
+      ctx.fillText(line, 14, y);
+      line = words[i] + ' ';
+      y += lineHeight;
+      if (y > h - 10) break;
+    } else {
+      line = testLine;
+    }
+  }
+  if (line && y <= h) {
+    ctx.fillText(line, 14, y);
+  }
+
+  return canvas;
+}
+
 export const BurnMessageWrapper: React.FC<BurnMessageWrapperProps> = ({
   isBurner,
   expiresAt,
+  text,
+  senderName,
+  isAdmin,
+  isMe,
+  time,
   children,
   className = '',
-  burnDurationMs = 2500,
+  burnDurationMs = 3000,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const playedSoundRef = useRef(false);
 
-  // Remaining time in ms
   const [timeLeftMs, setTimeLeftMs] = useState<number>(() => {
     if (!isBurner || !expiresAt) return 999999;
     return Math.max(0, expiresAt - Date.now());
   });
 
   const isBurning = isBurner && expiresAt !== undefined && timeLeftMs <= burnDurationMs;
-  const burnProgress = isBurning
-    ? Math.min(1, Math.max(0, (burnDurationMs - timeLeftMs) / burnDurationMs))
-    : 0;
 
-  // Countdown & animation loop
   useEffect(() => {
     if (!isBurner || !expiresAt) return;
 
@@ -61,7 +244,6 @@ export const BurnMessageWrapper: React.FC<BurnMessageWrapperProps> = ({
       const left = Math.max(0, expiresAt - Date.now());
       setTimeLeftMs(left);
 
-      // Play subtle fire crackle when entering final burnout phase
       if (left <= burnDurationMs && !playedSoundRef.current) {
         playedSoundRef.current = true;
         sound.playBurn();
@@ -72,12 +254,10 @@ export const BurnMessageWrapper: React.FC<BurnMessageWrapperProps> = ({
       }
     };
 
-    // If already in burn zone, drive at 60fps immediately
     const initialLeft = Math.max(0, expiresAt - Date.now());
     if (initialLeft <= burnDurationMs) {
       animId = requestAnimationFrame(update);
     } else {
-      // Coarser check until we enter the last few seconds
       timerId = setInterval(() => {
         const left = Math.max(0, expiresAt - Date.now());
         setTimeLeftMs(left);
@@ -94,220 +274,144 @@ export const BurnMessageWrapper: React.FC<BurnMessageWrapperProps> = ({
     };
   }, [isBurner, expiresAt, burnDurationMs]);
 
-  // Canvas particle and fire front renderer
+  // WebGL Shader setup & rendering
   useEffect(() => {
-    if (!isBurner) return;
+    if (!isBurning) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    const container = containerRef.current;
+    if (!container) return;
 
-    let animId: number;
-    const particles: Particle[] = [];
+    const gl = canvas.getContext('webgl', { premultipliedAlpha: false });
+    if (!gl) return;
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const rect = container.getBoundingClientRect();
+    const w = Math.ceil(rect.width);
+    const h = Math.ceil(rect.height);
 
-    const resize = () => {
-      const container = containerRef.current;
-      if (!container || !canvas) return;
-      const rect = container.getBoundingClientRect();
-      const w = Math.ceil(rect.width);
-      const h = Math.ceil(rect.height);
-      if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
-        canvas.width = w * dpr;
-        canvas.height = h * dpr;
-      }
-    };
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
 
-    resize();
-    const ro = new ResizeObserver(resize);
-    if (containerRef.current) ro.observe(containerRef.current);
+    // Compile shaders
+    function compile(type: number, src: string) {
+      const s = gl!.createShader(type)!;
+      gl!.shaderSource(s, src);
+      gl!.compileShader(s);
+      return s;
+    }
+
+    const vs = compile(gl.VERTEX_SHADER, vsSource);
+    const fs = compile(gl.FRAGMENT_SHADER, fsSource);
+    const prog = gl.createProgram()!;
+    gl.attachShader(prog, vs);
+    gl.attachShader(prog, fs);
+    gl.linkProgram(prog);
+    gl.useProgram(prog);
+
+    const posBuf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
+      gl.STATIC_DRAW
+    );
+
+    const posLoc = gl.getAttribLocation(prog, 'a_position');
+    gl.enableVertexAttribArray(posLoc);
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+    const uRes = gl.getUniformLocation(prog, 'u_resolution');
+    const uProg = gl.getUniformLocation(prog, 'u_progress');
+    const uTime = gl.getUniformLocation(prog, 'u_time');
+
+    // Create & upload texture of the message card
+    const cardCanvas = renderCardToCanvas(
+      w,
+      h,
+      dpr,
+      { text, senderName, isAdmin, isMe, time },
+      container
+    );
+
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cardCanvas);
+
+    let animId: number;
 
     const render = (now: number) => {
       animId = requestAnimationFrame(render);
 
-      const w = canvas.width / dpr;
-      const h = canvas.height / dpr;
-      if (w <= 0 || h <= 0) return;
-
-      ctx.save();
-      ctx.scale(dpr, dpr);
-      ctx.clearRect(0, 0, w, h);
-
       const currentLeft = expiresAt ? Math.max(0, expiresAt - Date.now()) : 999999;
-      const currentBurning = currentLeft <= burnDurationMs;
-      const p = currentBurning ? Math.min(1, Math.max(0, (burnDurationMs - currentLeft) / burnDurationMs)) : 0;
+      const progress = Math.min(1.0, Math.max(0, (burnDurationMs - currentLeft) / burnDurationMs));
 
-      // 1. Particle Spawning
-      if (currentBurning && p < 0.98) {
-        // Active burnout phase: spawn embers along the moving fire line
-        const fireY = (1 - p) * h;
-        const count = Math.random() < 0.85 ? 3 : 1;
-        for (let i = 0; i < count; i++) {
-          const isAsh = Math.random() < 0.25;
-          particles.push({
-            x: Math.random() * w,
-            y: fireY + (Math.random() * 8 - 4),
-            vx: (Math.random() - 0.5) * 1.8,
-            vy: -(Math.random() * 2.5 + 1.2),
-            size: isAsh ? Math.random() * 2 + 1 : Math.random() * 2.5 + 1.2,
-            life: 0,
-            maxLife: Math.random() * 35 + 25,
-            hue: Math.random() * 32 + 18, // 18-50: red-orange to golden yellow
-            seed: Math.random() * 100,
-            isAsh,
-          });
-        }
-      } else if (!currentBurning && Math.random() < 0.15) {
-        // Ambient phase: occasional floating warm ember
-        particles.push({
-          x: Math.random() * w,
-          y: h - 2,
-          vx: (Math.random() - 0.5) * 0.8,
-          vy: -(Math.random() * 0.9 + 0.4),
-          size: Math.random() * 1.5 + 1,
-          life: 0,
-          maxLife: Math.random() * 30 + 20,
-          hue: 28,
-          seed: Math.random() * 100,
-        });
-      }
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
 
-      // 2. Draw Fire Front Line (Molten edge) during burning phase
-      if (currentBurning && p > 0.01 && p < 0.98) {
-        const fireY = (1 - p) * h;
-        const waveStep = Math.max(6, w / 32);
+      gl.uniform2f(uRes, canvas.width, canvas.height);
+      gl.uniform1f(uProg, progress);
+      gl.uniform1f(uTime, now);
 
-        // Build wavy fire front path
-        ctx.beginPath();
-        for (let x = 0; x <= w + waveStep; x += waveStep) {
-          const wave =
-            Math.sin(x * 0.05 + now * 0.009) * 4.5 +
-            Math.cos(x * 0.11 - now * 0.014) * 3 +
-            Math.sin(x * 0.02 + now * 0.004) * 2;
-          const y = fireY + wave;
-          if (x === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
-
-        // Pass A: Outer intense flame glow
-        ctx.save();
-        ctx.lineWidth = 16;
-        ctx.strokeStyle = 'rgba(255, 69, 0, 0.45)';
-        ctx.shadowColor = '#ff3d00';
-        ctx.shadowBlur = 18;
-        ctx.stroke();
-        ctx.restore();
-
-        // Pass B: Core golden flame
-        ctx.save();
-        ctx.lineWidth = 6;
-        ctx.strokeStyle = 'rgba(255, 170, 0, 0.85)';
-        ctx.shadowColor = '#ffa500';
-        ctx.shadowBlur = 10;
-        ctx.stroke();
-        ctx.restore();
-
-        // Pass C: Hot incandescent center
-        ctx.save();
-        ctx.lineWidth = 2.2;
-        ctx.strokeStyle = 'rgba(255, 255, 220, 0.98)';
-        ctx.shadowColor = '#ffffff';
-        ctx.shadowBlur = 5;
-        ctx.stroke();
-        ctx.restore();
-      }
-
-      // 3. Update & Draw Particles
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const pt = particles[i];
-        pt.life++;
-        if (pt.life >= pt.maxLife) {
-          particles.splice(i, 1);
-          continue;
-        }
-
-        const progress = pt.life / pt.maxLife;
-        pt.x += pt.vx + Math.sin(pt.life * 0.12 + pt.seed) * 0.6;
-        pt.y += pt.vy;
-        pt.vy -= 0.02; // Upward draft acceleration
-
-        const alpha = Math.sin(progress * Math.PI) * (1 - progress * 0.3);
-
-        ctx.beginPath();
-        ctx.arc(pt.x, pt.y, Math.max(0.5, pt.size * (1 - progress * 0.5)), 0, Math.PI * 2);
-
-        if (pt.isAsh) {
-          // Floating soot / ash flake
-          ctx.fillStyle = `rgba(30, 20, 15, ${alpha.toFixed(2)})`;
-          ctx.shadowBlur = 0;
-        } else {
-          // Glowing spark
-          const currentHue = pt.hue + progress * 14;
-          const lightness = 65 - progress * 20;
-          ctx.fillStyle = `hsla(${currentHue}, 100%, ${lightness}%, ${alpha.toFixed(2)})`;
-          ctx.shadowColor = `hsla(${currentHue}, 100%, 50%, 0.8)`;
-          ctx.shadowBlur = 6;
-        }
-        ctx.fill();
-      }
-
-      ctx.restore();
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
     };
 
     animId = requestAnimationFrame(render);
 
     return () => {
       cancelAnimationFrame(animId);
-      ro.disconnect();
+      gl.deleteTexture(tex);
+      gl.deleteProgram(prog);
+      gl.deleteShader(vs);
+      gl.deleteShader(fs);
+      gl.deleteBuffer(posBuf);
     };
-  }, [isBurner, expiresAt, burnDurationMs]);
+  }, [isBurning, expiresAt, burnDurationMs, text, senderName, isAdmin, isMe, time]);
 
   if (!isBurner) {
     return <>{children}</>;
   }
-
-  // Dynamic CSS Mask that eats the card from bottom to top as burnProgress increases
-  const maskStyle: React.CSSProperties = isBurning
-    ? {
-        maskImage: `linear-gradient(to top, transparent 0%, transparent calc(${burnProgress * 100}% - 4%), rgba(0,0,0,0.4) calc(${burnProgress * 100}% + 2%), black calc(${burnProgress * 100}% + 14%))` ,
-        WebkitMaskImage: `linear-gradient(to top, transparent 0%, transparent calc(${burnProgress * 100}% - 4%), rgba(0,0,0,0.4) calc(${burnProgress * 100}% + 2%), black calc(${burnProgress * 100}% + 14%))` ,
-        filter: `contrast(${100 + burnProgress * 35}%) brightness(${100 - burnProgress * 35}%) sepia(${burnProgress * 45}%)`,
-        opacity: burnProgress >= 0.99 ? 0 : 1,
-        transform: `translateY(${Math.sin(Date.now() * 0.08) * (burnProgress * 1.5)}px)`,
-        pointerEvents: burnProgress >= 0.95 ? 'none' : 'auto',
-      }
-    : {};
 
   return (
     <div
       ref={containerRef}
       className={`relative ${className} ${
         isBurning
-          ? 'ring-1 ring-orange-500/70 shadow-[0_0_20px_rgba(249,115,22,0.45)]'
-          : 'ring-1 ring-orange-500/40 shadow-[0_0_10px_rgba(249,115,22,0.2)]'
+          ? 'shadow-[0_0_20px_rgba(249,115,22,0.4)]'
+          : 'ring-1 ring-orange-500/40 shadow-[0_0_10px_rgba(249,115,22,0.18)]'
       }`}
       style={{
         transition: isBurning ? 'none' : 'box-shadow 0.3s ease, border-color 0.3s ease',
       }}
     >
-      {/* Underlying content with dynamic burn-away mask & charring */}
-      <div style={maskStyle} className="relative z-10 w-full">
+      {/* HTML content is visible during normal countdown, then cleanly hidden when burning */}
+      <div
+        style={{
+          opacity: isBurning ? 0 : 1,
+          pointerEvents: isBurning ? 'none' : 'auto',
+          transition: 'opacity 0.15s ease',
+        }}
+        className="w-full"
+      >
         {children}
       </div>
 
-      {/* Fiery canvas overlay with embers and molten edge */}
-      <canvas
-        ref={canvasRef}
-        className="absolute inset-0 pointer-events-none z-20 w-full h-full rounded-inherit"
-      />
+      {/* WebGL Canvas running the exact Atuin burning shader */}
+      {isBurning && (
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 pointer-events-none z-20 w-full h-full rounded-inherit"
+        />
+      )}
     </div>
   );
 };
 
-/**
- * Dedicated live ticking countdown badge for self-destructing messages
- */
 export const BurnCountdownBadge: React.FC<{
   expiresAt: number;
   className?: string;

@@ -223,7 +223,16 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
           </div>
         )}
 
-        <BurnMessageWrapper isBurner={isBurner} expiresAt={expiresAt} className="rounded-2xl max-w-full">
+        <BurnMessageWrapper
+          isBurner={isBurner}
+          expiresAt={expiresAt}
+          text={text}
+          senderName={senderName}
+          isAdmin={isAdmin}
+          isMe={isMe}
+          time={time}
+          className="rounded-2xl max-w-full"
+        >
           <div
             className={`rounded-2xl text-base leading-relaxed break-words shadow-sm transition-all ${
               allTokensAreEmotes
